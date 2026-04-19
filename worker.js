@@ -522,6 +522,26 @@ function buildOtherSlots(){
   return slots;
 }
 
+function sanitizeRuntimeConfig(raw, env){
+  const merged = { ...DEFAULT_CONFIG, ...(raw || {}) };
+  const n = (v, d) => {
+    const num = Number(v);
+    return Number.isFinite(num) ? num : Number(d);
+  };
+
+  merged.max_forward_days = String(Math.max(1, n(merged.max_forward_days, DEFAULT_CONFIG.max_forward_days)));
+  merged.days_per_page = String(Math.max(1, n(merged.days_per_page, DEFAULT_CONFIG.days_per_page)));
+  merged.same_day_min_hours = String(Math.max(0, n(merged.same_day_min_hours, DEFAULT_CONFIG.same_day_min_hours)));
+  merged.admin_tap_count = String(Math.max(1, n(merged.admin_tap_count, DEFAULT_CONFIG.admin_tap_count)));
+
+  merged.same_day_enabled = String(merged.same_day_enabled === '0' ? '0' : '1');
+  merged.extended_enabled = String(merged.extended_enabled === '0' ? '0' : '1');
+  merged.calendar_prefetch_next_page = String(merged.calendar_prefetch_next_page === '0' ? '0' : '1');
+
+  merged.admin_password = getAdminPassword(env);
+  return merged;
+}
+
 async function handleActionGet(action, url, env) {
   const range = {
     start: String(url.searchParams.get('start') || '').trim(),
@@ -531,7 +551,7 @@ async function handleActionGet(action, url, env) {
   const menuMaster = await loadMenuMaster(env);
   const menuGroupCatalog = await loadMenuGroupCatalog(env);
   const autoRuleCatalog = await loadAutoRuleCatalog(env);
-  const config = { ...DEFAULT_CONFIG, ...dbConfig, admin_password: getAdminPassword(env) };
+  const config = sanitizeRuntimeConfig(dbConfig, env);
 
   if (action === 'getConfig' || action === 'getConfigPublic') return ok(config);
   if (action === 'getMenuMaster') return ok(menuMaster);
@@ -771,11 +791,7 @@ export default {
         const menuGroupCatalog = await loadMenuGroupCatalog(env);
         const autoRuleCatalog = await loadAutoRuleCatalog(env);
 
-        const runtimeConfig = {
-          ...DEFAULT_CONFIG,
-          ...dbConfig,
-          admin_password: getAdminPassword(env)
-        };
+        const runtimeConfig = sanitizeRuntimeConfig(dbConfig, env);
         const menuKeyCatalog = DEFAULT_MENU_KEY_CATALOG.map(item => ({ ...item }))
           .map((base, idx) => {
             const found = menuMaster.find(row => String(row.key || '') === String(base.key || ''));
