@@ -233,18 +233,9 @@ const gsRun = async (func, ...args) => {
 
     } else if (func === 'api_verifyAdminPassword') {
       const payload = args[0] || {};
-      const password = String(payload.password || '').trim();
-      const init = _normalizeInitPacket(await _workersGet('/init', {}, 1, 15000));
-      const expected = String((init.data && init.data.config && init.data.config.admin_password) || '').trim();
-      if (!expected || !password || password !== expected) {
-        data = { isOk: false, error: 'パスワードが正しくありません' };
-      } else {
-        data = {
-          isOk: true,
-          data: {
-            admin_token: `local-${Date.now()}-${Math.floor(Math.random() * 100000)}`
-          }
-        };
+      data = await _workersPost('/verify', payload, 0, 12000);
+      if (!data || typeof data !== 'object') {
+        throw new Error('認証応答の形式が不正です');
       }
 
     } else {

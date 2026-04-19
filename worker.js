@@ -97,6 +97,12 @@ const DEFAULT_AUTO_RULE_CATALOG = [
   { index: 5, enabled: true, target: 'equipment', trigger_key: 'EQUIP_STRETCHER', apply_group: 'assistance', apply_key: 'BODY_ASSIST' }
 ];
 
+function getAdminPassword(env) {
+  const fromEnv = String(env && env.ADMIN_PASSWORD || '').trim();
+  if (fromEnv) return fromEnv;
+  return String(DEFAULT_CONFIG.admin_password || '').trim();
+}
+
 function parseReservationDateTime(value) {
   const raw = String(value || '').trim();
   if (!raw) return null;
@@ -236,9 +242,13 @@ export default {
         const result = await selectReservations(env, range);
         const reservations = Array.isArray(result && result.results) ? result.results : [];
         const slotKeys = buildBlockedSlotKeysFromReservations(reservations, range);
+        const runtimeConfig = {
+          ...DEFAULT_CONFIG,
+          admin_password: getAdminPassword(env)
+        };
 
         return ok({
-          config: { ...DEFAULT_CONFIG },
+          config: runtimeConfig,
           reservations,
           blocks: [],
           menu_master: DEFAULT_MENU_MASTER.map(item => ({ ...item })),
@@ -326,6 +336,19 @@ export default {
           id,
           reservation_id: id,
           created_at: createdAt
+        });
+      }
+
+      if (request.method === 'POST' && path === '/verify') {
+        const body = await request.json();
+        const input = String(body && body.password || '').trim();
+        const expected = getAdminPassword(env);
+        if (!input || !expected || input !== expected) {
+          return ng('パスワードが正しくありません', 401);
+        }
+
+        return ok({
+          admin_token: `admin-${Date.now()}-${Math.floor(Math.random() * 100000)}`
         });
       }
 
