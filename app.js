@@ -1,49 +1,84 @@
 const API_URL = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
 
+let state = {
+  reservations: [],
+  blocks: []
+};
+
 async function init() {
   const res = await fetch(API_URL + "/api/getInitData");
   const data = await res.json();
 
-  renderForm(data);
+  state.reservations = data.reservations;
+  state.blocks = data.blocks;
+
+  renderCalendar();
 }
 
-function renderForm(data) {
-  const menuOptions = data.menu.map(m => `
-    <option value="${m.name}" data-price="${m.price}">
-      ${m.name}（${m.price}円）
-    </option>
-  `).join("");
+function renderCalendar() {
+  let html = "<h2>日付選択</h2>";
 
+  const today = new Date();
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date();
+    d.setDate(today.getDate() + i);
+
+    const date = d.toISOString().split("T")[0];
+
+    html += `<button onclick="selectDate('${date}')">${date}</button><br>`;
+  }
+
+  html += `<div id="times"></div>`;
+
+  document.getElementById("app").innerHTML = html;
+}
+
+function selectDate(date) {
+  let html = `<h3>${date}</h3>`;
+
+  for (let h = 8; h <= 18; h++) {
+    const time = (h < 10 ? "0" : "") + h + ":00";
+
+    const isReserved = state.reservations.some(r => r.reservation_datetime === date + " " + time);
+    const isBlocked = state.blocks.some(b => b.date === date && b.time === time);
+
+    if (isReserved || isBlocked) {
+      html += `<div>${time} ×</div>`;
+    } else {
+      html += `<button onclick="selectTime('${date}','${time}')">${time} ○</button><br>`;
+    }
+  }
+
+  document.getElementById("times").innerHTML = html;
+}
+
+function selectTime(date, time) {
+  renderForm(date, time);
+}
+
+function renderForm(date, time) {
   document.getElementById("app").innerHTML = `
     <h2>予約フォーム</h2>
+    ${date} ${time}<br><br>
 
     <input id="name" placeholder="名前"><br><br>
     <input id="phone" placeholder="電話番号"><br><br>
-
-    <input id="date" type="date"><br><br>
-    <input id="time" type="time"><br><br>
-
     <input id="pickup" placeholder="出発地"><br><br>
     <input id="destination" placeholder="行き先"><br><br>
 
-    <select id="menu">
-      ${menuOptions}
-    </select><br><br>
-
-    <button onclick="submitReservation()">予約する</button>
+    <button onclick="submitReservation('${date}','${time}')">予約する</button>
   `;
 }
 
-async function submitReservation() {
+async function submitReservation(date, time) {
   const data = {
     name: document.getElementById("name").value,
     phone: document.getElementById("phone").value,
-    date: document.getElementById("date").value,
-    time: document.getElementById("time").value,
+    date,
+    time,
     pickup: document.getElementById("pickup").value,
     destination: document.getElementById("destination").value,
-    type: "",
-    options: [],
     price: 5000
   };
 
@@ -55,7 +90,12 @@ async function submitReservation() {
 
   const result = await res.json();
 
-  alert(result.success ? "予約完了" : "エラー");
+  if (result.success) {
+    alert("予約完了");
+    location.reload();
+  } else {
+    alert("エラー");
+  }
 }
 
 init();
