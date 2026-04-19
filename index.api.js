@@ -1,5 +1,6 @@
 const ADMIN_ICON_FILE_ID = '1a0QB8ei00w_lSfL4PnF_xuEFUC2JP6FW';
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyFKoCd64H2d5E8ExCrPRwG_g4shqlgHefgQYZrJ6HVOY5t5lwRVZ3UaXfYXIqNkCra/exec";
+const API_BASE = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
+const GAS_AUTH_URL = API_BASE;
 const ADMIN_PAGE_URL = "admin.html";
 
 function toast(msg='通信エラー', ms=2200){
@@ -42,179 +43,314 @@ function _appendCacheBust(url){
   return String(url || '') + sep + '_ts=' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
 }
 
-async function _fetchJsonGet(url, timeoutMs = 20000){
+function _buildApiUrl(path, query){
+  const base = String(API_BASE || '').replace(/\/+$/g, '');
+  const suffix = String(path || '').startsWith('/') ? String(path || '') : '/' + String(path || '');
+  const params = query && typeof query === 'object'
+    ? Object.keys(query).reduce((acc, key)=>{
+        const val = query[key];
+        if (val === undefined || val === null || val === '') return acc;
+        acc.push(`${encodeURIComponent(String(key))}=${encodeURIComponent(String(val))}`);
+        return acc;
+      }, [])
+    : [];
+  return _appendCacheBust(base + suffix + (params.length ? ('?' + params.join('&')) : ''));
+}
+
+async function _requestJson(url, options = {}, timeoutMs = 20000){
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timer = setTimeout(()=>{
-    try{
-      if (controller) controller.abort();
-    }catch(_){ }
+    try{ if (controller) controller.abort(); }catch(_){ }
   }, timeoutMs);
 
   try{
-    const res = await fetch(_appendCacheBust(url), {
-      method: 'GET',
+    const res = await fetch(url, {
+      method: options.method || 'GET',
+      headers: {
+        'Content-Type': 'application/json;charset=utf-8',
+        ...(options.headers || {})
+      },
+      body: options.body,
       cache: 'no-store',
       redirect: 'follow',
-      signal: controller ? controller.signal : undefined,
-      credentials: 'omit'
+      credentials: 'omit',
+      signal: controller ? controller.signal : undefined
     });
 
-    if (!res.ok) {
-      throw new Error('GET ' + res.status);
-    }
+    if (!res.ok) throw new Error(`${options.method || 'GET'} ${res.status}`);
 
     const text = await res.text();
-    try{
-      return JSON.parse(text);
-    }catch(_){
-      throw new Error('GET応答の解析に失敗しました');
-    }
+    try{ return JSON.parse(text); }catch(_){ throw new Error('応答JSONの解析に失敗しました'); }
   }catch(err){
-    if (String(err && err.name || '') === 'AbortError') {
-      throw new Error('GET timeout');
-    }
+    if (String(err && err.name || '') === 'AbortError') throw new Error('timeout');
     throw err;
   }finally{
     clearTimeout(timer);
   }
 }
 
-function _jsonpCall(url, timeoutMs = 20000){
-  return new Promise((resolve, reject)=>{
-    const cbName = '__jsonp_cb_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
-    const script = document.createElement('script');
-    let done = false;
-
-    function cleanup(){
-      try{
-        delete window[cbName];
-      }catch(_){}
-      if (script && script.parentNode) script.parentNode.removeChild(script);
-    }
-
-    const timer = setTimeout(()=>{
-      if (done) return;
-      done = true;
-      cleanup();
-      reject(new Error('JSONP timeout'));
-    }, timeoutMs);
-
-    window[cbName] = function(data){
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      cleanup();
-      resolve(data);
-    };
-
-    script.onerror = function(){
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      cleanup();
-      reject(new Error('JSONP load error'));
-    };
-
-    const baseUrl = _appendCacheBust(url);
-    const sep = baseUrl.includes('?') ? '&' : '?';
-    script.src = baseUrl + sep + 'callback=' + encodeURIComponent(cbName);
-    script.async = true;
-    (document.head || document.body || document.documentElement).appendChild(script);
-  });
-}
-
-async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
+async function _workersGet(path, query, retryCount = 2, timeoutMs = 20000){
   let lastError = null;
-
   for (let i = 0; i <= retryCount; i++){
     try{
-      return await _fetchJsonGet(url, timeoutMs);
+      const url = _buildApiUrl(path, query);
+      return await _requestJson(url, { method: 'GET' }, timeoutMs);
     }catch(err){
       lastError = err;
-      if (i < retryCount){
-        await sleep(600 + (i * 500));
-      }
+      if (i < retryCount) await sleep(450 + (i * 350));
     }
   }
-
-  for (let i = 0; i <= retryCount; i++){
-    try{
-      return await _jsonpCall(url, timeoutMs);
-    }catch(err){
-      lastError = err;
-      if (i < retryCount){
-        await sleep(800 + (i * 700));
-      }
-    }
-  }
-
   throw lastError || new Error('通信エラー');
 }
 
+async function _workersPost(path, payload, retryCount = 1, timeoutMs = 20000){
+  let lastError = null;
+  for (let i = 0; i <= retryCount; i++){
+    try{
+      const url = _buildApiUrl(path);
+      return await _requestJson(url, {
+        method: 'POST',
+        body: JSON.stringify(payload || {})
+      }, timeoutMs);
+    }catch(err){
+      lastError = err;
+      if (i < retryCount) await sleep(500 + (i * 400));
+    }
+  }
+  throw lastError || new Error('通信エラー');
+}
 
-async function _postJson(action, payload){
-  const res = await fetch(GAS_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8'
-    },
-    body: JSON.stringify({
-      action: action,
-      payload: payload || {}
-    })
-  });
+async function _gasVerifyAdminPassword(payload, timeoutMs = 20000, retryCount = 1){
+  let lastError = null;
 
-  const text = await res.text();
-  let data = null;
+  for (let i = 0; i <= retryCount; i++){
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = setTimeout(()=>{
+      try{ if (controller) controller.abort(); }catch(_){ }
+    }, timeoutMs);
 
-  try{
-    data = JSON.parse(text);
-  }catch(_){
-    throw new Error('POST応答の解析に失敗しました');
+    try{
+      const res = await fetch(GAS_AUTH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'verifyAdminPassword',
+          payload: payload || {}
+        }),
+        signal: controller ? controller.signal : undefined
+      });
+
+      if (!res.ok) throw new Error(`認証通信エラー(${res.status})`);
+      const text = await res.text();
+      let data = null;
+      try{
+        data = JSON.parse(text);
+      }catch(_){
+        throw new Error('認証応答の解析に失敗しました');
+      }
+      return data;
+    }catch(err){
+      if (String(err && err.name || '') === 'AbortError') {
+        lastError = new Error('認証タイムアウト');
+      } else {
+        lastError = err;
+      }
+      if (i < retryCount){
+        await sleep(450 + (i * 350));
+      }
+    }finally{
+      clearTimeout(timer);
+    }
   }
 
-  return data;
+  throw lastError || new Error('認証通信エラー');
+}
+
+async function _gasGet(action, params = {}, timeoutMs = 20000, retryCount = 1){
+  const query = new URLSearchParams({ action: String(action || '') });
+  Object.keys(params || {}).forEach((key)=>{
+    const val = params[key];
+    if (val === undefined || val === null || val === '') return;
+    query.set(String(key), String(val));
+  });
+
+  let lastError = null;
+  for (let i = 0; i <= retryCount; i++){
+    const url = _appendCacheBust(`${GAS_AUTH_URL}?${query.toString()}`);
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = setTimeout(()=>{
+      try{ if (controller) controller.abort(); }catch(_){ }
+    }, timeoutMs);
+
+    try{
+      const res = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        redirect: 'follow',
+        credentials: 'omit',
+        signal: controller ? controller.signal : undefined
+      });
+      if (!res.ok) throw new Error(`GET ${res.status}`);
+      const text = await res.text();
+      try{
+        return JSON.parse(text);
+      }catch(_){
+        throw new Error('GET応答の解析に失敗しました');
+      }
+    }catch(err){
+      if (String(err && err.name || '') === 'AbortError') {
+        lastError = new Error('GET timeout');
+      } else {
+        lastError = err;
+      }
+      if (i < retryCount){
+        await sleep(500 + (i * 400));
+      }
+    }finally{
+      clearTimeout(timer);
+    }
+  }
+
+  throw lastError || new Error('GET通信エラー');
+}
+
+async function _gasPost(action, payload = {}, timeoutMs = 20000, retryCount = 1){
+  let lastError = null;
+
+  for (let i = 0; i <= retryCount; i++){
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = setTimeout(()=>{
+      try{ if (controller) controller.abort(); }catch(_){ }
+    }, timeoutMs);
+
+    try{
+      const res = await fetch(GAS_AUTH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: String(action || ''),
+          payload: payload || {}
+        }),
+        signal: controller ? controller.signal : undefined
+      });
+
+      if (!res.ok) throw new Error(`POST ${res.status}`);
+      const text = await res.text();
+      try{
+        return JSON.parse(text);
+      }catch(_){
+        throw new Error('POST応答の解析に失敗しました');
+      }
+    }catch(err){
+      if (String(err && err.name || '') === 'AbortError') {
+        lastError = new Error('POST timeout');
+      } else {
+        lastError = err;
+      }
+      if (i < retryCount){
+        await sleep(500 + (i * 400));
+      }
+    }finally{
+      clearTimeout(timer);
+    }
+  }
+
+  throw lastError || new Error('POST通信エラー');
+}
+
+function _safeArray(v){
+  return Array.isArray(v) ? v : [];
+}
+
+function _normalizeInitPacket(raw){
+  const res = raw && typeof raw === 'object' ? raw : {};
+  const src = res.data && typeof res.data === 'object' ? res.data : res;
+
+  return {
+    isOk: res.isOk !== false,
+    data: {
+      config: src.config && typeof src.config === 'object' ? src.config : {},
+      slot_keys: _safeArray(src.slot_keys || src.keys),
+      start: String(src.start || ''),
+      end: String(src.end || ''),
+      reservations: _safeArray(src.reservations),
+      blocks: _safeArray(src.blocks),
+      menu_master: _safeArray(src.menu_master),
+      menu_key_catalog: _safeArray(src.menu_key_catalog),
+      menu_group_catalog: _safeArray(src.menu_group_catalog),
+      auto_rule_catalog: _safeArray(src.auto_rule_catalog)
+    }
+  };
+}
+
+function _normalizeBlockedPacket(raw){
+  const res = raw && typeof raw === 'object' ? raw : {};
+  const src = res.data && typeof res.data === 'object' ? res.data : res;
+  return {
+    isOk: res.isOk !== false,
+    data: {
+      start: String(src.start || ''),
+      end: String(src.end || ''),
+      slot_keys: _safeArray(src.slot_keys || src.keys),
+      keys: _safeArray(src.keys || src.slot_keys)
+    }
+  };
+}
+
+function _normalizeCreatePacket(raw){
+  const res = raw && typeof raw === 'object' ? raw : {};
+  const src = res.data && typeof res.data === 'object' ? res.data : res;
+  return {
+    isOk: res.isOk !== false,
+    data: src && typeof src === 'object' ? src : {}
+  };
 }
 
 const gsRun = async (func, ...args) => {
   try{
     let data;
 
-    if (func === 'api_getConfig') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getConfig`, 1, 20000);
-    } else if (func === 'api_getConfigPublic') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getConfigPublic`, 1, 20000);
-    } else if (func === 'api_getPublicBootstrap') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getPublicBootstrap`, 1, 20000);
-    } else if (func === 'api_getPublicBootstrapLite') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getPublicBootstrapLite`, 1, 15000);
-    } else if (func === 'api_getPublicInitLite') {
+    if (func === 'api_getPublicInitLite') {
       const range = args[0] || {};
-      const start = encodeURIComponent(String(range.start || ''));
-      const end = encodeURIComponent(String(range.end || ''));
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getPublicInitLite&start=${start}&end=${end}`, 1, 15000);
+      data = _normalizeInitPacket(await _gasGet('getPublicInitLite', {
+        start: String(range.start || ''),
+        end: String(range.end || '')
+      }, 15000));
+
+    } else if (func === 'api_getPublicBootstrap' || func === 'api_getPublicBootstrapLite' || func === 'api_getConfig' || func === 'api_getConfigPublic' || func === 'api_getInitData' || func === 'api_getMenuMaster' || func === 'api_getMenuKeyCatalog' || func === 'api_getMenuGroupCatalog' || func === 'api_getAutoRuleCatalog') {
+      const actionMap = {
+        api_getPublicBootstrap: 'getPublicBootstrap',
+        api_getPublicBootstrapLite: 'getPublicBootstrapLite',
+        api_getConfig: 'getConfig',
+        api_getConfigPublic: 'getConfigPublic',
+        api_getInitData: 'getInitData',
+        api_getMenuMaster: 'getMenuMaster',
+        api_getMenuKeyCatalog: 'getMenuKeyCatalog',
+        api_getMenuGroupCatalog: 'getMenuGroupCatalog',
+        api_getAutoRuleCatalog: 'getAutoRuleCatalog'
+      };
+      data = await _gasGet(actionMap[func], {}, 20000);
+
     } else if (func === 'api_getBlockedSlotKeys') {
       const range = args[0] || {};
-      const start = encodeURIComponent(String(range.start || ''));
-      const end = encodeURIComponent(String(range.end || ''));
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getBlockedSlotKeys&start=${start}&end=${end}`, 1, 20000);
-    } else if (func === 'api_getInitData') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getInitData`, 1, 25000);
-    } else if (func === 'api_getMenuMaster') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuMaster`, 1, 20000);
-    } else if (func === 'api_getMenuKeyCatalog') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuKeyCatalog`, 1, 20000);
-    } else if (func === 'api_getMenuGroupCatalog') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuGroupCatalog`, 1, 20000);
-    } else if (func === 'api_getAutoRuleCatalog') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getAutoRuleCatalog`, 1, 20000);
-    } else if (func === 'api_getDriveImageDataUrl') {
-      const fileId = args[0];
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getDriveImageDataUrl&fileId=${encodeURIComponent(fileId)}`, 1, 20000);
+      data = _normalizeBlockedPacket(await _gasGet('getBlockedSlotKeys', {
+        start: String(range.start || ''),
+        end: String(range.end || '')
+      }, 20000));
+
     } else if (func === 'api_createReservation') {
-      data = await _postJson('createReservation', args[0]);
+      data = _normalizeCreatePacket(await _gasPost('createReservation', args[0] || {}, 20000, 1));
+
+    } else if (func === 'api_getDriveImageDataUrl') {
+      data = { isOk: true, data: { data_url: '' } };
+
     } else if (func === 'api_verifyAdminPassword') {
-      data = await _postJson('verifyAdminPassword', args[0]);
+      const payload = args[0] || {};
+      data = await _gasVerifyAdminPassword(payload, 12000);
+      if (!data || typeof data !== 'object') {
+        throw new Error('認証応答の形式が不正です');
+      }
+
     } else {
       throw new Error(`未対応のAPIです: ${func}`);
     }
@@ -230,6 +366,7 @@ const gsRun = async (func, ...args) => {
   }
 };
 
+window.gsRun = gsRun;
 
 const PUBLIC_BOOTSTRAP_CACHE_KEY = 'chiba_care_taxi_public_bootstrap_cache_v2';
 const PUBLIC_BOOTSTRAP_LITE_CACHE_KEY = 'chiba_care_taxi_public_bootstrap_lite_cache_v1';
@@ -348,7 +485,7 @@ function hydratePublicCacheForFastPaint(){
   return bootLoaded || blockedLoaded;
 }
 
-const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1';
+const TRIGGER_URL = '';
 
 function fireTrigger(payload){
   try{
