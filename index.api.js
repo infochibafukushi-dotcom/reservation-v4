@@ -122,7 +122,6 @@ async function _workersPost(path, payload, retryCount = 1, timeoutMs = 20000){
 
 async function _gasVerifyAdminPassword(payload, timeoutMs = 20000, retryCount = 1){
   let lastError = null;
-
   for (let i = 0; i <= retryCount; i++){
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = setTimeout(()=>{
@@ -162,6 +161,8 @@ async function _gasVerifyAdminPassword(payload, timeoutMs = 20000, retryCount = 
       clearTimeout(timer);
     }
   }
+  throw lastError || new Error('通信エラー');
+}
 
   throw lastError || new Error('認証通信エラー');
 }
