@@ -4,10 +4,11 @@ function wrapOk(data){
   return { isOk: true, data: data };
 }
 
-const gsRun = async (func, ...args) => {
+const gsRun = async (func, payload = {}) => {
 
   try{
 
+    // Bootstrap
     if (func === 'api_getPublicBootstrap') {
       return wrapOk({
         config: {
@@ -32,13 +33,10 @@ const gsRun = async (func, ...args) => {
       });
     }
 
+    // ★カレンダー初期（元コード互換）
     if (func === 'api_getPublicInitLite') {
 
-      const range = args[0] || {};
-
       return wrapOk({
-        start: range.start,
-        end: range.end,
         slot_keys: [],
         hasReliableAvailability: true,
         business_hours: {
@@ -53,18 +51,20 @@ const gsRun = async (func, ...args) => {
       });
     }
 
+    // ブロック
     if (func === 'api_getBlockedSlotKeys') {
       return wrapOk({
         slot_keys: []
       });
     }
 
+    // ★予約保存（Workersへ）
     if (func === 'api_createReservation') {
 
       const res = await fetch(API_BASE + "/create", {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify(args[0] || {})
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
@@ -72,6 +72,7 @@ const gsRun = async (func, ...args) => {
       return wrapOk(data);
     }
 
+    // その他
     if (func === 'api_getConfig') return wrapOk({});
     if (func === 'api_getConfigPublic') return wrapOk({});
     if (func === 'api_verifyAdminPassword') return wrapOk({ ok:true });
