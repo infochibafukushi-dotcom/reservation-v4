@@ -168,6 +168,141 @@ function buildBlockedSlotKeysFromReservations(reservations, range) {
   return Array.from(set).sort();
 }
 
+async function _tableExists(env, tableName) {
+  try {
+    const res = await env.DB.prepare(`
+      SELECT name
+      FROM sqlite_master
+      WHERE type='table' AND name=?1
+      LIMIT 1
+    `).bind(String(tableName || '').trim()).first();
+    return !!(res && res.name);
+  } catch (_) {
+    return false;
+  }
+}
+
+async function loadConfigMap(env) {
+  if (!await _tableExists(env, 'config')) return {};
+  let rows = [];
+  try {
+    const res = await env.DB.prepare(`SELECT key, value FROM config`).all();
+    rows = Array.isArray(res && res.results) ? res.results : [];
+  } catch (_) {
+    try {
+      const res = await env.DB.prepare(`SELECT config_key AS key, config_value AS value FROM config`).all();
+      rows = Array.isArray(res && res.results) ? res.results : [];
+    } catch (__){
+      rows = [];
+    }
+  }
+
+  const map = {};
+  rows.forEach(row => {
+    const key = String(row && row.key || '').trim();
+    if (!key) return;
+    map[key] = row && row.value !== undefined && row.value !== null ? String(row.value) : '';
+  });
+  return map;
+}
+
+async function loadMenuMaster(env) {
+  if (!await _tableExists(env, 'menu_master')) {
+    return DEFAULT_MENU_MASTER.map(item => ({ ...item }));
+  }
+  try {
+    const res = await env.DB.prepare(`
+      SELECT
+        key,
+        key_jp,
+        label,
+        price,
+        note,
+        is_visible,
+        sort_order,
+        menu_group,
+        required_flag,
+        auto_apply_group,
+        auto_apply_key,
+        auto_apply_group_2,
+        auto_apply_key_2
+      FROM menu_master
+      ORDER BY sort_order ASC, key ASC
+    `).all();
+    const rows = Array.isArray(res && res.results) ? res.results : [];
+    if (!rows.length) return DEFAULT_MENU_MASTER.map(item => ({ ...item }));
+    return rows.map(row => ({
+      key: String(row.key || ''),
+      key_jp: String(row.key_jp || ''),
+      label: String(row.label || row.key || ''),
+      price: Number(row.price || 0),
+      note: String(row.note || ''),
+      is_visible: !(row.is_visible === false || String(row.is_visible).toUpperCase() === 'FALSE' || String(row.is_visible) === '0'),
+      sort_order: Number(row.sort_order || 9999),
+      menu_group: String(row.menu_group || 'custom'),
+      required_flag: row.required_flag === true || String(row.required_flag) === '1' || String(row.required_flag).toUpperCase() === 'TRUE',
+      auto_apply_group: String(row.auto_apply_group || ''),
+      auto_apply_key: String(row.auto_apply_key || ''),
+      auto_apply_group_2: String(row.auto_apply_group_2 || ''),
+      auto_apply_key_2: String(row.auto_apply_key_2 || '')
+    }));
+  } catch (_) {
+    return DEFAULT_MENU_MASTER.map(item => ({ ...item }));
+  }
+}
+
+async function loadMenuGroupCatalog(env) {
+  if (!await _tableExists(env, 'menu_group_catalog')) {
+    return DEFAULT_MENU_GROUP_CATALOG.map(item => ({ ...item }));
+  }
+  try {
+    const res = await env.DB.prepare(`
+      SELECT key, label
+      FROM menu_group_catalog
+      ORDER BY key ASC
+    `).all();
+    const rows = Array.isArray(res && res.results) ? res.results : [];
+    if (!rows.length) return DEFAULT_MENU_GROUP_CATALOG.map(item => ({ ...item }));
+    return rows.map(row => ({
+      key: String(row.key || ''),
+      label: String(row.label || row.key || '')
+    })).filter(row => row.key);
+  } catch (_) {
+    return DEFAULT_MENU_GROUP_CATALOG.map(item => ({ ...item }));
+  }
+}
+
+async function loadAutoRuleCatalog(env) {
+  if (!await _tableExists(env, 'auto_rule_catalog')) {
+    return DEFAULT_AUTO_RULE_CATALOG.map(item => ({ ...item }));
+  }
+  try {
+    const res = await env.DB.prepare(`
+      SELECT
+        "index",
+        enabled,
+        target,
+        trigger_key,
+        apply_group,
+        apply_key
+      FROM auto_rule_catalog
+      ORDER BY "index" ASC
+    `).all();
+    const rows = Array.isArray(res && res.results) ? res.results : [];
+    if (!rows.length) return DEFAULT_AUTO_RULE_CATALOG.map(item => ({ ...item }));
+    return rows.map(row => ({
+      index: Number(row.index || 0),
+      enabled: row.enabled === true || String(row.enabled) === '1' || String(row.enabled).toUpperCase() === 'TRUE',
+      target: String(row.target || ''),
+      trigger_key: String(row.trigger_key || ''),
+      apply_group: String(row.apply_group || ''),
+      apply_key: String(row.apply_key || '')
+    }));
+  } catch (_) {
+    return DEFAULT_AUTO_RULE_CATALOG.map(item => ({ ...item }));
+  }
+}
+
 async function selectReservations(env, range) {
   const start = String(range && range.start || '').trim();
   const end = String(range && range.end || '').trim();
@@ -242,19 +377,51 @@ export default {
         const result = await selectReservations(env, range);
         const reservations = Array.isArray(result && result.results) ? result.results : [];
         const slotKeys = buildBlockedSlotKeysFromReservations(reservations, range);
+        const dbConfig = await loadConfigMap(env);
+        const menuMaster = await loadMenuMaster(env);
+        const menuGroupCatalog = await loadMenuGroupCatalog(env);
+        const autoRuleCatalog = await loadAutoRuleCatalog(env);
+
         const runtimeConfig = {
           ...DEFAULT_CONFIG,
+          ...dbConfig,
           admin_password: getAdminPassword(env)
         };
+        const menuKeyCatalog = DEFAULT_MENU_KEY_CATALOG.map(item => ({ ...item }))
+          .map((base, idx) => {
+            const found = menuMaster.find(row => String(row.key || '') === String(base.key || ''));
+            if (found) {
+              return {
+                ...base,
+                index: idx + 1,
+                key_jp: String(found.key_jp || found.label || base.key_jp || ''),
+                default_label: String(found.label || base.default_label || ''),
+                menu_group: String(found.menu_group || base.menu_group || 'custom')
+              };
+            }
+            return { ...base, index: idx + 1 };
+          });
+        menuMaster.forEach((row, idx) => {
+          const key = String(row.key || '');
+          if (!key) return;
+          if (menuKeyCatalog.some(item => String(item.key || '') === key)) return;
+          menuKeyCatalog.push({
+            index: menuKeyCatalog.length + idx + 1,
+            key,
+            key_jp: String(row.key_jp || row.label || key),
+            default_label: String(row.label || key),
+            menu_group: String(row.menu_group || 'custom')
+          });
+        });
 
         return ok({
           config: runtimeConfig,
           reservations,
           blocks: [],
-          menu_master: DEFAULT_MENU_MASTER.map(item => ({ ...item })),
-          menu_key_catalog: DEFAULT_MENU_KEY_CATALOG.map(item => ({ ...item })),
-          menu_group_catalog: DEFAULT_MENU_GROUP_CATALOG.map(item => ({ ...item })),
-          auto_rule_catalog: DEFAULT_AUTO_RULE_CATALOG.map(item => ({ ...item })),
+          menu_master: menuMaster,
+          menu_key_catalog: menuKeyCatalog,
+          menu_group_catalog: menuGroupCatalog,
+          auto_rule_catalog: autoRuleCatalog,
           start: range.start,
           end: range.end,
           slot_keys: slotKeys,
