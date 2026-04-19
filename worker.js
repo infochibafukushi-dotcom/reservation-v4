@@ -168,6 +168,24 @@ function buildBlockedSlotKeysFromReservations(reservations, range) {
   return Array.from(set).sort();
 }
 
+function applyExplicitBlocksToSlotKeys(slotKeys, blocks, range){
+  const set = new Set((slotKeys || []).map(v => String(v || '').trim()).filter(Boolean));
+  const start = String(range && range.start || '').trim();
+  const end = String(range && range.end || '').trim();
+  (blocks || []).forEach(row => {
+    const isBlocked = !(row && (row.is_blocked === false || String(row.is_blocked) === '0' || String(row.is_blocked).toUpperCase() === 'FALSE'));
+    if (!isBlocked) return;
+    const d = String(row && row.block_date || '').trim();
+    const h = Number(row && row.block_hour || 0);
+    const m = Number(row && row.block_minute || 0);
+    if (!d) return;
+    if (start && d < start) return;
+    if (end && d > end) return;
+    set.add(`${d}-${h}-${m}`);
+  });
+  return Array.from(set).sort();
+}
+
 async function _tableExists(env, tableName) {
   try {
     const res = await env.DB.prepare(`
@@ -375,7 +393,16 @@ async function selectBlocks(env, range) {
 }
 
 async function saveConfig(env, payload) {
-  if (!await _tableExists(env, 'config')) return;
+  if (!await _tableExists(env, 'config')) {
+    try{
+      await env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS config (
+          key TEXT PRIMARY KEY,
+          value TEXT
+        )
+      `).run();
+    }catch(_){ return; }
+  }
   const entries = Object.entries(payload || {});
   for (const [key, value] of entries) {
     await env.DB.prepare(`
@@ -387,7 +414,27 @@ async function saveConfig(env, payload) {
 }
 
 async function replaceMenuMaster(env, items) {
-  if (!await _tableExists(env, 'menu_master')) return;
+  if (!await _tableExists(env, 'menu_master')) {
+    try{
+      await env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS menu_master (
+          key TEXT PRIMARY KEY,
+          key_jp TEXT,
+          label TEXT,
+          price INTEGER,
+          note TEXT,
+          is_visible INTEGER,
+          sort_order INTEGER,
+          menu_group TEXT,
+          required_flag INTEGER,
+          auto_apply_group TEXT,
+          auto_apply_key TEXT,
+          auto_apply_group_2 TEXT,
+          auto_apply_key_2 TEXT
+        )
+      `).run();
+    }catch(_){ return; }
+  }
   await env.DB.prepare(`DELETE FROM menu_master`).run();
   for (const item of (items || [])) {
     await env.DB.prepare(`
@@ -411,6 +458,68 @@ async function replaceMenuMaster(env, items) {
       String(item && item.auto_apply_key_2 || '')
     ).run();
   }
+}
+
+async function ensureBlocksTable(env){
+  try{
+    await env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS blocks (
+        block_date TEXT NOT NULL,
+        block_hour INTEGER NOT NULL,
+        block_minute INTEGER NOT NULL,
+        is_blocked INTEGER NOT NULL DEFAULT 1,
+        PRIMARY KEY (block_date, block_hour, block_minute)
+      )
+    `).run();
+    return true;
+  }catch(_){
+    return false;
+  }
+}
+
+async function upsertBlock(env, dateStr, hour, minute, isBlocked){
+  if (!await ensureBlocksTable(env)) return false;
+  const d = String(dateStr || '').trim();
+  const h = Number(hour || 0);
+  const m = Number(minute || 0);
+  if (!d) return false;
+
+  if (isBlocked){
+    await env.DB.prepare(`
+      INSERT INTO blocks (block_date, block_hour, block_minute, is_blocked)
+      VALUES (?1, ?2, ?3, 1)
+      ON CONFLICT(block_date, block_hour, block_minute) DO UPDATE SET is_blocked=1
+    `).bind(d, h, m).run();
+  } else {
+    await env.DB.prepare(`
+      DELETE FROM blocks
+      WHERE block_date=?1 AND block_hour=?2 AND block_minute=?3
+    `).bind(d, h, m).run();
+  }
+  return true;
+}
+
+function buildRegularSlots(){
+  const slots = [];
+  for (let h = 6; h <= 21; h++){
+    slots.push({ h, m: 0 });
+    if (h < 21) slots.push({ h, m: 30 });
+  }
+  return slots;
+}
+
+function buildOtherSlots(){
+  const slots = [];
+  slots.push({ h: 21, m: 30 });
+  for (let h = 22; h < 24; h++){
+    slots.push({ h, m: 0 });
+    slots.push({ h, m: 30 });
+  }
+  for (let h = 0; h <= 5; h++){
+    slots.push({ h, m: 0 });
+    slots.push({ h, m: 30 });
+  }
+  return slots;
 }
 
 async function handleActionGet(action, url, env) {
@@ -442,7 +551,8 @@ async function handleActionGet(action, url, env) {
   if (action === 'getPublicBootstrap' || action === 'getPublicBootstrapLite' || action === 'getPublicInitLite') {
     const reservationsResult = await selectReservations(env, range);
     const reservations = Array.isArray(reservationsResult && reservationsResult.results) ? reservationsResult.results : [];
-    const slotKeys = buildBlockedSlotKeysFromReservations(reservations, range);
+    const blocks = await selectBlocks(env, range);
+    const slotKeys = applyExplicitBlocksToSlotKeys(buildBlockedSlotKeysFromReservations(reservations, range), blocks, range);
     return ok({
       config,
       menu_master: menuMaster,
@@ -465,7 +575,8 @@ async function handleActionGet(action, url, env) {
   if (action === 'getBlockedSlotKeys') {
     const reservationsResult = await selectReservations(env, range);
     const reservations = Array.isArray(reservationsResult && reservationsResult.results) ? reservationsResult.results : [];
-    const slotKeys = buildBlockedSlotKeysFromReservations(reservations, range);
+    const blocks = await selectBlocks(env, range);
+    const slotKeys = applyExplicitBlocksToSlotKeys(buildBlockedSlotKeysFromReservations(reservations, range), blocks, range);
     return ok({ start: range.start, end: range.end, slot_keys: slotKeys, keys: slotKeys });
   }
 
@@ -524,8 +635,44 @@ async function handleActionPost(action, payload, env) {
     await replaceMenuMaster(env, payload && payload.items ? payload.items : []);
     return ok({ saved: true });
   }
-  if (action === 'updateReservation') return ok({ updated: true });
-  if (action === 'toggleBlock' || action === 'setRegularDayBlocked' || action === 'setOtherTimeDayBlocked') return ok({ is_blocked: true });
+  if (action === 'updateReservation') {
+    const rid = String(payload && (payload.reservation_id || payload.id) || '').trim();
+    if (!rid) return ng('reservation_id is required', 400);
+    const status = payload && payload.status !== undefined ? String(payload.status || '') : null;
+    const visible = payload && payload.is_visible !== undefined
+      ? ((payload.is_visible === false || String(payload.is_visible).toUpperCase() === 'FALSE' || String(payload.is_visible) === '0') ? 0 : 1)
+      : null;
+    try{
+      if (status !== null){
+        await env.DB.prepare(`UPDATE reservations SET status=?1 WHERE id=?2 OR id=?2`).bind(status, rid).run();
+      }
+      if (visible !== null){
+        try{
+          await env.DB.prepare(`UPDATE reservations SET is_visible=?1 WHERE id=?2 OR id=?2`).bind(visible, rid).run();
+        }catch(_){ }
+      }
+    }catch(_){ }
+    return ok({ updated: true });
+  }
+  if (action === 'toggleBlock') {
+    const dateStr = String(payload && payload.dateStr || '').trim();
+    const hour = Number(payload && payload.hour || 0);
+    const minute = Number(payload && payload.minute || 0);
+    const current = await selectBlocks(env, { start: dateStr, end: dateStr });
+    const exists = (current || []).some(row => String(row.block_date || '') === dateStr && Number(row.block_hour) === hour && Number(row.block_minute) === minute);
+    const next = !exists;
+    await upsertBlock(env, dateStr, hour, minute, next);
+    return ok({ is_blocked: next });
+  }
+  if (action === 'setRegularDayBlocked' || action === 'setOtherTimeDayBlocked') {
+    const dateStr = String(payload && payload.dateStr || '').trim();
+    const isBlocked = !!(payload && payload.isBlocked);
+    const slots = action === 'setOtherTimeDayBlocked' ? buildOtherSlots() : buildRegularSlots();
+    for (const slot of slots){
+      await upsertBlock(env, dateStr, slot.h, slot.m, isBlocked);
+    }
+    return ok({ is_blocked: isBlocked });
+  }
   if (action === 'uploadLogoImage') return ok({ raw_url: '', path: 'logo/logo.webp' });
   if (action === 'changeAdminPassword') {
     const next = String(payload && payload.new_password || '').trim();
@@ -617,7 +764,8 @@ export default {
 
         const result = await selectReservations(env, range);
         const reservations = Array.isArray(result && result.results) ? result.results : [];
-        const slotKeys = buildBlockedSlotKeysFromReservations(reservations, range);
+        const blocks = await selectBlocks(env, range);
+        const slotKeys = applyExplicitBlocksToSlotKeys(buildBlockedSlotKeysFromReservations(reservations, range), blocks, range);
         const dbConfig = await loadConfigMap(env);
         const menuMaster = await loadMenuMaster(env);
         const menuGroupCatalog = await loadMenuGroupCatalog(env);
@@ -658,7 +806,7 @@ export default {
         return ok({
           config: runtimeConfig,
           reservations,
-          blocks: [],
+          blocks: blocks,
           menu_master: menuMaster,
           menu_key_catalog: menuKeyCatalog,
           menu_group_catalog: menuGroupCatalog,
@@ -678,7 +826,8 @@ export default {
 
         const result = await selectReservations(env, range);
         const reservations = Array.isArray(result && result.results) ? result.results : [];
-        const slotKeys = buildBlockedSlotKeysFromReservations(reservations, range);
+        const blocks = await selectBlocks(env, range);
+        const slotKeys = applyExplicitBlocksToSlotKeys(buildBlockedSlotKeysFromReservations(reservations, range), blocks, range);
 
         return ok({
           start: range.start,

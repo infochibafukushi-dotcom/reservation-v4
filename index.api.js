@@ -219,6 +219,12 @@ async function _gasGet(action, params = {}, timeoutMs = 20000, retryCount = 1){
 async function _gasPost(action, payload = {}, timeoutMs = 20000, retryCount = 1){
   let lastError = null;
 
+  throw lastError || new Error('GET通信エラー');
+}
+
+async function _gasPost(action, payload = {}, timeoutMs = 20000, retryCount = 1){
+  let lastError = null;
+
   for (let i = 0; i <= retryCount; i++){
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = setTimeout(()=>{
