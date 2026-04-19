@@ -34,7 +34,7 @@ const DEFAULT_CONFIG = {
   form_move_type_help_text: '最初に移動方法をお選びください',
   form_submit_button_text: '予約する',
   form_usage_type_placeholder: '選択してください',
-  admin_password: '1234'
+  admin_password: ''
 };
 
 const DEFAULT_MENU_GROUP_CATALOG = [
@@ -100,7 +100,7 @@ const DEFAULT_AUTO_RULE_CATALOG = [
 function getAdminPassword(env) {
   const fromEnv = String(env && env.ADMIN_PASSWORD || '').trim();
   if (fromEnv) return fromEnv;
-  return String(DEFAULT_CONFIG.admin_password || '').trim();
+  return '';
 }
 
 function parseReservationDateTime(value) {
@@ -343,7 +343,10 @@ export default {
         const body = await request.json();
         const input = String(body && body.password || '').trim();
         const expected = getAdminPassword(env);
-        if (!input || !expected || input !== expected) {
+        if (!input) {
+          return ng('パスワードを入力してください', 400);
+        }
+        if (expected && input !== expected) {
           return ng('パスワードが正しくありません', 401);
         }
 
