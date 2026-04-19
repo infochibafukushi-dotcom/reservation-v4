@@ -53,40 +53,30 @@ function render(){
   dates.forEach(d=>{
     let th=document.createElement("th");
     th.innerText=(d.getMonth()+1)+"/"+d.getDate();
-    if(d.getDay()==0) th.classList.add("sun");
-    if(d.getDay()==6) th.classList.add("sat");
     tr.appendChild(th);
   });
   table.appendChild(tr);
 
   times.forEach(t=>{
     let tr=document.createElement("tr");
+
     let timeTd=document.createElement("td");
     timeTd.innerText=t;
+    timeTd.style.fontSize="18px";
     tr.appendChild(timeTd);
 
     dates.forEach(d=>{
       let td=document.createElement("td");
-      if(d.getDay()==0) td.classList.add("sun");
-      if(d.getDay()==6) td.classList.add("sat");
 
       let btn=document.createElement("button");
       btn.classList.add("slot");
 
-      btn.classList.add("loading-slot");
-      btn.innerText="◎";
-
-      setTimeout(()=>{
-        let blocked=isPast(d,t);
-        btn.classList.remove("loading-slot");
-        if(blocked){
-          btn.classList.add("ng-slot");
-          btn.innerText="×";
-        }else{
-          btn.classList.add("ok-slot");
-          btn.innerText="◎";
-        }
-      },300);
+      if(isPast(d,t)){
+        btn.innerText="×";
+        btn.classList.add("ng");
+      }else{
+        btn.innerText="◎";
+      }
 
       td.appendChild(btn);
       tr.appendChild(td);

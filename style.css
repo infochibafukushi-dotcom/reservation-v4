@@ -1,47 +1,65 @@
 body{font-family:sans-serif;background:#f7f7f7;margin:0}
-.app{max-width:1100px;margin:auto;padding:16px}
-.brand{display:flex;gap:10px;align-items:center}
-.logo{width:50px;height:50px;border-radius:12px}
-.sub{margin:0;color:#666;font-size:14px}
+.header{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  padding:20px;
+}
 
-.legend{display:flex;gap:15px;margin:10px 0;font-size:14px}
-.ok{color:#00aaff}
-.ng{color:#ff6b81}
-.loading{color:#888}
+.phone{
+  position:absolute;
+  left:20px;
+  top:20px;
+  text-align:center;
+  cursor:pointer;
+}
 
-.toolbar{display:flex;gap:10px;align-items:center;margin:10px 0}
-button{padding:8px 12px;border-radius:10px;border:1px solid #ddd;background:#fff}
+.phone .icon{
+  font-size:26px;
+}
 
-table{width:100%;border-spacing:6px}
+.phone .text{
+  font-size:12px;
+}
 
-th{background:#eee;border-radius:10px;padding:8px}
-td{padding:0}
+.center{
+  text-align:center;
+}
+
+.toolbar{
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  margin:10px;
+}
+
+table{
+  width:100%;
+  border-spacing:6px;
+}
+
+th{
+  background:#eee;
+  border-radius:10px;
+  padding:8px;
+}
+
+td{
+  padding:0;
+}
 
 .slot{
   width:100%;
   padding:12px;
   border-radius:16px;
-  border:2px solid;
+  border:2px solid #000;
   font-size:18px;
-}
-
-.ok-slot{
   background:#e6f7ff;
-  border-color:#b3e5fc;
-  color:#00aaff;
+  color:#000;
 }
 
-.ng-slot{
+.ng{
   background:#ffe6ea;
-  border-color:#ffc0cb;
-  color:#ff6b81;
 }
 
-.loading-slot{
-  background:#f2f2f2;
-  border-color:#ddd;
-  color:#999;
-}
-
-.sun{background:#ffeef2}
-.sat{background:#eaf6ff}
