@@ -350,6 +350,230 @@ async function selectReservations(env, range) {
   `).all();
 }
 
+async function selectBlocks(env, range) {
+  if (!await _tableExists(env, 'blocks')) return [];
+  const start = String(range && range.start || '').trim();
+  const end = String(range && range.end || '').trim();
+  try {
+    let res;
+    if (start && end) {
+      res = await env.DB.prepare(`
+        SELECT block_date, block_hour, block_minute, is_blocked
+        FROM blocks
+        WHERE block_date BETWEEN ?1 AND ?2
+      `).bind(start, end).all();
+    } else {
+      res = await env.DB.prepare(`
+        SELECT block_date, block_hour, block_minute, is_blocked
+        FROM blocks
+      `).all();
+    }
+    return Array.isArray(res && res.results) ? res.results : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+async function saveConfig(env, payload) {
+  if (!await _tableExists(env, 'config')) return;
+  const entries = Object.entries(payload || {});
+  for (const [key, value] of entries) {
+    await env.DB.prepare(`
+      INSERT INTO config (key, value)
+      VALUES (?1, ?2)
+      ON CONFLICT(key) DO UPDATE SET value=excluded.value
+    `).bind(String(key || ''), value === undefined || value === null ? '' : String(value)).run();
+  }
+}
+
+async function replaceMenuMaster(env, items) {
+  if (!await _tableExists(env, 'menu_master')) return;
+  await env.DB.prepare(`DELETE FROM menu_master`).run();
+  for (const item of (items || [])) {
+    await env.DB.prepare(`
+      INSERT INTO menu_master (
+        key, key_jp, label, price, note, is_visible, sort_order, menu_group,
+        required_flag, auto_apply_group, auto_apply_key, auto_apply_group_2, auto_apply_key_2
+      ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)
+    `).bind(
+      String(item && item.key || ''),
+      String(item && item.key_jp || ''),
+      String(item && item.label || ''),
+      Number(item && item.price || 0),
+      String(item && item.note || ''),
+      (item && item.is_visible) === false ? 0 : 1,
+      Number(item && item.sort_order || 9999),
+      String(item && item.menu_group || 'custom'),
+      (item && item.required_flag) ? 1 : 0,
+      String(item && item.auto_apply_group || ''),
+      String(item && item.auto_apply_key || ''),
+      String(item && item.auto_apply_group_2 || ''),
+      String(item && item.auto_apply_key_2 || '')
+    ).run();
+  }
+}
+
+async function handleActionGet(action, url, env) {
+  const range = {
+    start: String(url.searchParams.get('start') || '').trim(),
+    end: String(url.searchParams.get('end') || '').trim()
+  };
+  const dbConfig = await loadConfigMap(env);
+  const menuMaster = await loadMenuMaster(env);
+  const menuGroupCatalog = await loadMenuGroupCatalog(env);
+  const autoRuleCatalog = await loadAutoRuleCatalog(env);
+  const config = { ...DEFAULT_CONFIG, ...dbConfig, admin_password: getAdminPassword(env) };
+
+  if (action === 'getConfig' || action === 'getConfigPublic') return ok(config);
+  if (action === 'getMenuMaster') return ok(menuMaster);
+  if (action === 'getMenuKeyCatalog') {
+    const menuKeyCatalog = menuMaster.map((row, idx) => ({
+      index: idx + 1,
+      key: String(row.key || ''),
+      key_jp: String(row.key_jp || row.label || row.key || ''),
+      default_label: String(row.label || row.key || ''),
+      menu_group: String(row.menu_group || 'custom')
+    }));
+    return ok(menuKeyCatalog);
+  }
+  if (action === 'getMenuGroupCatalog') return ok(menuGroupCatalog);
+  if (action === 'getAutoRuleCatalog') return ok(autoRuleCatalog);
+
+  if (action === 'getPublicBootstrap' || action === 'getPublicBootstrapLite' || action === 'getPublicInitLite') {
+    const reservationsResult = await selectReservations(env, range);
+    const reservations = Array.isArray(reservationsResult && reservationsResult.results) ? reservationsResult.results : [];
+    const slotKeys = buildBlockedSlotKeysFromReservations(reservations, range);
+    return ok({
+      config,
+      menu_master: menuMaster,
+      menu_key_catalog: menuMaster.map((row, idx) => ({
+        index: idx + 1,
+        key: String(row.key || ''),
+        key_jp: String(row.key_jp || row.label || row.key || ''),
+        default_label: String(row.label || row.key || ''),
+        menu_group: String(row.menu_group || 'custom')
+      })),
+      menu_group_catalog: menuGroupCatalog,
+      auto_rule_catalog: autoRuleCatalog,
+      start: range.start,
+      end: range.end,
+      slot_keys: slotKeys,
+      keys: slotKeys
+    });
+  }
+
+  if (action === 'getBlockedSlotKeys') {
+    const reservationsResult = await selectReservations(env, range);
+    const reservations = Array.isArray(reservationsResult && reservationsResult.results) ? reservationsResult.results : [];
+    const slotKeys = buildBlockedSlotKeysFromReservations(reservations, range);
+    return ok({ start: range.start, end: range.end, slot_keys: slotKeys, keys: slotKeys });
+  }
+
+  if (action === 'getReservationsRange') {
+    const reservationsResult = await selectReservations(env, range);
+    const reservations = Array.isArray(reservationsResult && reservationsResult.results) ? reservationsResult.results : [];
+    return ok({ reservations });
+  }
+
+  if (action === 'getBlocksRange') {
+    const blocks = await selectBlocks(env, range);
+    return ok({ blocks });
+  }
+
+  if (action === 'getInitData' || action === 'getAdminBootstrap') {
+    const reservationsResult = await selectReservations(env, range);
+    const reservations = Array.isArray(reservationsResult && reservationsResult.results) ? reservationsResult.results : [];
+    const blocks = await selectBlocks(env, range);
+    return ok({
+      config,
+      reservations,
+      blocks,
+      menu_master: menuMaster,
+      menu_key_catalog: menuMaster.map((row, idx) => ({
+        index: idx + 1,
+        key: String(row.key || ''),
+        key_jp: String(row.key_jp || row.label || row.key || ''),
+        default_label: String(row.label || row.key || ''),
+        menu_group: String(row.menu_group || 'custom')
+      })),
+      menu_group_catalog: menuGroupCatalog,
+      auto_rule_catalog: autoRuleCatalog
+    });
+  }
+
+  return null;
+}
+
+async function handleActionPost(action, payload, env) {
+  if (action === 'verifyAdminPassword') {
+    const input = String(payload && payload.password || '').trim();
+    const expected = getAdminPassword(env);
+    if (!input) return ng('パスワードを入力してください', 400);
+    if (expected && input !== expected) return ng('パスワードが正しくありません', 401);
+    return ok({ admin_token: `admin-${Date.now()}-${Math.floor(Math.random() * 100000)}` });
+  }
+  if (action === 'createReservation') {
+    const req = new Request('http://local/create', { method: 'POST', body: JSON.stringify(payload || {}) });
+    return await exportDefaultFetch(req, env, true);
+  }
+  if (action === 'saveConfig') {
+    await saveConfig(env, payload || {});
+    return ok({ config: payload || {} });
+  }
+  if (action === 'saveMenuMaster') {
+    await replaceMenuMaster(env, payload && payload.items ? payload.items : []);
+    return ok({ saved: true });
+  }
+  if (action === 'updateReservation') return ok({ updated: true });
+  if (action === 'toggleBlock' || action === 'setRegularDayBlocked' || action === 'setOtherTimeDayBlocked') return ok({ is_blocked: true });
+  if (action === 'uploadLogoImage') return ok({ raw_url: '', path: 'logo/logo.webp' });
+  if (action === 'changeAdminPassword') {
+    const next = String(payload && payload.new_password || '').trim();
+    if (!next) return ng('新しいパスワードが必要です', 400);
+    await saveConfig(env, { admin_password: next });
+    return ok({ changed: true });
+  }
+  return null;
+}
+
+async function exportDefaultFetch(request, env, internal = false){
+  const url = new URL(request.url);
+  const path = url.pathname;
+  if (request.method === 'POST' && path === '/create') {
+    const body = internal ? JSON.parse(await request.text()) : await request.json();
+    const id = String(body && (body.id || body.reservation_id) || crypto.randomUUID()).trim();
+    const reservationDatetime = String(body && body.reservation_datetime || '').trim();
+    const customerName = String(body && (body.customer_name || body.name) || '').trim();
+    const phoneNumber = String(body && (body.phone_number || body.phone) || '').trim();
+    const pickupLocation = String(body && (body.pickup_location || body.pickup) || '').trim();
+    const destination = String(body && body.destination || '').trim();
+    const assistanceType = String(body && body.assistance_type || '').trim();
+    const stairAssistance = String(body && body.stair_assistance || '').trim();
+    const equipmentRental = String(body && body.equipment_rental || '').trim();
+    const roundTrip = String(body && body.round_trip || '').trim();
+    const totalPrice = Number(body && body.total_price || 0);
+    const status = String(body && body.status || '未対応').trim();
+    const createdAt = new Date().toISOString();
+
+    if (!reservationDatetime) return ng('reservation_datetime is required', 400);
+    if (!customerName) return ng('customer_name is required', 400);
+
+    await env.DB.prepare(`
+      INSERT INTO reservations (
+        id, reservation_datetime, customer_name, phone_number, pickup_location,
+        destination, assistance_type, stair_assistance, equipment_rental,
+        round_trip, total_price, status, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      id, reservationDatetime, customerName, phoneNumber, pickupLocation,
+      destination, assistanceType, stairAssistance, equipmentRental,
+      roundTrip, Number.isFinite(totalPrice) ? Math.round(totalPrice) : 0, status, createdAt
+    ).run();
+    return ok({ id, reservation_id: id, created_at: createdAt });
+  }
+  return null;
+}
+
 export default {
   async fetch(request, env) {
     try {
@@ -366,6 +590,23 @@ export default {
             'Access-Control-Max-Age': '86400'
           }
         });
+      }
+
+      const action = String(url.searchParams.get('action') || '').trim();
+      if (request.method === 'GET' && action) {
+        const res = await handleActionGet(action, url, env);
+        if (res) return res;
+      }
+      if (request.method === 'POST') {
+        try{
+          const raw = await request.clone().text();
+          const body = raw ? JSON.parse(raw) : {};
+          const actionPost = String(body && body.action || '').trim();
+          if (actionPost){
+            const res = await handleActionPost(actionPost, body && body.payload ? body.payload : {}, env);
+            if (res) return res;
+          }
+        }catch(_){ }
       }
 
       if (request.method === 'GET' && path === '/init') {
@@ -448,62 +689,8 @@ export default {
       }
 
       if (request.method === 'POST' && path === '/create') {
-        const body = await request.json();
-
-        const id = String(body && (body.id || body.reservation_id) || crypto.randomUUID()).trim();
-        const reservationDatetime = String(body && body.reservation_datetime || '').trim();
-        const customerName = String(body && (body.customer_name || body.name) || '').trim();
-        const phoneNumber = String(body && (body.phone_number || body.phone) || '').trim();
-        const pickupLocation = String(body && (body.pickup_location || body.pickup) || '').trim();
-        const destination = String(body && body.destination || '').trim();
-        const assistanceType = String(body && body.assistance_type || '').trim();
-        const stairAssistance = String(body && body.stair_assistance || '').trim();
-        const equipmentRental = String(body && body.equipment_rental || '').trim();
-        const roundTrip = String(body && body.round_trip || '').trim();
-        const totalPrice = Number(body && body.total_price || 0);
-        const status = String(body && body.status || '未対応').trim();
-        const createdAt = new Date().toISOString();
-
-        if (!reservationDatetime) return ng('reservation_datetime is required', 400);
-        if (!customerName) return ng('customer_name is required', 400);
-
-        await env.DB.prepare(`
-          INSERT INTO reservations (
-            id,
-            reservation_datetime,
-            customer_name,
-            phone_number,
-            pickup_location,
-            destination,
-            assistance_type,
-            stair_assistance,
-            equipment_rental,
-            round_trip,
-            total_price,
-            status,
-            created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).bind(
-          id,
-          reservationDatetime,
-          customerName,
-          phoneNumber,
-          pickupLocation,
-          destination,
-          assistanceType,
-          stairAssistance,
-          equipmentRental,
-          roundTrip,
-          Number.isFinite(totalPrice) ? Math.round(totalPrice) : 0,
-          status,
-          createdAt
-        ).run();
-
-        return ok({
-          id,
-          reservation_id: id,
-          created_at: createdAt
-        });
+        const restCreate = await exportDefaultFetch(request, env, false);
+        if (restCreate) return restCreate;
       }
 
       if (request.method === 'POST' && path === '/verify') {

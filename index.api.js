@@ -1,6 +1,6 @@
 const ADMIN_ICON_FILE_ID = '1a0QB8ei00w_lSfL4PnF_xuEFUC2JP6FW';
 const API_BASE = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
-const GAS_AUTH_URL = "https://script.google.com/macros/s/AKfycbyFKoCd64H2d5E8ExCrPRwG_g4shqlgHefgQYZrJ6HVOY5t5lwRVZ3UaXfYXIqNkCra/exec";
+const GAS_AUTH_URL = API_BASE;
 const ADMIN_PAGE_URL = "admin.html";
 
 function toast(msg='通信エラー', ms=2200){
@@ -122,6 +122,7 @@ async function _workersPost(path, payload, retryCount = 1, timeoutMs = 20000){
 
 async function _gasVerifyAdminPassword(payload, timeoutMs = 20000, retryCount = 1){
   let lastError = null;
+
   for (let i = 0; i <= retryCount; i++){
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = setTimeout(()=>{
@@ -161,8 +162,6 @@ async function _gasVerifyAdminPassword(payload, timeoutMs = 20000, retryCount = 
       clearTimeout(timer);
     }
   }
-  throw lastError || new Error('通信エラー');
-}
 
   throw lastError || new Error('認証通信エラー');
 }
@@ -211,8 +210,54 @@ async function _gasGet(action, params = {}, timeoutMs = 20000, retryCount = 1){
       clearTimeout(timer);
     }
   }
+  throw lastError || new Error('通信エラー');
+}
 
   throw lastError || new Error('GET通信エラー');
+}
+
+async function _gasPost(action, payload = {}, timeoutMs = 20000, retryCount = 1){
+  let lastError = null;
+
+  for (let i = 0; i <= retryCount; i++){
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = setTimeout(()=>{
+      try{ if (controller) controller.abort(); }catch(_){ }
+    }, timeoutMs);
+
+    try{
+      const res = await fetch(GAS_AUTH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: String(action || ''),
+          payload: payload || {}
+        }),
+        signal: controller ? controller.signal : undefined
+      });
+
+      if (!res.ok) throw new Error(`POST ${res.status}`);
+      const text = await res.text();
+      try{
+        return JSON.parse(text);
+      }catch(_){
+        throw new Error('POST応答の解析に失敗しました');
+      }
+    }catch(err){
+      if (String(err && err.name || '') === 'AbortError') {
+        lastError = new Error('POST timeout');
+      } else {
+        lastError = err;
+      }
+      if (i < retryCount){
+        await sleep(500 + (i * 400));
+      }
+    }finally{
+      clearTimeout(timer);
+    }
+  }
+
+  throw lastError || new Error('POST通信エラー');
 }
 
 function _safeArray(v){
@@ -296,7 +341,7 @@ const gsRun = async (func, ...args) => {
       }, 20000));
 
     } else if (func === 'api_createReservation') {
-      data = _normalizeCreatePacket(await _workersPost('/create', args[0] || {}, 1, 20000));
+      data = _normalizeCreatePacket(await _gasPost('createReservation', args[0] || {}, 20000, 1));
 
     } else if (func === 'api_getDriveImageDataUrl') {
       data = { isOk: true, data: { data_url: '' } };
