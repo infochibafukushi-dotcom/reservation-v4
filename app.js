@@ -1,110 +1,103 @@
-const CONFIG = {
-  logoUrl: "logo.png"
-};
+let week = 0;
+let full = false;
 
-let weekOffset = 0;
-let fullMode = false;
+function getDates(){
+  let base = new Date();
+  base.setHours(0,0,0,0);
+  base.setDate(base.getDate()+week*7);
 
-function getTodayStart(){
-  const d = new Date();
-  d.setHours(0,0,0,0);
-  return d;
-}
-
-function formatYMD(d){
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,'0');
-  const day = String(d.getDate()).padStart(2,'0');
-  return `${y}-${m}-${day}`;
-}
-
-function jpLabel(d){
-  const w = ['日','月','火','水','木','金','土'];
-  return `${d.getMonth()+1}/${d.getDate()}(${w[d.getDay()]})`;
-}
-
-function buildDates(){
-  const today = getTodayStart();
-  const start = new Date(today);
-  start.setDate(today.getDate() + (weekOffset * 7));
-  const dates = [];
+  let arr=[];
   for(let i=0;i<7;i++){
-    const d = new Date(start);
-    d.setDate(start.getDate()+i);
-    dates.push(d);
+    let d=new Date(base);
+    d.setDate(base.getDate()+i);
+    arr.push(d);
   }
-  return dates;
+  return arr;
 }
 
-function buildTimes(){
-  const times = [];
-  if(fullMode){
-    for(let h=0; h<24; h++){
-      times.push(`${String(h).padStart(2,'0')}:00`);
-      times.push(`${String(h).padStart(2,'0')}:30`);
+function getTimes(){
+  let arr=[];
+  if(full){
+    for(let h=0;h<24;h++){
+      arr.push(h+":00");
+      arr.push(h+":30");
     }
   }else{
-    for(let h=6; h<=21; h++){
-      times.push(`${String(h).padStart(2,'0')}:00`);
-      if(h < 21) times.push(`${String(h).padStart(2,'0')}:30`);
+    for(let h=6;h<=21;h++){
+      arr.push(h+":00");
+      if(h<21) arr.push(h+":30");
     }
   }
-  return times;
+  return arr;
 }
 
-function isPast(dateObj, time){
-  const [hh, mm] = time.split(':').map(Number);
-  const slot = new Date(dateObj);
-  slot.setHours(hh, mm, 0, 0);
-  return slot.getTime() < Date.now();
+function isPast(d,t){
+  let [h,m]=t.split(":").map(Number);
+  let dt=new Date(d);
+  dt.setHours(h,m);
+  return dt < new Date();
 }
 
 function render(){
-  const dates = buildDates();
-  const times = buildTimes();
+  let dates=getDates();
+  let times=getTimes();
+  let table=document.getElementById("calendar");
 
-  document.getElementById('logo').src = CONFIG.logoUrl;
+  document.getElementById("range").innerText=
+    dates[0].toLocaleDateString()+"〜"+dates[6].toLocaleDateString();
 
-  document.getElementById('weekLabel').textContent =
-    `${dates[0].getMonth()+1}/${dates[0].getDate()}〜${dates[6].getMonth()+1}/${dates[6].getDate()}`;
+  table.innerHTML="";
 
-  document.getElementById('toggleModeBtn').textContent = fullMode ? '通常時間' : '深夜早朝';
+  let tr=document.createElement("tr");
+  tr.innerHTML="<th></th>";
+  dates.forEach(d=>{
+    let th=document.createElement("th");
+    th.innerText=(d.getMonth()+1)+"/"+d.getDate();
+    if(d.getDay()==0) th.classList.add("sun");
+    if(d.getDay()==6) th.classList.add("sat");
+    tr.appendChild(th);
+  });
+  table.appendChild(tr);
 
-  const head = document.getElementById('calendarHead');
-  head.innerHTML = `
-    <tr>
-      <th class="time-head"></th>
-      ${dates.map(d => `<th class="date-head">${jpLabel(d)}</th>`).join('')}
-    </tr>
-  `;
+  times.forEach(t=>{
+    let tr=document.createElement("tr");
+    let timeTd=document.createElement("td");
+    timeTd.innerText=t;
+    tr.appendChild(timeTd);
 
-  const body = document.getElementById('calendarBody');
-  body.innerHTML = times.map(t => `
-    <tr>
-      <td class="time-cell">${t}</td>
-      ${dates.map(d => {
-        const blocked = isPast(d, t);
-        return `<td><button type="button" class="slot-btn ${blocked ? 'slot-ng' : 'slot-ok'}">${blocked ? '×' : '○'}</button></td>`;
-      }).join('')}
-    </tr>
-  `).join('');
+    dates.forEach(d=>{
+      let td=document.createElement("td");
+      if(d.getDay()==0) td.classList.add("sun");
+      if(d.getDay()==6) td.classList.add("sat");
+
+      let btn=document.createElement("button");
+      btn.classList.add("slot");
+
+      btn.classList.add("loading-slot");
+      btn.innerText="◎";
+
+      setTimeout(()=>{
+        let blocked=isPast(d,t);
+        btn.classList.remove("loading-slot");
+        if(blocked){
+          btn.classList.add("ng-slot");
+          btn.innerText="×";
+        }else{
+          btn.classList.add("ok-slot");
+          btn.innerText="◎";
+        }
+      },300);
+
+      td.appendChild(btn);
+      tr.appendChild(td);
+    });
+
+    table.appendChild(tr);
+  });
 }
 
-document.getElementById('prevBtn').addEventListener('click', ()=>{
-  if(weekOffset > 0){
-    weekOffset -= 1;
-    render();
-  }
-});
-
-document.getElementById('nextBtn').addEventListener('click', ()=>{
-  weekOffset += 1;
-  render();
-});
-
-document.getElementById('toggleModeBtn').addEventListener('click', ()=>{
-  fullMode = !fullMode;
-  render();
-});
+document.getElementById("prev").onclick=()=>{if(week>0){week--;render();}}
+document.getElementById("next").onclick=()=>{week++;render();}
+document.getElementById("mode").onclick=()=>{full=!full;render();}
 
 render();
