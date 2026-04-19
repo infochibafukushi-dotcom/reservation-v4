@@ -38,10 +38,15 @@ function selectDate(date) {
   let html = `<h3>${date}</h3>`;
 
   for (let h = 8; h <= 18; h++) {
-    const time = (h < 10 ? "0" : "") + h + ":00";
+    const time = String(h).padStart(2, "0") + ":00";
 
-    const isReserved = state.reservations.some(r => r.reservation_datetime === date + " " + time);
-    const isBlocked = state.blocks.some(b => b.date === date && b.time === time);
+    const isReserved = state.reservations.some(r =>
+      r.reservation_datetime.includes(date + " " + time)
+    );
+
+    const isBlocked = state.blocks.some(b =>
+      b.date === date && b.time === time
+    );
 
     if (isReserved || isBlocked) {
       html += `<div>${time} ×</div>`;
