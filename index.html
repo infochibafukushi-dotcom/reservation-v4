@@ -1,15 +1,214 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>予約ページ</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>予約ページ</title>
+
+<style>
+body {
+  font-family: sans-serif;
+  background:#f5f5f5;
+  margin:0;
+}
+.container {
+  max-width:420px;
+  margin:auto;
+  background:#fff;
+  min-height:100vh;
+  padding:16px;
+}
+h2 { margin:10px 0; }
+
+.btn {
+  display:block;
+  width:100%;
+  padding:14px;
+  margin:8px 0;
+  border:none;
+  border-radius:10px;
+  background:#06C755;
+  color:#fff;
+  font-size:16px;
+}
+
+.btn-outline {
+  background:#fff;
+  color:#333;
+  border:1px solid #ccc;
+}
+
+.hidden { display:none; }
+
+.slot {
+  display:block;
+  padding:10px;
+  margin:5px 0;
+  border-radius:8px;
+  background:#eee;
+}
+
+.slot.ok { background:#06C755; color:#fff; }
+.slot.ng { background:#ccc; }
+
+input, select {
+  width:100%;
+  padding:10px;
+  margin:6px 0;
+  border-radius:6px;
+  border:1px solid #ccc;
+}
+</style>
 </head>
+
 <body>
+<div class="container">
 
-<h1>予約ページ</h1>
+<!-- STEP1 -->
+<div id="step1">
+  <h2>日時選択</h2>
+  <div id="dates"></div>
+  <div id="slots"></div>
+</div>
 
-<div id="app">読み込み中...</div>
+<!-- STEP2 -->
+<div id="step2" class="hidden">
+  <h2>サービス選択</h2>
 
-<script src="app.js"></script>
+  <p>基本（必須）</p>
+  <button class="btn" onclick="selectBase('片道')">片道（60分）</button>
+  <button class="btn" onclick="selectBase('往復')">往復（120分）</button>
+
+  <p>オプション（任意）</p>
+  <button class="btn-outline btn" onclick="toggleOption('待機')">待機</button>
+  <button class="btn-outline btn" onclick="toggleOption('付き添い')">付き添い</button>
+
+  <button class="btn" onclick="goForm()">次へ</button>
+</div>
+
+<!-- STEP3 -->
+<div id="step3" class="hidden">
+  <h2>予約フォーム</h2>
+
+  <div id="summary"></div>
+
+  <input id="name" placeholder="名前">
+  <input id="phone" placeholder="電話番号">
+  <input id="from" placeholder="出発地">
+  <input id="to" placeholder="行き先">
+
+  <button class="btn" onclick="submit()">予約する</button>
+</div>
+
+<!-- STEP4 -->
+<div id="step4" class="hidden">
+  <h2>ご予約ありがとう</h2>
+  <p id="result"></p>
+</div>
+
+</div>
+
+<script>
+const API = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
+
+let state = {
+  date:"",
+  time:"",
+  base:"",
+  options:[]
+};
+
+// 日付生成
+const datesDiv = document.getElementById("dates");
+for(let i=0;i<7;i++){
+  let d = new Date();
+  d.setDate(d.getDate()+i);
+  let str = d.toISOString().slice(0,10);
+  let btn = document.createElement("button");
+  btn.className="btn-outline btn";
+  btn.innerText=str;
+  btn.onclick=()=>loadSlots(str);
+  datesDiv.appendChild(btn);
+}
+
+async function loadSlots(date){
+  state.date = date;
+  const res = await fetch(API+"/api/getReservations");
+  const data = await res.json();
+
+  const slotsDiv = document.getElementById("slots");
+  slotsDiv.innerHTML="";
+
+  for(let h=6;h<=18;h++){
+    let time = (h<10?"0":"")+h+":00";
+    let datetime = date+" "+time;
+
+    let booked = data.find(r=>r.reservation_datetime===datetime);
+
+    let div = document.createElement("div");
+    div.className="slot "+(booked?"ng":"ok");
+    div.innerText=time;
+
+    if(!booked){
+      div.onclick=()=>{
+        state.time = time;
+        showStep(2);
+      }
+    }
+
+    slotsDiv.appendChild(div);
+  }
+}
+
+function selectBase(type){
+  state.base = type;
+}
+
+function toggleOption(opt){
+  if(state.options.includes(opt)){
+    state.options = state.options.filter(o=>o!==opt);
+  }else{
+    state.options.push(opt);
+  }
+}
+
+function goForm(){
+  showStep(3);
+
+  document.getElementById("summary").innerHTML =
+    "日時："+state.date+" "+state.time+"<br>" +
+    "内容："+state.base+" "+state.options.join(",");
+}
+
+function showStep(n){
+  ["step1","step2","step3","step4"].forEach((id,i)=>{
+    document.getElementById(id).classList.toggle("hidden", i!==n-1);
+  });
+}
+
+async function submit(){
+
+  let type = state.base;
+  if(state.options.length>0) type="往復";
+
+  await fetch(API+"/api/createReservation",{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      datetime: state.date+" "+state.time,
+      name: document.getElementById("name").value,
+      phone: document.getElementById("phone").value,
+      from: document.getElementById("from").value,
+      to: document.getElementById("to").value,
+      type: type
+    })
+  });
+
+  showStep(4);
+  document.getElementById("result").innerText =
+    state.date+" "+state.time;
+}
+</script>
+
 </body>
 </html>
