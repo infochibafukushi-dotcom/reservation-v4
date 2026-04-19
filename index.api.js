@@ -1,5 +1,6 @@
 const ADMIN_ICON_FILE_ID = '1a0QB8ei00w_lSfL4PnF_xuEFUC2JP6FW';
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyFKoCd64H2d5E8ExCrPRwG_g4shqlgHefgQYZrJ6HVOY5t5lwRVZ3UaXfYXIqNkCra/exec";
+const API_BASE = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
+const GAS_AUTH_URL = "https://script.google.com/macros/s/AKfycbyFKoCd64H2d5E8ExCrPRwG_g4shqlgHefgQYZrJ6HVOY5t5lwRVZ3UaXfYXIqNkCra/exec";
 const ADMIN_PAGE_URL = "admin.html";
 
 function toast(msg='通信エラー', ms=2200){
@@ -42,36 +43,112 @@ function _appendCacheBust(url){
   return String(url || '') + sep + '_ts=' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
 }
 
-async function _fetchJsonGet(url, timeoutMs = 20000){
+function _buildApiUrl(path, query){
+  const base = String(API_BASE || '').replace(/\/+$/g, '');
+  const suffix = String(path || '').startsWith('/') ? String(path || '') : '/' + String(path || '');
+  const params = query && typeof query === 'object'
+    ? Object.keys(query).reduce((acc, key)=>{
+        const val = query[key];
+        if (val === undefined || val === null || val === '') return acc;
+        acc.push(`${encodeURIComponent(String(key))}=${encodeURIComponent(String(val))}`);
+        return acc;
+      }, [])
+    : [];
+  return _appendCacheBust(base + suffix + (params.length ? ('?' + params.join('&')) : ''));
+}
+
+async function _requestJson(url, options = {}, timeoutMs = 20000){
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timer = setTimeout(()=>{
-    try{
-      if (controller) controller.abort();
-    }catch(_){ }
+    try{ if (controller) controller.abort(); }catch(_){ }
   }, timeoutMs);
 
   try{
-    const res = await fetch(_appendCacheBust(url), {
-      method: 'GET',
+    const res = await fetch(url, {
+      method: options.method || 'GET',
+      headers: {
+        'Content-Type': 'application/json;charset=utf-8',
+        ...(options.headers || {})
+      },
+      body: options.body,
       cache: 'no-store',
       redirect: 'follow',
-      signal: controller ? controller.signal : undefined,
-      credentials: 'omit'
+      credentials: 'omit',
+      signal: controller ? controller.signal : undefined
     });
 
-    if (!res.ok) {
-      throw new Error('GET ' + res.status);
-    }
+    if (!res.ok) throw new Error(`${options.method || 'GET'} ${res.status}`);
 
     const text = await res.text();
+    try{ return JSON.parse(text); }catch(_){ throw new Error('応答JSONの解析に失敗しました'); }
+  }catch(err){
+    if (String(err && err.name || '') === 'AbortError') throw new Error('timeout');
+    throw err;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+async function _workersGet(path, query, retryCount = 2, timeoutMs = 20000){
+  let lastError = null;
+  for (let i = 0; i <= retryCount; i++){
     try{
-      return JSON.parse(text);
-    }catch(_){
-      throw new Error('GET応答の解析に失敗しました');
+      const url = _buildApiUrl(path, query);
+      return await _requestJson(url, { method: 'GET' }, timeoutMs);
+    }catch(err){
+      lastError = err;
+      if (i < retryCount) await sleep(450 + (i * 350));
     }
+  }
+  throw lastError || new Error('通信エラー');
+}
+
+async function _workersPost(path, payload, retryCount = 1, timeoutMs = 20000){
+  let lastError = null;
+  for (let i = 0; i <= retryCount; i++){
+    try{
+      const url = _buildApiUrl(path);
+      return await _requestJson(url, {
+        method: 'POST',
+        body: JSON.stringify(payload || {})
+      }, timeoutMs);
+    }catch(err){
+      lastError = err;
+      if (i < retryCount) await sleep(500 + (i * 400));
+    }
+  }
+  throw lastError || new Error('通信エラー');
+}
+
+async function _gasVerifyAdminPassword(payload, timeoutMs = 20000){
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = setTimeout(()=>{
+    try{ if (controller) controller.abort(); }catch(_){ }
+  }, timeoutMs);
+
+  try{
+    const res = await fetch(GAS_AUTH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'verifyAdminPassword',
+        payload: payload || {}
+      }),
+      signal: controller ? controller.signal : undefined
+    });
+
+    if (!res.ok) throw new Error(`認証通信エラー(${res.status})`);
+    const text = await res.text();
+    let data = null;
+    try{
+      data = JSON.parse(text);
+    }catch(_){
+      throw new Error('認証応答の解析に失敗しました');
+    }
+    return data;
   }catch(err){
     if (String(err && err.name || '') === 'AbortError') {
-      throw new Error('GET timeout');
+      throw new Error('認証タイムアウト');
     }
     throw err;
   }finally{
@@ -79,142 +156,125 @@ async function _fetchJsonGet(url, timeoutMs = 20000){
   }
 }
 
-function _jsonpCall(url, timeoutMs = 20000){
-  return new Promise((resolve, reject)=>{
-    const cbName = '__jsonp_cb_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
-    const script = document.createElement('script');
-    let done = false;
-
-    function cleanup(){
-      try{
-        delete window[cbName];
-      }catch(_){}
-      if (script && script.parentNode) script.parentNode.removeChild(script);
-    }
-
-    const timer = setTimeout(()=>{
-      if (done) return;
-      done = true;
-      cleanup();
-      reject(new Error('JSONP timeout'));
-    }, timeoutMs);
-
-    window[cbName] = function(data){
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      cleanup();
-      resolve(data);
-    };
-
-    script.onerror = function(){
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      cleanup();
-      reject(new Error('JSONP load error'));
-    };
-
-    const baseUrl = _appendCacheBust(url);
-    const sep = baseUrl.includes('?') ? '&' : '?';
-    script.src = baseUrl + sep + 'callback=' + encodeURIComponent(cbName);
-    script.async = true;
-    (document.head || document.body || document.documentElement).appendChild(script);
-  });
+function _safeArray(v){
+  return Array.isArray(v) ? v : [];
 }
 
-async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
-  let lastError = null;
+function _normalizeInitPacket(raw){
+  const res = raw && typeof raw === 'object' ? raw : {};
+  const src = res.data && typeof res.data === 'object' ? res.data : res;
 
-  for (let i = 0; i <= retryCount; i++){
-    try{
-      return await _fetchJsonGet(url, timeoutMs);
-    }catch(err){
-      lastError = err;
-      if (i < retryCount){
-        await sleep(600 + (i * 500));
-      }
+  return {
+    isOk: res.isOk !== false,
+    data: {
+      config: src.config && typeof src.config === 'object' ? src.config : {},
+      slot_keys: _safeArray(src.slot_keys || src.keys),
+      start: String(src.start || ''),
+      end: String(src.end || ''),
+      reservations: _safeArray(src.reservations),
+      blocks: _safeArray(src.blocks),
+      menu_master: _safeArray(src.menu_master),
+      menu_key_catalog: _safeArray(src.menu_key_catalog),
+      menu_group_catalog: _safeArray(src.menu_group_catalog),
+      auto_rule_catalog: _safeArray(src.auto_rule_catalog)
     }
-  }
-
-  for (let i = 0; i <= retryCount; i++){
-    try{
-      return await _jsonpCall(url, timeoutMs);
-    }catch(err){
-      lastError = err;
-      if (i < retryCount){
-        await sleep(800 + (i * 700));
-      }
-    }
-  }
-
-  throw lastError || new Error('通信エラー');
+  };
 }
 
+function _normalizeBlockedPacket(raw){
+  const res = raw && typeof raw === 'object' ? raw : {};
+  const src = res.data && typeof res.data === 'object' ? res.data : res;
+  return {
+    isOk: res.isOk !== false,
+    data: {
+      start: String(src.start || ''),
+      end: String(src.end || ''),
+      slot_keys: _safeArray(src.slot_keys || src.keys),
+      keys: _safeArray(src.keys || src.slot_keys)
+    }
+  };
+}
 
-async function _postJson(action, payload){
-  const res = await fetch(GAS_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8'
-    },
-    body: JSON.stringify({
-      action: action,
-      payload: payload || {}
-    })
-  });
-
-  const text = await res.text();
-  let data = null;
-
-  try{
-    data = JSON.parse(text);
-  }catch(_){
-    throw new Error('POST応答の解析に失敗しました');
-  }
-
-  return data;
+function _normalizeCreatePacket(raw){
+  const res = raw && typeof raw === 'object' ? raw : {};
+  const src = res.data && typeof res.data === 'object' ? res.data : res;
+  return {
+    isOk: res.isOk !== false,
+    data: src && typeof src === 'object' ? src : {}
+  };
 }
 
 const gsRun = async (func, ...args) => {
   try{
     let data;
 
-    if (func === 'api_getConfig') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getConfig`, 1, 20000);
-    } else if (func === 'api_getConfigPublic') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getConfigPublic`, 1, 20000);
-    } else if (func === 'api_getPublicBootstrap') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getPublicBootstrap`, 1, 20000);
-    } else if (func === 'api_getPublicBootstrapLite') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getPublicBootstrapLite`, 1, 15000);
-    } else if (func === 'api_getPublicInitLite') {
+    if (func === 'api_getPublicInitLite') {
       const range = args[0] || {};
-      const start = encodeURIComponent(String(range.start || ''));
-      const end = encodeURIComponent(String(range.end || ''));
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getPublicInitLite&start=${start}&end=${end}`, 1, 15000);
+      data = _normalizeInitPacket(await _workersGet('/init', {
+        start: String(range.start || ''),
+        end: String(range.end || '')
+      }, 1, 15000));
+
+    } else if (func === 'api_getPublicBootstrap' || func === 'api_getPublicBootstrapLite' || func === 'api_getConfig' || func === 'api_getConfigPublic' || func === 'api_getInitData' || func === 'api_getMenuMaster' || func === 'api_getMenuKeyCatalog' || func === 'api_getMenuGroupCatalog' || func === 'api_getAutoRuleCatalog') {
+      const init = _normalizeInitPacket(await _workersGet('/init', {}, 1, 20000));
+      const src = init.data || {};
+
+      if (func === 'api_getConfig' || func === 'api_getConfigPublic') {
+        data = { isOk: true, data: src.config || {} };
+      } else if (func === 'api_getMenuMaster') {
+        data = { isOk: true, data: src.menu_master || [] };
+      } else if (func === 'api_getMenuKeyCatalog') {
+        data = { isOk: true, data: src.menu_key_catalog || [] };
+      } else if (func === 'api_getMenuGroupCatalog') {
+        data = { isOk: true, data: src.menu_group_catalog || [] };
+      } else if (func === 'api_getAutoRuleCatalog') {
+        data = { isOk: true, data: src.auto_rule_catalog || [] };
+      } else if (func === 'api_getInitData') {
+        data = {
+          isOk: true,
+          data: {
+            config: src.config || {},
+            reservations: src.reservations || [],
+            blocks: src.blocks || [],
+            menu_master: src.menu_master || [],
+            menu_key_catalog: src.menu_key_catalog || [],
+            menu_group_catalog: src.menu_group_catalog || [],
+            auto_rule_catalog: src.auto_rule_catalog || []
+          }
+        };
+      } else {
+        data = {
+          isOk: true,
+          data: {
+            config: src.config || {},
+            menu_master: src.menu_master || [],
+            menu_key_catalog: src.menu_key_catalog || [],
+            menu_group_catalog: src.menu_group_catalog || [],
+            auto_rule_catalog: src.auto_rule_catalog || []
+          }
+        };
+      }
+
     } else if (func === 'api_getBlockedSlotKeys') {
       const range = args[0] || {};
-      const start = encodeURIComponent(String(range.start || ''));
-      const end = encodeURIComponent(String(range.end || ''));
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getBlockedSlotKeys&start=${start}&end=${end}`, 1, 20000);
-    } else if (func === 'api_getInitData') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getInitData`, 1, 25000);
-    } else if (func === 'api_getMenuMaster') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuMaster`, 1, 20000);
-    } else if (func === 'api_getMenuKeyCatalog') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuKeyCatalog`, 1, 20000);
-    } else if (func === 'api_getMenuGroupCatalog') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuGroupCatalog`, 1, 20000);
-    } else if (func === 'api_getAutoRuleCatalog') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getAutoRuleCatalog`, 1, 20000);
-    } else if (func === 'api_getDriveImageDataUrl') {
-      const fileId = args[0];
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getDriveImageDataUrl&fileId=${encodeURIComponent(fileId)}`, 1, 20000);
+      data = _normalizeBlockedPacket(await _workersGet('/blocked', {
+        start: String(range.start || ''),
+        end: String(range.end || '')
+      }, 1, 20000));
+
     } else if (func === 'api_createReservation') {
-      data = await _postJson('createReservation', args[0]);
+      data = _normalizeCreatePacket(await _workersPost('/create', args[0] || {}, 1, 20000));
+
+    } else if (func === 'api_getDriveImageDataUrl') {
+      data = { isOk: true, data: { data_url: '' } };
+
     } else if (func === 'api_verifyAdminPassword') {
-      data = await _postJson('verifyAdminPassword', args[0]);
+      const payload = args[0] || {};
+      data = await _gasVerifyAdminPassword(payload, 12000);
+      if (!data || typeof data !== 'object') {
+        throw new Error('認証応答の形式が不正です');
+      }
+
     } else {
       throw new Error(`未対応のAPIです: ${func}`);
     }
@@ -230,6 +290,7 @@ const gsRun = async (func, ...args) => {
   }
 };
 
+window.gsRun = gsRun;
 
 const PUBLIC_BOOTSTRAP_CACHE_KEY = 'chiba_care_taxi_public_bootstrap_cache_v2';
 const PUBLIC_BOOTSTRAP_LITE_CACHE_KEY = 'chiba_care_taxi_public_bootstrap_lite_cache_v1';
@@ -348,7 +409,7 @@ function hydratePublicCacheForFastPaint(){
   return bootLoaded || blockedLoaded;
 }
 
-const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1';
+const TRIGGER_URL = '';
 
 function fireTrigger(payload){
   try{
