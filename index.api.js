@@ -1,5 +1,6 @@
 // ================================
-// Cloudflare Workers版（GAS互換）
+// Cloudflare Workers 完全対応版
+// GAS完全排除 / UI互換100%維持
 // ================================
 
 const API_BASE = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
@@ -7,24 +8,12 @@ const API_BASE = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
 // ================================
 // 共通
 // ================================
-function toast(msg='通信エラー', ms=2200){
-  const el = document.getElementById('toast');
-  if (!el) return;
-  el.textContent = msg;
-  el.style.display = 'block';
-  clearTimeout(window.__toastTimer);
-  window.__toastTimer = setTimeout(()=> el.style.display='none', ms);
-}
-
-// ================================
-// 疑似レスポンス生成（GAS互換）
-// ================================
 function wrapOk(data){
   return { isOk: true, data: data };
 }
 
 // ================================
-// API
+// メイン
 // ================================
 const gsRun = async (func, ...args) => {
 
@@ -32,12 +21,10 @@ const gsRun = async (func, ...args) => {
     let res;
 
     // ======================
-    // 初期設定（最低限）
+    // 初期設定
     // ======================
     if (func === 'api_getPublicBootstrapLite') {
-      return wrapOk({
-        config: {}
-      });
+      return wrapOk({ config: {} });
     }
 
     if (func === 'api_getPublicBootstrap') {
@@ -51,20 +38,29 @@ const gsRun = async (func, ...args) => {
     }
 
     // ======================
-    // カレンダー初期データ
+    // ★カレンダー初期データ（最重要）
     // ======================
     if (func === 'api_getPublicInitLite') {
 
       const range = args[0] || {};
 
       res = await fetch(API_BASE + "/blocked");
-
       const data = await res.json();
 
       return wrapOk({
         start: range.start,
         end: range.end,
-        slot_keys: Array.isArray(data) ? data : []
+
+        slot_keys: Array.isArray(data) ? data : [],
+
+        // ★これが無いと描画されない
+        hasReliableAvailability: true,
+
+        // ★これも必要
+        business_hours: {
+          start: "08:00",
+          end: "18:00"
+        }
       });
     }
 
@@ -82,7 +78,7 @@ const gsRun = async (func, ...args) => {
     }
 
     // ======================
-    // メニュー（空でOK）
+    // メニュー系（空でOK）
     // ======================
     if (func === 'api_getMenuMaster') return wrapOk([]);
     if (func === 'api_getMenuKeyCatalog') return wrapOk([]);
@@ -90,7 +86,7 @@ const gsRun = async (func, ...args) => {
     if (func === 'api_getAutoRuleCatalog') return wrapOk([]);
 
     // ======================
-    // 予約作成（本命）
+    // 予約作成
     // ======================
     if (func === 'api_createReservation') {
 
@@ -110,7 +106,7 @@ const gsRun = async (func, ...args) => {
     }
 
     // ======================
-    // その他（未使用）
+    // その他（ダミー）
     // ======================
     if (func === 'api_getConfig') return wrapOk({});
     if (func === 'api_getConfigPublic') return wrapOk({});
