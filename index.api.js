@@ -210,6 +210,8 @@ async function _gasGet(action, params = {}, timeoutMs = 20000, retryCount = 1){
       clearTimeout(timer);
     }
   }
+  throw lastError || new Error('通信エラー');
+}
 
   throw lastError || new Error('GET通信エラー');
 }
