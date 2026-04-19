@@ -37,7 +37,7 @@ function renderCalendar() {
 function selectDate(date) {
   let html = `<h3>${date}</h3>`;
 
-  for (let h = 8; h <= 18; h++) {
+  for (let h = 6; h <= 18; h++) {
     const time = String(h).padStart(2, "0") + ":00";
 
     const isReserved = state.reservations.some(r =>
