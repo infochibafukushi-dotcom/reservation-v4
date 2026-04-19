@@ -120,79 +120,99 @@ async function _workersPost(path, payload, retryCount = 1, timeoutMs = 20000){
   throw lastError || new Error('通信エラー');
 }
 
-async function _gasVerifyAdminPassword(payload, timeoutMs = 20000){
-  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const timer = setTimeout(()=>{
-    try{ if (controller) controller.abort(); }catch(_){ }
-  }, timeoutMs);
+async function _gasVerifyAdminPassword(payload, timeoutMs = 20000, retryCount = 1){
+  let lastError = null;
+  for (let i = 0; i <= retryCount; i++){
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = setTimeout(()=>{
+      try{ if (controller) controller.abort(); }catch(_){ }
+    }, timeoutMs);
 
-  try{
-    const res = await fetch(GAS_AUTH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        action: 'verifyAdminPassword',
-        payload: payload || {}
-      }),
-      signal: controller ? controller.signal : undefined
-    });
-
-    if (!res.ok) throw new Error(`認証通信エラー(${res.status})`);
-    const text = await res.text();
-    let data = null;
     try{
-      data = JSON.parse(text);
-    }catch(_){
-      throw new Error('認証応答の解析に失敗しました');
+      const res = await fetch(GAS_AUTH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'verifyAdminPassword',
+          payload: payload || {}
+        }),
+        signal: controller ? controller.signal : undefined
+      });
+
+      if (!res.ok) throw new Error(`認証通信エラー(${res.status})`);
+      const text = await res.text();
+      let data = null;
+      try{
+        data = JSON.parse(text);
+      }catch(_){
+        throw new Error('認証応答の解析に失敗しました');
+      }
+      return data;
+    }catch(err){
+      if (String(err && err.name || '') === 'AbortError') {
+        lastError = new Error('認証タイムアウト');
+      } else {
+        lastError = err;
+      }
+      if (i < retryCount){
+        await sleep(450 + (i * 350));
+      }
+    }finally{
+      clearTimeout(timer);
     }
-    return data;
-  }catch(err){
-    if (String(err && err.name || '') === 'AbortError') {
-      throw new Error('認証タイムアウト');
-    }
-    throw err;
-  }finally{
-    clearTimeout(timer);
   }
+  throw lastError || new Error('通信エラー');
 }
 
-async function _gasGet(action, params = {}, timeoutMs = 20000){
+  throw lastError || new Error('認証通信エラー');
+}
+
+async function _gasGet(action, params = {}, timeoutMs = 20000, retryCount = 1){
   const query = new URLSearchParams({ action: String(action || '') });
   Object.keys(params || {}).forEach((key)=>{
     const val = params[key];
     if (val === undefined || val === null || val === '') return;
     query.set(String(key), String(val));
   });
-  const url = _appendCacheBust(`${GAS_AUTH_URL}?${query.toString()}`);
 
-  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const timer = setTimeout(()=>{
-    try{ if (controller) controller.abort(); }catch(_){ }
-  }, timeoutMs);
+  let lastError = null;
+  for (let i = 0; i <= retryCount; i++){
+    const url = _appendCacheBust(`${GAS_AUTH_URL}?${query.toString()}`);
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = setTimeout(()=>{
+      try{ if (controller) controller.abort(); }catch(_){ }
+    }, timeoutMs);
 
-  try{
-    const res = await fetch(url, {
-      method: 'GET',
-      cache: 'no-store',
-      redirect: 'follow',
-      credentials: 'omit',
-      signal: controller ? controller.signal : undefined
-    });
-    if (!res.ok) throw new Error(`GET ${res.status}`);
-    const text = await res.text();
     try{
-      return JSON.parse(text);
-    }catch(_){
-      throw new Error('GET応答の解析に失敗しました');
+      const res = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        redirect: 'follow',
+        credentials: 'omit',
+        signal: controller ? controller.signal : undefined
+      });
+      if (!res.ok) throw new Error(`GET ${res.status}`);
+      const text = await res.text();
+      try{
+        return JSON.parse(text);
+      }catch(_){
+        throw new Error('GET応答の解析に失敗しました');
+      }
+    }catch(err){
+      if (String(err && err.name || '') === 'AbortError') {
+        lastError = new Error('GET timeout');
+      } else {
+        lastError = err;
+      }
+      if (i < retryCount){
+        await sleep(500 + (i * 400));
+      }
+    }finally{
+      clearTimeout(timer);
     }
-  }catch(err){
-    if (String(err && err.name || '') === 'AbortError') {
-      throw new Error('GET timeout');
-    }
-    throw err;
-  }finally{
-    clearTimeout(timer);
   }
+
+  throw lastError || new Error('GET通信エラー');
 }
 
 function _safeArray(v){
