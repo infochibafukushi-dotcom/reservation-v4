@@ -49,7 +49,7 @@ function render(){
   table.innerHTML="";
 
   let tr=document.createElement("tr");
-  tr.innerHTML="<th></th>";
+  tr.innerHTML="<th>時間</th>";
   dates.forEach(d=>{
     let th=document.createElement("th");
     th.innerText=(d.getMonth()+1)+"/"+d.getDate();
@@ -62,7 +62,6 @@ function render(){
 
     let timeTd=document.createElement("td");
     timeTd.innerText=t;
-    timeTd.style.fontSize="18px";
     tr.appendChild(timeTd);
 
     dates.forEach(d=>{
