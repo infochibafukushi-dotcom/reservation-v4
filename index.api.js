@@ -156,6 +156,45 @@ async function _gasVerifyAdminPassword(payload, timeoutMs = 20000){
   }
 }
 
+async function _gasGet(action, params = {}, timeoutMs = 20000){
+  const query = new URLSearchParams({ action: String(action || '') });
+  Object.keys(params || {}).forEach((key)=>{
+    const val = params[key];
+    if (val === undefined || val === null || val === '') return;
+    query.set(String(key), String(val));
+  });
+  const url = _appendCacheBust(`${GAS_AUTH_URL}?${query.toString()}`);
+
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = setTimeout(()=>{
+    try{ if (controller) controller.abort(); }catch(_){ }
+  }, timeoutMs);
+
+  try{
+    const res = await fetch(url, {
+      method: 'GET',
+      cache: 'no-store',
+      redirect: 'follow',
+      credentials: 'omit',
+      signal: controller ? controller.signal : undefined
+    });
+    if (!res.ok) throw new Error(`GET ${res.status}`);
+    const text = await res.text();
+    try{
+      return JSON.parse(text);
+    }catch(_){
+      throw new Error('GET応答の解析に失敗しました');
+    }
+  }catch(err){
+    if (String(err && err.name || '') === 'AbortError') {
+      throw new Error('GET timeout');
+    }
+    throw err;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
 function _safeArray(v){
   return Array.isArray(v) ? v : [];
 }
@@ -210,57 +249,31 @@ const gsRun = async (func, ...args) => {
 
     if (func === 'api_getPublicInitLite') {
       const range = args[0] || {};
-      data = _normalizeInitPacket(await _workersGet('/init', {
+      data = _normalizeInitPacket(await _gasGet('getPublicInitLite', {
         start: String(range.start || ''),
         end: String(range.end || '')
-      }, 1, 15000));
+      }, 15000));
 
     } else if (func === 'api_getPublicBootstrap' || func === 'api_getPublicBootstrapLite' || func === 'api_getConfig' || func === 'api_getConfigPublic' || func === 'api_getInitData' || func === 'api_getMenuMaster' || func === 'api_getMenuKeyCatalog' || func === 'api_getMenuGroupCatalog' || func === 'api_getAutoRuleCatalog') {
-      const init = _normalizeInitPacket(await _workersGet('/init', {}, 1, 20000));
-      const src = init.data || {};
-
-      if (func === 'api_getConfig' || func === 'api_getConfigPublic') {
-        data = { isOk: true, data: src.config || {} };
-      } else if (func === 'api_getMenuMaster') {
-        data = { isOk: true, data: src.menu_master || [] };
-      } else if (func === 'api_getMenuKeyCatalog') {
-        data = { isOk: true, data: src.menu_key_catalog || [] };
-      } else if (func === 'api_getMenuGroupCatalog') {
-        data = { isOk: true, data: src.menu_group_catalog || [] };
-      } else if (func === 'api_getAutoRuleCatalog') {
-        data = { isOk: true, data: src.auto_rule_catalog || [] };
-      } else if (func === 'api_getInitData') {
-        data = {
-          isOk: true,
-          data: {
-            config: src.config || {},
-            reservations: src.reservations || [],
-            blocks: src.blocks || [],
-            menu_master: src.menu_master || [],
-            menu_key_catalog: src.menu_key_catalog || [],
-            menu_group_catalog: src.menu_group_catalog || [],
-            auto_rule_catalog: src.auto_rule_catalog || []
-          }
-        };
-      } else {
-        data = {
-          isOk: true,
-          data: {
-            config: src.config || {},
-            menu_master: src.menu_master || [],
-            menu_key_catalog: src.menu_key_catalog || [],
-            menu_group_catalog: src.menu_group_catalog || [],
-            auto_rule_catalog: src.auto_rule_catalog || []
-          }
-        };
-      }
+      const actionMap = {
+        api_getPublicBootstrap: 'getPublicBootstrap',
+        api_getPublicBootstrapLite: 'getPublicBootstrapLite',
+        api_getConfig: 'getConfig',
+        api_getConfigPublic: 'getConfigPublic',
+        api_getInitData: 'getInitData',
+        api_getMenuMaster: 'getMenuMaster',
+        api_getMenuKeyCatalog: 'getMenuKeyCatalog',
+        api_getMenuGroupCatalog: 'getMenuGroupCatalog',
+        api_getAutoRuleCatalog: 'getAutoRuleCatalog'
+      };
+      data = await _gasGet(actionMap[func], {}, 20000);
 
     } else if (func === 'api_getBlockedSlotKeys') {
       const range = args[0] || {};
-      data = _normalizeBlockedPacket(await _workersGet('/blocked', {
+      data = _normalizeBlockedPacket(await _gasGet('getBlockedSlotKeys', {
         start: String(range.start || ''),
         end: String(range.end || '')
-      }, 1, 20000));
+      }, 20000));
 
     } else if (func === 'api_createReservation') {
       data = _normalizeCreatePacket(await _workersPost('/create', args[0] || {}, 1, 20000));
