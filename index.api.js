@@ -231,6 +231,12 @@ async function _gasPost(action, payload = {}, timeoutMs = 20000, retryCount = 1)
 async function _gasPost(action, payload = {}, timeoutMs = 20000, retryCount = 1){
   let lastError = null;
 
+  throw lastError || new Error('GET通信エラー');
+}
+
+async function _gasPost(action, payload = {}, timeoutMs = 20000, retryCount = 1){
+  let lastError = null;
+
   for (let i = 0; i <= retryCount; i++){
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = setTimeout(()=>{
@@ -326,10 +332,17 @@ const gsRun = async (func, ...args) => {
 
     if (func === 'api_getPublicInitLite') {
       const range = args[0] || {};
-      data = _normalizeInitPacket(await _gasGet('getPublicInitLite', {
-        start: String(range.start || ''),
-        end: String(range.end || '')
-      }, 15000));
+      try{
+        data = _normalizeInitPacket(await _gasGet('getPublicInitLite', {
+          start: String(range.start || ''),
+          end: String(range.end || '')
+        }, 15000));
+      }catch(_){
+        data = _normalizeInitPacket(await _workersGet('/init', {
+          start: String(range.start || ''),
+          end: String(range.end || '')
+        }, 1, 15000));
+      }
 
     } else if (func === 'api_getPublicBootstrap' || func === 'api_getPublicBootstrapLite' || func === 'api_getConfig' || func === 'api_getConfigPublic' || func === 'api_getInitData' || func === 'api_getMenuMaster' || func === 'api_getMenuKeyCatalog' || func === 'api_getMenuGroupCatalog' || func === 'api_getAutoRuleCatalog') {
       const actionMap = {
@@ -343,24 +356,79 @@ const gsRun = async (func, ...args) => {
         api_getMenuGroupCatalog: 'getMenuGroupCatalog',
         api_getAutoRuleCatalog: 'getAutoRuleCatalog'
       };
-      data = await _gasGet(actionMap[func], {}, 20000);
+      try{
+        data = await _gasGet(actionMap[func], {}, 20000);
+      }catch(_){
+        const init = _normalizeInitPacket(await _workersGet('/init', {}, 1, 20000));
+        const src = init.data || {};
+        if (func === 'api_getConfig' || func === 'api_getConfigPublic') {
+          data = { isOk: true, data: src.config || {} };
+        } else if (func === 'api_getMenuMaster') {
+          data = { isOk: true, data: src.menu_master || [] };
+        } else if (func === 'api_getMenuKeyCatalog') {
+          data = { isOk: true, data: src.menu_key_catalog || [] };
+        } else if (func === 'api_getMenuGroupCatalog') {
+          data = { isOk: true, data: src.menu_group_catalog || [] };
+        } else if (func === 'api_getAutoRuleCatalog') {
+          data = { isOk: true, data: src.auto_rule_catalog || [] };
+        } else if (func === 'api_getInitData') {
+          data = {
+            isOk: true,
+            data: {
+              config: src.config || {},
+              reservations: src.reservations || [],
+              blocks: src.blocks || [],
+              menu_master: src.menu_master || [],
+              menu_key_catalog: src.menu_key_catalog || [],
+              menu_group_catalog: src.menu_group_catalog || [],
+              auto_rule_catalog: src.auto_rule_catalog || []
+            }
+          };
+        } else {
+          data = {
+            isOk: true,
+            data: {
+              config: src.config || {},
+              menu_master: src.menu_master || [],
+              menu_key_catalog: src.menu_key_catalog || [],
+              menu_group_catalog: src.menu_group_catalog || [],
+              auto_rule_catalog: src.auto_rule_catalog || []
+            }
+          };
+        }
+      }
 
     } else if (func === 'api_getBlockedSlotKeys') {
       const range = args[0] || {};
-      data = _normalizeBlockedPacket(await _gasGet('getBlockedSlotKeys', {
-        start: String(range.start || ''),
-        end: String(range.end || '')
-      }, 20000));
+      try{
+        data = _normalizeBlockedPacket(await _gasGet('getBlockedSlotKeys', {
+          start: String(range.start || ''),
+          end: String(range.end || '')
+        }, 20000));
+      }catch(_){
+        data = _normalizeBlockedPacket(await _workersGet('/blocked', {
+          start: String(range.start || ''),
+          end: String(range.end || '')
+        }, 1, 20000));
+      }
 
     } else if (func === 'api_createReservation') {
-      data = _normalizeCreatePacket(await _gasPost('createReservation', args[0] || {}, 20000, 1));
+      try{
+        data = _normalizeCreatePacket(await _gasPost('createReservation', args[0] || {}, 20000, 1));
+      }catch(_){
+        data = _normalizeCreatePacket(await _workersPost('/create', args[0] || {}, 1, 20000));
+      }
 
     } else if (func === 'api_getDriveImageDataUrl') {
       data = { isOk: true, data: { data_url: '' } };
 
     } else if (func === 'api_verifyAdminPassword') {
       const payload = args[0] || {};
-      data = await _gasVerifyAdminPassword(payload, 12000);
+      try{
+        data = await _gasVerifyAdminPassword(payload, 12000);
+      }catch(_){
+        data = await _workersPost('/verify', payload, 0, 12000);
+      }
       if (!data || typeof data !== 'object') {
         throw new Error('認証応答の形式が不正です');
       }
