@@ -1,214 +1,542 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>予約ページ</title>
-
-<style>
-body {
-  font-family: sans-serif;
-  background:#f5f5f5;
-  margin:0;
-}
-.container {
-  max-width:420px;
-  margin:auto;
-  background:#fff;
-  min-height:100vh;
-  padding:16px;
-}
-h2 { margin:10px 0; }
-
-.btn {
-  display:block;
-  width:100%;
-  padding:14px;
-  margin:8px 0;
-  border:none;
-  border-radius:10px;
-  background:#06C755;
-  color:#fff;
-  font-size:16px;
-}
-
-.btn-outline {
-  background:#fff;
-  color:#333;
-  border:1px solid #ccc;
-}
-
-.hidden { display:none; }
-
-.slot {
-  display:block;
-  padding:10px;
-  margin:5px 0;
-  border-radius:8px;
-  background:#eee;
-}
-
-.slot.ok { background:#06C755; color:#fff; }
-.slot.ng { background:#ccc; }
-
-input, select {
-  width:100%;
-  padding:10px;
-  margin:6px 0;
-  border-radius:6px;
-  border:1px solid #ccc;
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>介護タクシー予約</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #f5f5f5;
+      color: #222;
+    }
+    .wrap {
+      max-width: 440px;
+      margin: 0 auto;
+      min-height: 100vh;
+      background: #fff;
+      padding: 16px;
+    }
+    .title {
+      text-align: center;
+      font-size: 24px;
+      font-weight: 700;
+      margin: 8px 0 20px;
+    }
+    .step { display: none; }
+    .step.active { display: block; }
+    .card {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.04);
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 0 0 12px;
+    }
+    .sub {
+      font-size: 13px;
+      color: #666;
+      margin-top: -6px;
+      margin-bottom: 12px;
+    }
+    .btn, .date-btn, .slot-btn, .accordion-head {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .btn {
+      background: #06C755;
+      color: #fff;
+      font-weight: 700;
+      margin-top: 10px;
+    }
+    .btn.subbtn {
+      background: #fff;
+      color: #333;
+      border: 1px solid #ccc;
+    }
+    .btn[disabled] {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+    .date-list, .slot-list {
+      display: grid;
+      gap: 10px;
+    }
+    .date-btn {
+      background: #fff;
+      border: 1px solid #ddd;
+    }
+    .slot-list {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .slot-btn.ok {
+      background: #06C755;
+      color: #fff;
+      font-weight: 700;
+    }
+    .slot-btn.ng {
+      background: #d9d9d9;
+      color: #777;
+      cursor: not-allowed;
+      font-weight: 700;
+    }
+    .summary {
+      font-size: 14px;
+      line-height: 1.7;
+      background: #f8f8f8;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      margin: 12px 0 6px;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      font-size: 16px;
+      background: #fff;
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    .accordion {
+      border: 1px solid #e5e5e5;
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+    .accordion-head {
+      background: #f8f8f8;
+      color: #222;
+      text-align: left;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .accordion-body {
+      display: none;
+      padding: 12px;
+      border-top: 1px solid #eee;
+    }
+    .accordion.open .accordion-body {
+      display: block;
+    }
+    .top-actions {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .top-actions .btn {
+      margin-top: 0;
+    }
+    .notice {
+      font-size: 13px;
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+    .ok-box {
+      text-align: center;
+      padding: 28px 12px;
+    }
+    .ok-box h2 {
+      margin: 0 0 10px;
+      font-size: 24px;
+    }
+    .ok-box p {
+      margin: 6px 0;
+      line-height: 1.7;
+    }
+    .pill {
+      display: inline-block;
+      background: #f3f3f3;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+      margin: 4px 4px 0 0;
+    }
+  </style>
 </head>
-
 <body>
-<div class="container">
+  <div class="wrap">
+    <div class="title">介護タクシー予約</div>
 
-<!-- STEP1 -->
-<div id="step1">
-  <h2>日時選択</h2>
-  <div id="dates"></div>
-  <div id="slots"></div>
-</div>
+    <div id="step1" class="step active">
+      <div class="card">
+        <div class="section-title">日付選択</div>
+        <div class="sub">ご希望の日付をお選びください</div>
+        <div id="dateList" class="date-list"></div>
+      </div>
+      <div id="slotCard" class="card" style="display:none;">
+        <div class="section-title">時間選択</div>
+        <div id="slotDateLabel" class="sub"></div>
+        <div id="slotList" class="slot-list"></div>
+      </div>
+    </div>
 
-<!-- STEP2 -->
-<div id="step2" class="hidden">
-  <h2>サービス選択</h2>
+    <div id="step2" class="step">
+      <div class="top-actions">
+        <button class="btn subbtn" id="backToStep1">戻る</button>
+      </div>
 
-  <p>基本（必須）</p>
-  <button class="btn" onclick="selectBase('片道')">片道（60分）</button>
-  <button class="btn" onclick="selectBase('往復')">往復（120分）</button>
+      <div class="card">
+        <div class="section-title">サービス選択</div>
+        <div class="sub">タップで開いて選択してください</div>
 
-  <p>オプション（任意）</p>
-  <button class="btn-outline btn" onclick="toggleOption('待機')">待機</button>
-  <button class="btn-outline btn" onclick="toggleOption('付き添い')">付き添い</button>
+        <div class="summary" id="selectedDateTimeBox"></div>
 
-  <button class="btn" onclick="goForm()">次へ</button>
-</div>
+        <div class="accordion" data-acc="vehicle">
+          <button type="button" class="accordion-head">
+            <span>移動方法</span><span>▼</span>
+          </button>
+          <div class="accordion-body">
+            <select id="vehicleSelect">
+              <option value="">選択してください</option>
+            </select>
+          </div>
+        </div>
 
-<!-- STEP3 -->
-<div id="step3" class="hidden">
-  <h2>予約フォーム</h2>
+        <div class="accordion" data-acc="assist">
+          <button type="button" class="accordion-head">
+            <span>介助内容</span><span>▼</span>
+          </button>
+          <div class="accordion-body">
+            <select id="assistSelect">
+              <option value="">選択してください</option>
+            </select>
+          </div>
+        </div>
 
-  <div id="summary"></div>
+        <div class="accordion" data-acc="stairs">
+          <button type="button" class="accordion-head">
+            <span>階段介助</span><span>▼</span>
+          </button>
+          <div class="accordion-body">
+            <select id="stairsSelect">
+              <option value="">選択してください</option>
+            </select>
+          </div>
+        </div>
 
-  <input id="name" placeholder="名前">
-  <input id="phone" placeholder="電話番号">
-  <input id="from" placeholder="出発地">
-  <input id="to" placeholder="行き先">
+        <div class="accordion" data-acc="round">
+          <button type="button" class="accordion-head">
+            <span>往復送迎</span><span>▼</span>
+          </button>
+          <div class="accordion-body">
+            <select id="roundSelect">
+              <option value="">選択してください</option>
+            </select>
+          </div>
+        </div>
 
-  <button class="btn" onclick="submit()">予約する</button>
-</div>
+        <button class="btn" id="goStep3">次へ</button>
+      </div>
+    </div>
 
-<!-- STEP4 -->
-<div id="step4" class="hidden">
-  <h2>ご予約ありがとう</h2>
-  <p id="result"></p>
-</div>
+    <div id="step3" class="step">
+      <div class="top-actions">
+        <button class="btn subbtn" id="backToStep2">戻る</button>
+      </div>
 
-</div>
+      <div class="card">
+        <div class="section-title">ご予約</div>
+        <div class="notice">
+          ご入力いただいた個人情報は、予約に関するご連絡およびサービス提供の範囲内でのみ利用いたします。
+        </div>
 
-<script>
-const API = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
+        <div class="summary" id="finalSummary"></div>
 
-let state = {
-  date:"",
-  time:"",
-  base:"",
-  options:[]
-};
+        <label for="nameInput">お名前(カタカナ)</label>
+        <input id="nameInput" placeholder="ヤマダ タロウ">
 
-// 日付生成
-const datesDiv = document.getElementById("dates");
-for(let i=0;i<7;i++){
-  let d = new Date();
-  d.setDate(d.getDate()+i);
-  let str = d.toISOString().slice(0,10);
-  let btn = document.createElement("button");
-  btn.className="btn-outline btn";
-  btn.innerText=str;
-  btn.onclick=()=>loadSlots(str);
-  datesDiv.appendChild(btn);
-}
+        <label for="phoneInput">連絡先(電話番号)</label>
+        <input id="phoneInput" placeholder="090-1234-5678">
 
-async function loadSlots(date){
-  state.date = date;
-  const res = await fetch(API+"/api/getReservations");
-  const data = await res.json();
+        <label for="pickupInput">お伺い場所または施設名</label>
+        <input id="pickupInput" placeholder="東京都渋谷区...">
 
-  const slotsDiv = document.getElementById("slots");
-  slotsDiv.innerHTML="";
+        <label for="destinationInput">送迎先住所または施設名</label>
+        <input id="destinationInput" placeholder="病院">
 
-  for(let h=6;h<=18;h++){
-    let time = (h<10?"0":"")+h+":00";
-    let datetime = date+" "+time;
+        <label for="notesInput">ご要望・備考</label>
+        <textarea id="notesInput" placeholder="その他ご要望があればご記入ください"></textarea>
 
-    let booked = data.find(r=>r.reservation_datetime===datetime);
+        <button class="btn" id="submitBtn">予約する</button>
+      </div>
+    </div>
 
-    let div = document.createElement("div");
-    div.className="slot "+(booked?"ng":"ok");
-    div.innerText=time;
+    <div id="step4" class="step">
+      <div class="card ok-box">
+        <h2>ご予約ありがとう</h2>
+        <p>ございます</p>
+        <p id="completeText"></p>
+        <button class="btn" id="restartBtn">閉じる</button>
+      </div>
+    </div>
+  </div>
 
-    if(!booked){
-      div.onclick=()=>{
-        state.time = time;
-        showStep(2);
+  <script>
+    const API_URL = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
+
+    const state = {
+      initData: null,
+      selectedDate: "",
+      selectedTime: "",
+      vehicle: "",
+      assist: "",
+      stairs: "",
+      roundTrip: "",
+      reservationId: ""
+    };
+
+    function showStep(stepNo) {
+      ["step1", "step2", "step3", "step4"].forEach((id, idx) => {
+        document.getElementById(id).classList.toggle("active", idx === stepNo - 1);
+      });
+    }
+
+    function formatDateJP(ymd) {
+      const d = new Date(ymd + "T00:00:00");
+      const days = ["日", "月", "火", "水", "木", "金", "土"];
+      return `${d.getMonth() + 1}/${d.getDate()}(${days[d.getDay()]})`;
+    }
+
+    function blockTextByRound(value) {
+      return ["往復", "待機", "付き添い", "病院付き添い"].includes(value) ? "120分" : "60分";
+    }
+
+    function getBlockCountByRound(value) {
+      return ["往復", "待機", "付き添い", "病院付き添い"].includes(value) ? 4 : 2;
+    }
+
+    function buildBlockKeyFromBlockRow(row) {
+      if (row.datetime) return row.datetime;
+      if (row.date && row.time) return `${row.date} ${row.time}`;
+      return "";
+    }
+
+    async function fetchInitData() {
+      const res = await fetch(API_URL + "/api/getInitData");
+      if (!res.ok) throw new Error("init error");
+      const data = await res.json();
+      state.initData = data;
+      return data;
+    }
+
+    function renderDates() {
+      const list = document.getElementById("dateList");
+      list.innerHTML = "";
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date();
+        d.setHours(0,0,0,0);
+        d.setDate(d.getDate() + i);
+        const ymd = d.toISOString().slice(0, 10);
+
+        const btn = document.createElement("button");
+        btn.className = "date-btn";
+        btn.textContent = formatDateJP(ymd);
+        btn.addEventListener("click", () => {
+          state.selectedDate = ymd;
+          renderSlots(ymd);
+        });
+        list.appendChild(btn);
       }
     }
 
-    slotsDiv.appendChild(div);
-  }
-}
+    function renderSlots(date) {
+      const slotCard = document.getElementById("slotCard");
+      const slotDateLabel = document.getElementById("slotDateLabel");
+      const slotList = document.getElementById("slotList");
 
-function selectBase(type){
-  state.base = type;
-}
+      slotCard.style.display = "block";
+      slotDateLabel.textContent = formatDateJP(date);
+      slotList.innerHTML = "";
 
-function toggleOption(opt){
-  if(state.options.includes(opt)){
-    state.options = state.options.filter(o=>o!==opt);
-  }else{
-    state.options.push(opt);
-  }
-}
+      const blocks = Array.isArray(state.initData?.blocks) ? state.initData.blocks : [];
+      const blockSet = new Set(blocks.map(buildBlockKeyFromBlockRow).filter(Boolean));
 
-function goForm(){
-  showStep(3);
+      for (let h = 6; h <= 18; h++) {
+        for (const m of [0, 30]) {
+          const hh = String(h).padStart(2, "0");
+          const mm = String(m).padStart(2, "0");
+          const dt = `${date} ${hh}:${mm}`;
 
-  document.getElementById("summary").innerHTML =
-    "日時："+state.date+" "+state.time+"<br>" +
-    "内容："+state.base+" "+state.options.join(",");
-}
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "slot-btn " + (blockSet.has(dt) ? "ng" : "ok");
+          btn.textContent = `${hh}:${mm}`;
 
-function showStep(n){
-  ["step1","step2","step3","step4"].forEach((id,i)=>{
-    document.getElementById(id).classList.toggle("hidden", i!==n-1);
-  });
-}
+          if (blockSet.has(dt)) {
+            btn.disabled = true;
+          } else {
+            btn.addEventListener("click", () => {
+              state.selectedTime = `${hh}:${mm}`;
+              updateSelectedDateTimeBox();
+              showStep(2);
+            });
+          }
+          slotList.appendChild(btn);
+        }
+      }
+    }
 
-async function submit(){
+    function fillSelectByCategory(selectId, categoryNames) {
+      const select = document.getElementById(selectId);
+      const items = (state.initData?.menu || []).filter(item => categoryNames.includes(String(item.category || "")));
 
-  let type = state.base;
-  if(state.options.length>0) type="往復";
+      select.innerHTML = `<option value="">選択してください</option>` + items.map(item => {
+        const label = Number(item.price || 0) > 0 ? `${item.name}（${Number(item.price).toLocaleString()}円）` : item.name;
+        return `<option value="${item.name}">${label}</option>`;
+      }).join("");
+    }
 
-  await fetch(API+"/api/createReservation",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({
-      datetime: state.date+" "+state.time,
-      name: document.getElementById("name").value,
-      phone: document.getElementById("phone").value,
-      from: document.getElementById("from").value,
-      to: document.getElementById("to").value,
-      type: type
-    })
-  });
+    function renderMenus() {
+      fillSelectByCategory("vehicleSelect", ["vehicle", "move_type", "equipment"]);
+      fillSelectByCategory("assistSelect", ["assist", "assistance"]);
+      fillSelectByCategory("stairsSelect", ["stairs", "stair"]);
+      fillSelectByCategory("roundSelect", ["round", "round_trip"]);
+    }
 
-  showStep(4);
-  document.getElementById("result").innerText =
-    state.date+" "+state.time;
-}
-</script>
+    function updateSelectedDateTimeBox() {
+      document.getElementById("selectedDateTimeBox").innerHTML = `
+        <div><strong>日時</strong>：${state.selectedDate} ${state.selectedTime}</div>
+      `;
+    }
 
+    function updateFinalSummary() {
+      const pills = [];
+      if (state.vehicle) pills.push(`<span class="pill">移動方法：${state.vehicle}</span>`);
+      if (state.assist) pills.push(`<span class="pill">介助内容：${state.assist}</span>`);
+      if (state.stairs) pills.push(`<span class="pill">階段介助：${state.stairs}</span>`);
+      if (state.roundTrip) pills.push(`<span class="pill">往復送迎：${state.roundTrip}</span>`);
+
+      document.getElementById("finalSummary").innerHTML = `
+        <div><strong>日時</strong>：${state.selectedDate} ${state.selectedTime}</div>
+        <div style="margin-top:8px;"><strong>ブロック</strong>：${blockTextByRound(state.roundTrip)}</div>
+        <div style="margin-top:8px;">${pills.join("")}</div>
+      `;
+    }
+
+    function bindAccordions() {
+      document.querySelectorAll(".accordion-head").forEach(btn => {
+        btn.addEventListener("click", () => {
+          btn.closest(".accordion").classList.toggle("open");
+        });
+      });
+    }
+
+    function bindStepButtons() {
+      document.getElementById("backToStep1").addEventListener("click", () => showStep(1));
+      document.getElementById("backToStep2").addEventListener("click", () => showStep(2));
+
+      document.getElementById("goStep3").addEventListener("click", () => {
+        state.vehicle = document.getElementById("vehicleSelect").value;
+        state.assist = document.getElementById("assistSelect").value;
+        state.stairs = document.getElementById("stairsSelect").value;
+        state.roundTrip = document.getElementById("roundSelect").value;
+
+        updateFinalSummary();
+        showStep(3);
+      });
+
+      document.getElementById("restartBtn").addEventListener("click", () => {
+        location.reload();
+      });
+    }
+
+    async function submitReservation() {
+      const name = document.getElementById("nameInput").value.trim();
+      const phone = document.getElementById("phoneInput").value.trim();
+      const pickup = document.getElementById("pickupInput").value.trim();
+      const destination = document.getElementById("destinationInput").value.trim();
+      const notes = document.getElementById("notesInput").value.trim();
+
+      if (!state.selectedDate || !state.selectedTime) {
+        alert("日時を選択してください");
+        return;
+      }
+      if (!name || !phone || !pickup) {
+        alert("必須項目を入力してください");
+        return;
+      }
+
+      const payload = {
+        name,
+        phone,
+        date: state.selectedDate,
+        time: state.selectedTime,
+        pickup,
+        destination,
+        notes,
+        type: state.roundTrip || "",
+        vehicle: state.vehicle || "",
+        assist: state.assist || "",
+        stairs: state.stairs || "",
+        roundTrip: state.roundTrip || ""
+      };
+
+      const btn = document.getElementById("submitBtn");
+      btn.disabled = true;
+      btn.textContent = "送信中...";
+
+      try {
+        const res = await fetch(API_URL + "/api/createReservation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (!data.success) {
+          alert(data.message || "予約できません");
+          btn.disabled = false;
+          btn.textContent = "予約する";
+          return;
+        }
+
+        state.reservationId = data.id || "";
+        document.getElementById("completeText").innerHTML = `
+          <div>予約ID：${state.reservationId}</div>
+          <div style="margin-top:6px;">${state.selectedDate} ${state.selectedTime}</div>
+        `;
+        showStep(4);
+
+      } catch (e) {
+        alert("通信エラー");
+        btn.disabled = false;
+        btn.textContent = "予約する";
+      }
+    }
+
+    async function init() {
+      await fetchInitData();
+      renderDates();
+      renderMenus();
+      bindAccordions();
+      bindStepButtons();
+      document.getElementById("submitBtn").addEventListener("click", submitReservation);
+    }
+
+    init();
+  </script>
 </body>
 </html>
