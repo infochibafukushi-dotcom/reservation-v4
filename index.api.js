@@ -1,5 +1,6 @@
 const ADMIN_ICON_FILE_ID = '1a0QB8ei00w_lSfL4PnF_xuEFUC2JP6FW';
 const API_BASE = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
+const GAS_AUTH_URL = "https://script.google.com/macros/s/AKfycbyFKoCd64H2d5E8ExCrPRwG_g4shqlgHefgQYZrJ6HVOY5t5lwRVZ3UaXfYXIqNkCra/exec";
 const ADMIN_PAGE_URL = "admin.html";
 
 function toast(msg='通信エラー', ms=2200){
@@ -119,6 +120,42 @@ async function _workersPost(path, payload, retryCount = 1, timeoutMs = 20000){
   throw lastError || new Error('通信エラー');
 }
 
+async function _gasVerifyAdminPassword(payload, timeoutMs = 20000){
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = setTimeout(()=>{
+    try{ if (controller) controller.abort(); }catch(_){ }
+  }, timeoutMs);
+
+  try{
+    const res = await fetch(GAS_AUTH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'verifyAdminPassword',
+        payload: payload || {}
+      }),
+      signal: controller ? controller.signal : undefined
+    });
+
+    if (!res.ok) throw new Error(`認証通信エラー(${res.status})`);
+    const text = await res.text();
+    let data = null;
+    try{
+      data = JSON.parse(text);
+    }catch(_){
+      throw new Error('認証応答の解析に失敗しました');
+    }
+    return data;
+  }catch(err){
+    if (String(err && err.name || '') === 'AbortError') {
+      throw new Error('認証タイムアウト');
+    }
+    throw err;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
 function _safeArray(v){
   return Array.isArray(v) ? v : [];
 }
@@ -233,7 +270,7 @@ const gsRun = async (func, ...args) => {
 
     } else if (func === 'api_verifyAdminPassword') {
       const payload = args[0] || {};
-      data = await _workersPost('/verify', payload, 0, 12000);
+      data = await _gasVerifyAdminPassword(payload, 12000);
       if (!data || typeof data !== 'object') {
         throw new Error('認証応答の形式が不正です');
       }
