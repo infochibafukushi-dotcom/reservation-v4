@@ -1,76 +1,110 @@
+const CONFIG = {
+  logoUrl: "logo.png"
+};
 
-let startDate = new Date();
+let weekOffset = 0;
 let fullMode = false;
 
-function render(){
-  let cal = document.getElementById("calendar");
-  cal.innerHTML="";
+function getTodayStart(){
+  const d = new Date();
+  d.setHours(0,0,0,0);
+  return d;
+}
 
-  let today = new Date();
-  let endDate = new Date();
-  endDate.setMonth(endDate.getMonth()+1);
+function formatYMD(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
 
-  let table = document.createElement("table");
-  let header = document.createElement("tr");
-  header.appendChild(document.createElement("th"));
+function jpLabel(d){
+  const w = ['日','月','火','水','木','金','土'];
+  return `${d.getMonth()+1}/${d.getDate()}(${w[d.getDay()]})`;
+}
 
-  let days = [];
-  let d = new Date(today);
-
-  while(d <= endDate){
-    days.push(new Date(d));
-    d.setDate(d.getDate()+1);
+function buildDates(){
+  const today = getTodayStart();
+  const start = new Date(today);
+  start.setDate(today.getDate() + (weekOffset * 7));
+  const dates = [];
+  for(let i=0;i<7;i++){
+    const d = new Date(start);
+    d.setDate(start.getDate()+i);
+    dates.push(d);
   }
+  return dates;
+}
 
-  days.forEach(day=>{
-    let th = document.createElement("th");
-    th.innerText = (day.getMonth()+1)+"/"+day.getDate();
-    header.appendChild(th);
-  });
-
-  table.appendChild(header);
-
-  let startH = fullMode ? 0 : 6;
-  let endH = fullMode ? 24 : 21;
-
-  for(let h=startH;h<endH;h++){
-    for(let m of [0,30]){
-      let tr = document.createElement("tr");
-
-      let t = document.createElement("td");
-      t.innerText = String(h).padStart(2,"0")+":"+(m==0?"00":"30");
-      tr.appendChild(t);
-
-      days.forEach(day=>{
-        let td = document.createElement("td");
-
-        let slot = new Date(day);
-        slot.setHours(h,m,0,0);
-
-        if(slot < today){
-          td.className="ng";
-          td.innerText="×";
-        }else{
-          td.className="ok";
-          td.innerText="○";
-        }
-
-        tr.appendChild(td);
-      });
-
-      table.appendChild(tr);
+function buildTimes(){
+  const times = [];
+  if(fullMode){
+    for(let h=0; h<24; h++){
+      times.push(`${String(h).padStart(2,'0')}:00`);
+      times.push(`${String(h).padStart(2,'0')}:30`);
+    }
+  }else{
+    for(let h=6; h<=21; h++){
+      times.push(`${String(h).padStart(2,'0')}:00`);
+      if(h < 21) times.push(`${String(h).padStart(2,'0')}:30`);
     }
   }
-
-  cal.appendChild(table);
+  return times;
 }
 
-function toggleMode(){
+function isPast(dateObj, time){
+  const [hh, mm] = time.split(':').map(Number);
+  const slot = new Date(dateObj);
+  slot.setHours(hh, mm, 0, 0);
+  return slot.getTime() < Date.now();
+}
+
+function render(){
+  const dates = buildDates();
+  const times = buildTimes();
+
+  document.getElementById('logo').src = CONFIG.logoUrl;
+
+  document.getElementById('weekLabel').textContent =
+    `${dates[0].getMonth()+1}/${dates[0].getDate()}〜${dates[6].getMonth()+1}/${dates[6].getDate()}`;
+
+  document.getElementById('toggleModeBtn').textContent = fullMode ? '通常時間' : '深夜早朝';
+
+  const head = document.getElementById('calendarHead');
+  head.innerHTML = `
+    <tr>
+      <th class="time-head"></th>
+      ${dates.map(d => `<th class="date-head">${jpLabel(d)}</th>`).join('')}
+    </tr>
+  `;
+
+  const body = document.getElementById('calendarBody');
+  body.innerHTML = times.map(t => `
+    <tr>
+      <td class="time-cell">${t}</td>
+      ${dates.map(d => {
+        const blocked = isPast(d, t);
+        return `<td><button type="button" class="slot-btn ${blocked ? 'slot-ng' : 'slot-ok'}">${blocked ? '×' : '○'}</button></td>`;
+      }).join('')}
+    </tr>
+  `).join('');
+}
+
+document.getElementById('prevBtn').addEventListener('click', ()=>{
+  if(weekOffset > 0){
+    weekOffset -= 1;
+    render();
+  }
+});
+
+document.getElementById('nextBtn').addEventListener('click', ()=>{
+  weekOffset += 1;
+  render();
+});
+
+document.getElementById('toggleModeBtn').addEventListener('click', ()=>{
   fullMode = !fullMode;
   render();
-}
-
-function prevWeek(){}
-function nextWeek(){}
+});
 
 render();

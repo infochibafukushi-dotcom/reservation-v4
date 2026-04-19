@@ -1,25 +1,38 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>予約カレンダー</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>介護タクシー予約</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div class="app">
+  <header class="top-header">
+    <div class="brand">
+      <img id="logo" src="logo.png" alt="logo">
+      <div class="brand-text">
+        <h1>介護タクシー予約</h1>
+      </div>
+    </div>
+  </header>
 
-<div class="topbar">
-  <img id="logo" src="logo.png">
-  <h1>予約カレンダー</h1>
+  <section class="calendar-card">
+    <div class="calendar-toolbar">
+      <button class="nav-btn" id="prevBtn">←</button>
+      <div class="week-label" id="weekLabel"></div>
+      <button class="nav-btn" id="nextBtn">→</button>
+      <button class="mode-btn" id="toggleModeBtn">深夜早朝</button>
+    </div>
+
+    <div class="calendar-wrap">
+      <table class="calendar-table">
+        <thead id="calendarHead"></thead>
+        <tbody id="calendarBody"></tbody>
+      </table>
+    </div>
+  </section>
 </div>
-
-<div class="controls">
-  <button onclick="prevWeek()">←</button>
-  <button onclick="nextWeek()">→</button>
-  <button onclick="toggleMode()">深夜早朝</button>
-</div>
-
-<div id="calendar"></div>
-
 <script src="app.js"></script>
 </body>
 </html>
