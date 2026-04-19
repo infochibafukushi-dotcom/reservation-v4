@@ -75,8 +75,7 @@ export default {
 
         slotList.push({
           date: `${yyyy}-${mm}-${dd}`,
-          time: `${hh}:${mi}`,
-          datetime: `${yyyy}-${mm}-${dd} ${hh}:${mi}`
+          time: `${hh}:${mi}`
         });
       }
 
@@ -128,14 +127,9 @@ export default {
       ).run();
 
       for (const slot of slotList) {
-        await env.DB.prepare(`
-          INSERT INTO blocks (date, time, type)
-          VALUES (?, ?, ?)
-        `).bind(
-          slot.date,
-          slot.time,
-          "auto"
-        ).run();
+        await env.DB.prepare(
+          "INSERT INTO blocks (date, time, type) VALUES (?, ?, ?)"
+        ).bind(slot.date, slot.time, "auto").run();
       }
 
       return new Response(JSON.stringify({
@@ -179,11 +173,7 @@ export default {
 
         await env.DB.prepare(
           "DELETE FROM blocks WHERE date = ? AND time = ? AND type = ?"
-        ).bind(
-          `${yyyy}-${mm}-${dd}`,
-          `${hh}:${mi}`,
-          "auto"
-        ).run();
+        ).bind(`${yyyy}-${mm}-${dd}`, `${hh}:${mi}`, "auto").run();
       }
 
       await env.DB.prepare("DELETE FROM reservations WHERE id = ?").bind(id).run();

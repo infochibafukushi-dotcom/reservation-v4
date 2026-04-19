@@ -13,17 +13,17 @@
       color: #222;
     }
     .wrap {
-      max-width: 440px;
+      max-width: 430px;
       margin: 0 auto;
       min-height: 100vh;
       background: #fff;
-      padding: 16px;
+      padding: 14px;
     }
     .title {
       text-align: center;
-      font-size: 24px;
-      font-weight: 700;
-      margin: 8px 0 20px;
+      font-size: 22px;
+      font-weight: 800;
+      margin: 8px 0 16px;
     }
     .step { display: none; }
     .step.active { display: block; }
@@ -33,63 +33,55 @@
       border-radius: 16px;
       padding: 14px;
       margin-bottom: 12px;
-      box-shadow: 0 2px 10px rgba(0,0,0,.04);
+      box-shadow: 0 2px 12px rgba(0,0,0,.04);
     }
     .section-title {
       font-size: 18px;
-      font-weight: 700;
-      margin: 0 0 12px;
+      font-weight: 800;
+      margin: 0 0 8px;
     }
     .sub {
       font-size: 13px;
       color: #666;
-      margin-top: -6px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
-    .btn, .date-btn, .slot-btn, .accordion-head {
-      width: 100%;
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .small-btn, .btn {
       border: none;
       border-radius: 12px;
-      padding: 14px;
-      font-size: 16px;
       cursor: pointer;
+      font-weight: 700;
     }
-    .btn {
+    .small-btn {
+      padding: 10px 12px;
       background: #06C755;
       color: #fff;
-      font-weight: 700;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .small-btn.subbtn {
+      background: #fff;
+      color: #333;
+      border: 1px solid #ccc;
+    }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      background: #06C755;
+      color: #fff;
+      font-size: 16px;
       margin-top: 10px;
     }
     .btn.subbtn {
       background: #fff;
       color: #333;
       border: 1px solid #ccc;
-    }
-    .btn[disabled] {
-      opacity: .5;
-      cursor: not-allowed;
-    }
-    .date-list, .slot-list {
-      display: grid;
-      gap: 10px;
-    }
-    .date-btn {
-      background: #fff;
-      border: 1px solid #ddd;
-    }
-    .slot-list {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    .slot-btn.ok {
-      background: #06C755;
-      color: #fff;
-      font-weight: 700;
-    }
-    .slot-btn.ng {
-      background: #d9d9d9;
-      color: #777;
-      cursor: not-allowed;
-      font-weight: 700;
     }
     .summary {
       font-size: 14px;
@@ -99,77 +91,92 @@
       padding: 12px;
       margin-bottom: 12px;
     }
+    .calendar-wrap {
+      overflow: auto;
+      border: 1px solid #e5e5e5;
+      border-radius: 14px;
+      background: #fff;
+      max-height: 78vh;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+    th, td {
+      border: 1px solid #ececec;
+      text-align: center;
+      padding: 0;
+    }
+    th {
+      background: #f8f8f8;
+      font-size: 12px;
+      font-weight: 800;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    th.time-head {
+      left: 0;
+      z-index: 3;
+    }
+    td.time-cell {
+      background: #fafafa;
+      font-size: 12px;
+      font-weight: 700;
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      width: 64px;
+      min-width: 64px;
+    }
+    .slot-btn {
+      width: 100%;
+      min-width: 76px;
+      border: none;
+      padding: 10px 0;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .slot-ok {
+      background: #12b76a;
+      color: #fff;
+    }
+    .slot-ng {
+      background: #ef5350;
+      color: #fff;
+      cursor: not-allowed;
+    }
     label {
       display: block;
       font-size: 14px;
-      font-weight: 700;
+      font-weight: 800;
       margin: 12px 0 6px;
     }
-    input, select, textarea {
+    select, input, textarea {
       width: 100%;
       padding: 12px;
+      font-size: 16px;
       border: 1px solid #ccc;
       border-radius: 10px;
-      font-size: 16px;
       background: #fff;
     }
     textarea { min-height: 90px; resize: vertical; }
-    .accordion {
-      border: 1px solid #e5e5e5;
-      border-radius: 14px;
-      overflow: hidden;
-      margin-bottom: 10px;
-      background: #fff;
-    }
-    .accordion-head {
-      background: #f8f8f8;
-      color: #222;
-      text-align: left;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .accordion-body {
-      display: none;
-      padding: 12px;
-      border-top: 1px solid #eee;
-    }
-    .accordion.open .accordion-body {
-      display: block;
-    }
-    .top-actions {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    .top-actions .btn {
-      margin-top: 0;
-    }
-    .notice {
-      font-size: 13px;
-      color: #666;
-      line-height: 1.6;
-      margin-bottom: 12px;
-    }
     .ok-box {
       text-align: center;
-      padding: 28px 12px;
+      padding: 26px 10px;
     }
     .ok-box h2 {
-      margin: 0 0 10px;
+      margin: 0 0 8px;
       font-size: 24px;
-    }
-    .ok-box p {
-      margin: 6px 0;
-      line-height: 1.7;
     }
     .pill {
       display: inline-block;
       background: #f3f3f3;
       border-radius: 999px;
-      padding: 8px 12px;
-      font-size: 13px;
+      padding: 7px 11px;
+      font-size: 12px;
       margin: 4px 4px 0 0;
     }
   </style>
@@ -180,87 +187,62 @@
 
     <div id="step1" class="step active">
       <div class="card">
-        <div class="section-title">日付選択</div>
-        <div class="sub">ご希望の日付をお選びください</div>
-        <div id="dateList" class="date-list"></div>
-      </div>
-      <div id="slotCard" class="card" style="display:none;">
-        <div class="section-title">時間選択</div>
-        <div id="slotDateLabel" class="sub"></div>
-        <div id="slotList" class="slot-list"></div>
+        <div class="topbar">
+          <div>
+            <div class="section-title">日時を選択してください</div>
+            <div class="sub">◯を押すと次へ進みます</div>
+          </div>
+          <button id="toggleTimeBtn" class="small-btn" type="button">深夜・早朝</button>
+        </div>
+        <div class="calendar-wrap">
+          <table>
+            <thead id="calendarHead"></thead>
+            <tbody id="calendarBody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
     <div id="step2" class="step">
-      <div class="top-actions">
-        <button class="btn subbtn" id="backToStep1">戻る</button>
+      <div class="topbar">
+        <button id="backStep1" class="small-btn subbtn" type="button">戻る</button>
       </div>
 
       <div class="card">
         <div class="section-title">サービス選択</div>
-        <div class="sub">タップで開いて選択してください</div>
-
         <div class="summary" id="selectedDateTimeBox"></div>
 
-        <div class="accordion" data-acc="vehicle">
-          <button type="button" class="accordion-head">
-            <span>移動方法</span><span>▼</span>
-          </button>
-          <div class="accordion-body">
-            <select id="vehicleSelect">
-              <option value="">選択してください</option>
-            </select>
-          </div>
-        </div>
+        <label for="vehicleSelect">移動方法</label>
+        <select id="vehicleSelect">
+          <option value="">選択してください</option>
+        </select>
 
-        <div class="accordion" data-acc="assist">
-          <button type="button" class="accordion-head">
-            <span>介助内容</span><span>▼</span>
-          </button>
-          <div class="accordion-body">
-            <select id="assistSelect">
-              <option value="">選択してください</option>
-            </select>
-          </div>
-        </div>
+        <label for="assistSelect">介助内容</label>
+        <select id="assistSelect">
+          <option value="">選択してください</option>
+        </select>
 
-        <div class="accordion" data-acc="stairs">
-          <button type="button" class="accordion-head">
-            <span>階段介助</span><span>▼</span>
-          </button>
-          <div class="accordion-body">
-            <select id="stairsSelect">
-              <option value="">選択してください</option>
-            </select>
-          </div>
-        </div>
+        <label for="stairsSelect">階段介助</label>
+        <select id="stairsSelect">
+          <option value="">選択してください</option>
+        </select>
 
-        <div class="accordion" data-acc="round">
-          <button type="button" class="accordion-head">
-            <span>往復送迎</span><span>▼</span>
-          </button>
-          <div class="accordion-body">
-            <select id="roundSelect">
-              <option value="">選択してください</option>
-            </select>
-          </div>
-        </div>
+        <label for="roundSelect">往復送迎</label>
+        <select id="roundSelect">
+          <option value="">選択してください</option>
+        </select>
 
-        <button class="btn" id="goStep3">次へ</button>
+        <button id="goStep3" class="btn" type="button">次へ</button>
       </div>
     </div>
 
     <div id="step3" class="step">
-      <div class="top-actions">
-        <button class="btn subbtn" id="backToStep2">戻る</button>
+      <div class="topbar">
+        <button id="backStep2" class="small-btn subbtn" type="button">戻る</button>
       </div>
 
       <div class="card">
         <div class="section-title">ご予約</div>
-        <div class="notice">
-          ご入力いただいた個人情報は、予約に関するご連絡およびサービス提供の範囲内でのみ利用いたします。
-        </div>
-
         <div class="summary" id="finalSummary"></div>
 
         <label for="nameInput">お名前(カタカナ)</label>
@@ -278,16 +260,16 @@
         <label for="notesInput">ご要望・備考</label>
         <textarea id="notesInput" placeholder="その他ご要望があればご記入ください"></textarea>
 
-        <button class="btn" id="submitBtn">予約する</button>
+        <button id="submitBtn" class="btn" type="button">予約する</button>
       </div>
     </div>
 
     <div id="step4" class="step">
       <div class="card ok-box">
         <h2>ご予約ありがとう</h2>
-        <p>ございます</p>
+        <div>ございます</div>
         <p id="completeText"></p>
-        <button class="btn" id="restartBtn">閉じる</button>
+        <button id="restartBtn" class="btn" type="button">閉じる</button>
       </div>
     </div>
   </div>
@@ -297,6 +279,7 @@
 
     const state = {
       initData: null,
+      showFullDay: false,
       selectedDate: "",
       selectedTime: "",
       vehicle: "",
@@ -318,92 +301,117 @@
       return `${d.getMonth() + 1}/${d.getDate()}(${days[d.getDay()]})`;
     }
 
-    function blockTextByRound(value) {
-      return ["往復", "待機", "付き添い", "病院付き添い"].includes(value) ? "120分" : "60分";
-    }
-
-    function getBlockCountByRound(value) {
-      return ["往復", "待機", "付き添い", "病院付き添い"].includes(value) ? 4 : 2;
-    }
-
-    function buildBlockKeyFromBlockRow(row) {
-      if (row.datetime) return row.datetime;
-      if (row.date && row.time) return `${row.date} ${row.time}`;
-      return "";
-    }
-
-    async function fetchInitData() {
-      const res = await fetch(API_URL + "/api/getInitData");
-      if (!res.ok) throw new Error("init error");
-      const data = await res.json();
-      state.initData = data;
-      return data;
-    }
-
-    function renderDates() {
-      const list = document.getElementById("dateList");
-      list.innerHTML = "";
-
+    function getVisibleDates() {
+      const arr = [];
       for (let i = 0; i < 7; i++) {
         const d = new Date();
         d.setHours(0,0,0,0);
         d.setDate(d.getDate() + i);
-        const ymd = d.toISOString().slice(0, 10);
-
-        const btn = document.createElement("button");
-        btn.className = "date-btn";
-        btn.textContent = formatDateJP(ymd);
-        btn.addEventListener("click", () => {
-          state.selectedDate = ymd;
-          renderSlots(ymd);
-        });
-        list.appendChild(btn);
+        arr.push(d.toISOString().slice(0, 10));
       }
+      return arr;
     }
 
-    function renderSlots(date) {
-      const slotCard = document.getElementById("slotCard");
-      const slotDateLabel = document.getElementById("slotDateLabel");
-      const slotList = document.getElementById("slotList");
-
-      slotCard.style.display = "block";
-      slotDateLabel.textContent = formatDateJP(date);
-      slotList.innerHTML = "";
-
-      const blocks = Array.isArray(state.initData?.blocks) ? state.initData.blocks : [];
-      const blockSet = new Set(blocks.map(buildBlockKeyFromBlockRow).filter(Boolean));
-
-      for (let h = 6; h <= 18; h++) {
-        for (const m of [0, 30]) {
-          const hh = String(h).padStart(2, "0");
-          const mm = String(m).padStart(2, "0");
-          const dt = `${date} ${hh}:${mm}`;
-
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "slot-btn " + (blockSet.has(dt) ? "ng" : "ok");
-          btn.textContent = `${hh}:${mm}`;
-
-          if (blockSet.has(dt)) {
-            btn.disabled = true;
-          } else {
-            btn.addEventListener("click", () => {
-              state.selectedTime = `${hh}:${mm}`;
-              updateSelectedDateTimeBox();
-              showStep(2);
-            });
-          }
-          slotList.appendChild(btn);
+    function getVisibleTimes() {
+      const list = [];
+      if (state.showFullDay) {
+        for (let h = 0; h <= 23; h++) {
+          list.push(`${String(h).padStart(2, "0")}:00`);
+          list.push(`${String(h).padStart(2, "0")}:30`);
+        }
+      } else {
+        for (let h = 6; h <= 21; h++) {
+          list.push(`${String(h).padStart(2, "0")}:00`);
+          if (h < 21) list.push(`${String(h).padStart(2, "0")}:30`);
         }
       }
+      return list;
+    }
+
+    function isPastSlot(dateStr, timeStr) {
+      const now = new Date();
+      const target = new Date(`${dateStr}T${timeStr}:00`);
+      const today = new Date();
+      const isToday = dateStr === today.toISOString().slice(0, 10);
+      if (!isToday) return false;
+      return target.getTime() <= now.getTime();
+    }
+
+    function getBlockSet() {
+      const blocks = Array.isArray(state.initData?.blocks) ? state.initData.blocks : [];
+      const set = new Set();
+
+      blocks.forEach(row => {
+        if (row.datetime) {
+          set.add(String(row.datetime));
+        } else if (row.date && row.time) {
+          set.add(`${row.date} ${row.time}`);
+        }
+      });
+
+      const reservations = Array.isArray(state.initData?.reservations) ? state.initData.reservations : [];
+      reservations.forEach(row => {
+        if (row.reservation_datetime) set.add(String(row.reservation_datetime).slice(0, 16));
+      });
+
+      return set;
+    }
+
+    function renderCalendar() {
+      const head = document.getElementById("calendarHead");
+      const body = document.getElementById("calendarBody");
+      const dates = getVisibleDates();
+      const times = getVisibleTimes();
+      const blockSet = getBlockSet();
+
+      head.innerHTML = `
+        <tr>
+          <th class="time-head">時間</th>
+          ${dates.map(d => `<th>${formatDateJP(d)}</th>`).join("")}
+        </tr>
+      `;
+
+      body.innerHTML = times.map(t => {
+        return `
+          <tr>
+            <td class="time-cell">${t}</td>
+            ${dates.map(d => {
+              const key = `${d} ${t}`;
+              const blocked = isPastSlot(d, t) || blockSet.has(key);
+              return `
+                <td>
+                  <button
+                    type="button"
+                    class="slot-btn ${blocked ? "slot-ng" : "slot-ok"}"
+                    ${blocked ? "disabled" : ""}
+                    data-date="${d}"
+                    data-time="${t}"
+                  >${blocked ? "×" : "○"}</button>
+                </td>
+              `;
+            }).join("")}
+          </tr>
+        `;
+      }).join("");
+
+      document.querySelectorAll(".slot-btn.slot-ok").forEach(btn => {
+        btn.addEventListener("click", () => {
+          state.selectedDate = btn.dataset.date;
+          state.selectedTime = btn.dataset.time;
+          updateSelectedDateTimeBox();
+          showStep(2);
+        });
+      });
+
+      document.getElementById("toggleTimeBtn").textContent = state.showFullDay ? "通常時間" : "深夜・早朝";
     }
 
     function fillSelectByCategory(selectId, categoryNames) {
       const select = document.getElementById(selectId);
       const items = (state.initData?.menu || []).filter(item => categoryNames.includes(String(item.category || "")));
-
       select.innerHTML = `<option value="">選択してください</option>` + items.map(item => {
-        const label = Number(item.price || 0) > 0 ? `${item.name}（${Number(item.price).toLocaleString()}円）` : item.name;
+        const price = Number(item.price || 0);
+        const label = price > 0 ? `${item.name}（${price.toLocaleString()}円）` : item.name;
         return `<option value="${item.name}">${label}</option>`;
       }).join("");
     }
@@ -416,9 +424,11 @@
     }
 
     function updateSelectedDateTimeBox() {
-      document.getElementById("selectedDateTimeBox").innerHTML = `
-        <div><strong>日時</strong>：${state.selectedDate} ${state.selectedTime}</div>
-      `;
+      document.getElementById("selectedDateTimeBox").innerHTML = `<strong>日時</strong>：${state.selectedDate} ${state.selectedTime}`;
+    }
+
+    function getBlockText() {
+      return ["往復", "待機", "付き添い", "病院付き添い"].includes(state.roundTrip) ? "120分" : "60分";
     }
 
     function updateFinalSummary() {
@@ -430,36 +440,15 @@
 
       document.getElementById("finalSummary").innerHTML = `
         <div><strong>日時</strong>：${state.selectedDate} ${state.selectedTime}</div>
-        <div style="margin-top:8px;"><strong>ブロック</strong>：${blockTextByRound(state.roundTrip)}</div>
+        <div style="margin-top:8px;"><strong>ブロック</strong>：${getBlockText()}</div>
         <div style="margin-top:8px;">${pills.join("")}</div>
       `;
     }
 
-    function bindAccordions() {
-      document.querySelectorAll(".accordion-head").forEach(btn => {
-        btn.addEventListener("click", () => {
-          btn.closest(".accordion").classList.toggle("open");
-        });
-      });
-    }
-
-    function bindStepButtons() {
-      document.getElementById("backToStep1").addEventListener("click", () => showStep(1));
-      document.getElementById("backToStep2").addEventListener("click", () => showStep(2));
-
-      document.getElementById("goStep3").addEventListener("click", () => {
-        state.vehicle = document.getElementById("vehicleSelect").value;
-        state.assist = document.getElementById("assistSelect").value;
-        state.stairs = document.getElementById("stairsSelect").value;
-        state.roundTrip = document.getElementById("roundSelect").value;
-
-        updateFinalSummary();
-        showStep(3);
-      });
-
-      document.getElementById("restartBtn").addEventListener("click", () => {
-        location.reload();
-      });
+    async function fetchInitData() {
+      const res = await fetch(API_URL + "/api/getInitData");
+      if (!res.ok) throw new Error("init error");
+      state.initData = await res.json();
     }
 
     async function submitReservation() {
@@ -469,10 +458,6 @@
       const destination = document.getElementById("destinationInput").value.trim();
       const notes = document.getElementById("notesInput").value.trim();
 
-      if (!state.selectedDate || !state.selectedTime) {
-        alert("日時を選択してください");
-        return;
-      }
       if (!name || !phone || !pickup) {
         alert("必須項目を入力してください");
         return;
@@ -503,7 +488,6 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
-
         const data = await res.json();
 
         if (!data.success) {
@@ -519,7 +503,6 @@
           <div style="margin-top:6px;">${state.selectedDate} ${state.selectedTime}</div>
         `;
         showStep(4);
-
       } catch (e) {
         alert("通信エラー");
         btn.disabled = false;
@@ -529,11 +512,28 @@
 
     async function init() {
       await fetchInitData();
-      renderDates();
       renderMenus();
-      bindAccordions();
-      bindStepButtons();
+      renderCalendar();
+
+      document.getElementById("toggleTimeBtn").addEventListener("click", () => {
+        state.showFullDay = !state.showFullDay;
+        renderCalendar();
+      });
+
+      document.getElementById("backStep1").addEventListener("click", () => showStep(1));
+      document.getElementById("backStep2").addEventListener("click", () => showStep(2));
+
+      document.getElementById("goStep3").addEventListener("click", () => {
+        state.vehicle = document.getElementById("vehicleSelect").value;
+        state.assist = document.getElementById("assistSelect").value;
+        state.stairs = document.getElementById("stairsSelect").value;
+        state.roundTrip = document.getElementById("roundSelect").value;
+        updateFinalSummary();
+        showStep(3);
+      });
+
       document.getElementById("submitBtn").addEventListener("click", submitReservation);
+      document.getElementById("restartBtn").addEventListener("click", () => location.reload());
     }
 
     init();
