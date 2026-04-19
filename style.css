@@ -1,0 +1,7 @@
+
+body { font-family: sans-serif; }
+.header { margin: 10px; }
+table { border-collapse: collapse; }
+td, th { border:1px solid #ccc; padding:5px; text-align:center; }
+.ok { background:#0f0; }
+.ng { background:#f00; }
