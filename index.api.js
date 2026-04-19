@@ -232,7 +232,20 @@ const gsRun = async (func, ...args) => {
       data = { isOk: true, data: { data_url: '' } };
 
     } else if (func === 'api_verifyAdminPassword') {
-      data = { isOk: false, error: 'verifyAdminPassword は Workers API 未実装です' };
+      const payload = args[0] || {};
+      const password = String(payload.password || '').trim();
+      const init = _normalizeInitPacket(await _workersGet('/init', {}, 1, 15000));
+      const expected = String((init.data && init.data.config && init.data.config.admin_password) || '').trim();
+      if (!expected || !password || password !== expected) {
+        data = { isOk: false, error: 'パスワードが正しくありません' };
+      } else {
+        data = {
+          isOk: true,
+          data: {
+            admin_token: `local-${Date.now()}-${Math.floor(Math.random() * 100000)}`
+          }
+        };
+      }
 
     } else {
       throw new Error(`未対応のAPIです: ${func}`);
