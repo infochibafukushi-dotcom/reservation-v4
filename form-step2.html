@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>個人情報</title>
+</head>
+<body>
+
+<h2>個人情報</h2>
+
+<label><input type="checkbox" id="agree">同意する</label><br>
+
+<select><option>初めて</option><option>2回目以上</option></select><br>
+
+<input id="name" placeholder="名前"><br>
+<input id="phone" placeholder="電話番号"><br>
+<input id="from" placeholder="出発地"><br>
+<input id="to" placeholder="行き先"><br>
+<textarea placeholder="その他"></textarea><br>
+
+<p id="totalText"></p>
+
+<button onclick="submit()">予約する</button>
+
+<script>
+const params = new URLSearchParams(location.search);
+document.getElementById("totalText").innerText = "概算："+params.get("total")+"円";
+
+function submit(){
+  if(!document.getElementById("agree").checked) return alert("同意必須");
+  if(!name.value || !phone.value || !from.value || !to.value){
+    alert("必須項目入力");
+    return;
+  }
+  alert("予約完了");
+}
+</script>
+
+</body>
+</html>

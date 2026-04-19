@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>サービス選択</title>
+</head>
+<body>
+
+<h2>サービス選択</h2>
+
+<select id="vehicle"><option>選択</option></select>
+<select id="assist"><option>選択</option></select>
+<select id="stairs"><option>選択</option></select>
+<select id="round"><option>選択</option></select>
+
+<p>概算合計：<span id="total">0</span>円</p>
+
+<button onclick="next()">次へ</button>
+
+<script>
+function next(){
+  const total = document.getElementById("total").innerText;
+  location.href = "form-step2.html?total="+total;
+}
+</script>
+
+</body>
+</html>
