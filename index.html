@@ -6,13 +6,16 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<h1>予約カレンダー</h1>
 
-<div class="header">
-<button onclick="prevWeek()">←</button>
-<span id="weekLabel"></span>
-<button onclick="nextWeek()">→</button>
-<button onclick="toggleMode()">深夜早朝</button>
+<div class="topbar">
+  <img id="logo" src="logo.png">
+  <h1>予約カレンダー</h1>
+</div>
+
+<div class="controls">
+  <button onclick="prevWeek()">←</button>
+  <button onclick="nextWeek()">→</button>
+  <button onclick="toggleMode()">深夜早朝</button>
 </div>
 
 <div id="calendar"></div>
