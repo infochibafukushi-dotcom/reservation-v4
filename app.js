@@ -1,88 +1,72 @@
-const cal = document.getElementById('cal');
-const rangeEl = document.getElementById('range');
-const prevBtn = document.getElementById('prev');
-const nextBtn = document.getElementById('next');
-const nightBtn = document.getElementById('night');
-
-let start = new Date(); start.setHours(0,0,0,0);
-let show24 = false;
-
-function fmt(d){
-  const m = d.getMonth()+1, day = d.getDate();
-  return m + '/' + day;
-}
-function ymd(d){
-  const y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), da=('0'+d.getDate()).slice(-2);
-  return y+'-'+m+'-'+da;
-}
+let week=0;
+let full=false;
+let selectedDate="",selectedTime="";
+let menuData={vehicle:[],assist:[],stairs:[],round:[]};
 
 function render(){
-  cal.innerHTML = '';
-  const header = document.createElement('tr');
-  const empty = document.createElement('th'); empty.className='time'; empty.innerText='';
-  header.appendChild(empty);
-
-  const days=[];
+  let table=document.getElementById("calendar");
+  table.innerHTML="";
+  let tr=document.createElement("tr");
   for(let i=0;i<7;i++){
-    const d = new Date(start); d.setDate(start.getDate()+i);
-    days.push(d);
-    const th = document.createElement('th');
-    th.innerText = fmt(d);
-    header.appendChild(th);
+    let td=document.createElement("td");
+    let btn=document.createElement("div");
+    btn.className="slot ok";
+    btn.innerText="◎";
+    btn.onclick=()=>openForm("日付","時間");
+    td.appendChild(btn);
+    tr.appendChild(td);
   }
-  cal.appendChild(header);
-
-  const begin = show24 ? 0 : 6;
-  const end = show24 ? 23 : 21;
-
-  const now = new Date();
-
-  for(let h=begin; h<=end; h++){
-    for(let m of [0,30]){
-      const tr = document.createElement('tr');
-      const t = document.createElement('td');
-      t.className='time';
-      t.innerText = ('0'+h).slice(-2)+':'+(m===0?'00':'30');
-      tr.appendChild(t);
-
-      days.forEach(d=>{
-        const td = document.createElement('td');
-        const box = document.createElement('div');
-        box.className='slot ok';
-        const span = document.createElement('span'); span.innerText='◎';
-        box.appendChild(span);
-
-        const slotTime = new Date(d);
-        slotTime.setHours(h,m,0,0);
-
-        if(slotTime < now){
-          box.classList.remove('ok'); box.classList.add('ng');
-          span.innerText='×';
-          box.style.pointerEvents='none';
-        }else{
-          box.onclick = ()=>{
-            const q = new URLSearchParams({
-              date: ymd(d),
-              time: ('0'+h).slice(-2)+':'+(m===0?'00':'30')
-            });
-            location.href = 'form-step1.html?' + q.toString();
-          };
-        }
-
-        td.appendChild(box);
-        tr.appendChild(td);
-      });
-
-      cal.appendChild(tr);
-    }
-  }
-
-  const endDay = new Date(start); endDay.setDate(start.getDate()+6);
-  rangeEl.innerText = ymd(start) + '〜' + ymd(endDay);
+  table.appendChild(tr);
 }
 
-prevBtn.onclick = ()=>{ start.setDate(start.getDate()-7); render(); };
-nextBtn.onclick = ()=>{ start.setDate(start.getDate()+7); render(); };
-nightBtn.onclick = ()=>{ show24 = !show24; render(); };
+function openForm(date,time){
+  document.getElementById("calendarArea").style.display="none";
+  document.getElementById("formArea").style.display="block";
+  document.getElementById("selectedDateTime").innerText=date+" "+time;
+  loadMenu();
+}
+
+function backToCalendar(){
+  document.getElementById("calendarArea").style.display="block";
+  document.getElementById("formArea").style.display="none";
+}
+
+function loadMenu(){
+  fetch("/api/menu")
+  .then(r=>r.json())
+  .then(data=>{
+    menuData=data;
+    fill("vehicle",data.vehicle);
+    fill("assist",data.assist);
+    fill("stairs",data.stairs);
+    fill("round",data.round);
+  });
+}
+
+function fill(id,arr){
+  let el=document.getElementById(id);
+  el.innerHTML="";
+  arr.forEach((x,i)=>{
+    let o=document.createElement("option");
+    o.value=i;
+    o.textContent=x.name+"("+x.price+"円)";
+    el.appendChild(o);
+  });
+}
+
+function calc(){
+  let t=0;
+  if(vehicle.value) t+=menuData.vehicle[vehicle.value].price;
+  if(assist.value) t+=menuData.assist[assist.value].price;
+  if(stairs.value) t+=menuData.stairs[stairs.value].price;
+  if(round.value) t+=menuData.round[round.value].price;
+  total.innerText=t;
+}
+
+function submitForm(){
+  if(!agree.checked) return alert("同意必須");
+  if(!name.value||!phone.value||!from.value||!to.value) return alert("未入力あり");
+  alert("予約完了（仮）");
+}
 
 render();
