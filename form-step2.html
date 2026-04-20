@@ -3,18 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>個人情報</title>
+<title>個人情報入力</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
 <div class="card">
   <div class="header-mini">
     <button class="back" onclick="history.back()">戻る</button>
     <div id="dt"></div>
   </div>
 
-  <h2>基本情報</h2>
+  <h2>ご予約</h2>
 
   <div class="field">
     <label><input type="checkbox" id="agree"> 個人情報の取り扱いに同意する *</label>
@@ -22,10 +21,10 @@
 
   <div class="field">
     <label>ご利用区分 *</label>
-    <select id="type">
+    <select id="usageType">
       <option value="">選択してください</option>
-      <option>初めて</option>
-      <option>2回目以上</option>
+      <option value="初めて">初めて</option>
+      <option value="2回目以上">2回目以上</option>
     </select>
   </div>
 
@@ -41,17 +40,17 @@
 
   <div class="field">
     <label>お伺い場所または施設名 *</label>
-    <input id="from" placeholder="東京都渋谷区...">
+    <input id="pickup" placeholder="東京都渋谷区...">
   </div>
 
   <div class="field">
     <label>送迎先住所または施設名 *</label>
-    <input id="to" placeholder="病院">
+    <input id="destination" placeholder="病院">
   </div>
 
   <div class="field">
     <label>ご要望・備考</label>
-    <textarea id="memo" placeholder="その他ご要望があればご記入ください"></textarea>
+    <textarea id="notes" placeholder="その他ご要望があればご記入ください"></textarea>
   </div>
 
   <div class="total">概算合計：<span id="total">0</span>円</div>
@@ -60,27 +59,32 @@
 </div>
 
 <script>
-const p = new URLSearchParams(location.search);
-const date = p.get('date'); const time = p.get('time'); const total = p.get('total') || 0;
-document.getElementById('dt').innerText = date + ' ' + time + ' から';
-document.getElementById('total').innerText = total;
+const params = new URLSearchParams(location.search);
+const date = params.get("date") || "";
+const time = params.get("time") || "";
+const total = params.get("total") || "0";
 
-function valid(){
-  if(!document.getElementById('agree').checked) return '同意が必要です';
-  if(!document.getElementById('type').value) return '利用区分を選択';
-  if(!document.getElementById('name').value) return '名前を入力';
-  if(!document.getElementById('phone').value) return '電話番号を入力';
-  if(!document.getElementById('from').value) return '出発地を入力';
-  if(!document.getElementById('to').value) return '行き先を入力';
-  return '';
+document.getElementById("dt").innerText = `${date} ${time} から`;
+document.getElementById("total").innerText = Number(total).toLocaleString();
+
+function validate(){
+  if (!document.getElementById("agree").checked) return "個人情報の同意が必要です";
+  if (!document.getElementById("usageType").value) return "ご利用区分を選択してください";
+  if (!document.getElementById("name").value.trim()) return "お名前を入力してください";
+  if (!document.getElementById("phone").value.trim()) return "電話番号を入力してください";
+  if (!document.getElementById("pickup").value.trim()) return "出発地を入力してください";
+  if (!document.getElementById("destination").value.trim()) return "行き先を入力してください";
+  return "";
 }
 
-document.getElementById('submitBtn').onclick = ()=>{
-  const e = valid();
-  if(e){ alert(e); return; }
-  alert('予約完了（保存処理は次で実装）');
-};
+document.getElementById("submitBtn").addEventListener("click", () => {
+  const msg = validate();
+  if (msg) {
+    alert(msg);
+    return;
+  }
+  alert("予約保存処理は次段階で追加します");
+});
 </script>
-
 </body>
 </html>

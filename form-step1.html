@@ -1,65 +1,123 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>サービス選択</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div class="card">
+  <div class="header-mini">
+    <button class="back" onclick="history.back()">戻る</button>
+    <div id="dt"></div>
+  </div>
 
-<h2>サービス選択</h2>
+  <h2>サービス選択</h2>
 
-<select id="vehicle"></select>
-<select id="assist"></select>
-<select id="stairs"></select>
-<select id="round"></select>
+  <div class="field">
+    <label>移動方法 *</label>
+    <select id="vehicle"></select>
+  </div>
 
-<p>合計：<span id="total">0</span>円</p>
+  <div class="field">
+    <label>介助内容 *</label>
+    <select id="assist"></select>
+  </div>
 
-<button onclick="next()">次へ</button>
+  <div class="field">
+    <label>階段介助 *</label>
+    <select id="stairs"></select>
+  </div>
+
+  <div class="field">
+    <label>往復送迎 *</label>
+    <select id="round"></select>
+  </div>
+
+  <div class="total">概算合計：<span id="total">0</span>円</div>
+  <div class="note">上記料金に加え距離・時間により運賃は加算されます。</div>
+
+  <button class="btn" id="nextBtn">次へ</button>
+</div>
 
 <script>
-const API = "/api/menu";
+const WORKER_API = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev/api/menu";
+const params = new URLSearchParams(location.search);
+const date = params.get("date") || "";
+const time = params.get("time") || "";
+document.getElementById("dt").innerText = `${date} ${time} から`;
 
-let data;
+let menuData = {
+  vehicle: [],
+  assist: [],
+  stairs: [],
+  round: []
+};
 
-fetch(API)
-.then(r=>r.json())
-.then(json=>{
-  data = json;
-  fill("vehicle", data.vehicle);
-  fill("assist", data.assist);
-  fill("stairs", data.stairs);
-  fill("round", data.round);
-});
-
-function fill(id, arr){
+function fillSelect(id, items){
   const el = document.getElementById(id);
-  el.innerHTML = "<option value=''>選択</option>";
-  arr.forEach((x,i)=>{
+  el.innerHTML = '<option value="">選択してください</option>';
+  items.forEach((item, idx) => {
     const o = document.createElement("option");
-    o.value = i;
-    o.textContent = x.name + " ("+x.price+"円)";
+    o.value = idx;
+    o.textContent = `${item.name}${Number(item.price || 0) > 0 ? ` (${Number(item.price).toLocaleString()}円)` : ""}`;
     el.appendChild(o);
   });
 }
 
-function calc(){
-  let t=0;
-  if(vehicle.value) t+=data.vehicle[vehicle.value].price;
-  if(assist.value) t+=data.assist[assist.value].price;
-  if(stairs.value) t+=data.stairs[stairs.value].price;
-  if(round.value) t+=data.round[round.value].price;
-  total.innerText=t;
+function selectedPrice(groupName, selectId){
+  const idx = document.getElementById(selectId).value;
+  if (idx === "") return 0;
+  const row = menuData[groupName][Number(idx)];
+  return Number(row?.price || 0);
 }
 
-["vehicle","assist","stairs","round"].forEach(id=>{
-  document.getElementById(id).addEventListener("change",calc);
+function calc(){
+  const total =
+    selectedPrice("vehicle", "vehicle") +
+    selectedPrice("assist", "assist") +
+    selectedPrice("stairs", "stairs") +
+    selectedPrice("round", "round");
+
+  document.getElementById("total").innerText = total.toLocaleString();
+  return total;
+}
+
+["vehicle", "assist", "stairs", "round"].forEach(id => {
+  document.getElementById(id).addEventListener("change", calc);
 });
 
-function next(){
-  location.href="form-step2.html?total="+total.innerText;
-}
-</script>
+document.getElementById("nextBtn").addEventListener("click", () => {
+  const total = calc();
+  const q = new URLSearchParams({
+    date,
+    time,
+    total: String(total),
+    vehicleIndex: document.getElementById("vehicle").value,
+    assistIndex: document.getElementById("assist").value,
+    stairsIndex: document.getElementById("stairs").value,
+    roundIndex: document.getElementById("round").value
+  });
+  location.href = "form-step2.html?" + q.toString();
+});
 
+fetch(WORKER_API)
+  .then(r => {
+    if (!r.ok) throw new Error("menu api error");
+    return r.json();
+  })
+  .then(json => {
+    menuData = json || menuData;
+    fillSelect("vehicle", menuData.vehicle || []);
+    fillSelect("assist", menuData.assist || []);
+    fillSelect("stairs", menuData.stairs || []);
+    fillSelect("round", menuData.round || []);
+    calc();
+  })
+  .catch(() => {
+    alert("メニュー取得に失敗しました");
+  });
+</script>
 </body>
 </html>
