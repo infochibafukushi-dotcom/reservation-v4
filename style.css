@@ -1,17 +1,157 @@
-body{font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;background:#fff;margin:0;padding:10px}
-.header{display:flex;justify-content:center;align-items:center;position:relative;padding:15px}
-.phone{position:absolute;left:10px;text-align:center;font-size:12px}
-.icon{font-size:24px}
-.center{text-align:center}
-.toolbar{display:flex;justify-content:center;gap:10px;margin:10px}
-button{border-radius:10px;padding:6px 10px;border:1px solid #ccc;background:#fff}
+body{
+  font-family:'Hiragino Kaku Gothic ProN','Yu Gothic','メイリオ',sans-serif;
+  background:#ffffff;
+  margin:0;
+  padding:10px;
+}
 
-table{width:100%;border-spacing:4px}
-td{padding:0}
-.slot{width:100%;padding:10px;border-radius:12px;border:2px solid #000;text-align:center}
-.ok{background:#e6f7ff}
-.ng{background:#ffe6ea}
+/* ===== ヘッダー ===== */
+.header{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  position:relative;
+  padding:15px 0;
+}
 
-.formCard{max-width:500px;margin:auto}
-input,select,textarea{width:100%;margin:5px 0;padding:10px;border-radius:8px;border:1px solid #ccc}
-.total{font-weight:bold;text-align:right}
+.phone{
+  position:absolute;
+  left:10px;
+  text-align:center;
+  font-size:12px;
+}
+
+.phone .icon{
+  font-size:22px;
+}
+
+.center{
+  text-align:center;
+}
+
+.center h1{
+  margin:0;
+  font-size:22px;
+}
+
+.center p{
+  margin:4px 0 0;
+  font-size:13px;
+}
+
+/* ===== ツールバー ===== */
+.toolbar{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:10px;
+  margin:12px 0;
+}
+
+.toolbar button{
+  border-radius:10px;
+  padding:6px 10px;
+  border:1px solid #ccc;
+  background:#fff;
+  font-size:14px;
+}
+
+/* ===== カレンダー ===== */
+#calendar{
+  width:100%;
+  table-layout:fixed;
+  border-collapse:separate;
+  border-spacing:6px;
+}
+
+/* ===== 時間列 ===== */
+#calendar td:first-child{
+  width:70px;
+  text-align:right;
+  font-weight:bold;
+  font-size:14px;
+  padding-right:6px;
+}
+
+/* ===== 日付ヘッダ ===== */
+#calendar tr:first-child td{
+  text-align:center;
+  font-size:15px;
+  font-weight:bold;
+  padding-bottom:6px;
+}
+
+/* ===== セル ===== */
+.slot{
+  width:100%;
+  height:60px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:14px;
+  border:2px solid #000;
+  font-size:18px;
+  font-weight:bold;
+}
+
+/* ===== 予約不可 ===== */
+.ng{
+  background:#ffe6ea;
+  color:#000;
+}
+
+/* ===== 予約可能 ===== */
+.ok{
+  background:#e6f7ff;
+  color:#000;
+}
+
+/* ===== PC最適化 ===== */
+@media (min-width: 900px){
+
+  #calendar{
+    max-width:1100px;
+    margin:0 auto;
+  }
+
+  #calendar td:first-child{
+    width:80px;
+    font-size:16px;
+  }
+
+  #calendar tr:first-child td{
+    font-size:16px;
+  }
+
+  .slot{
+    height:70px;
+    font-size:20px;
+  }
+}
+
+/* ===== スマホ最適化 ===== */
+@media (max-width:600px){
+
+  body{
+    padding:6px;
+  }
+
+  #calendar{
+    border-spacing:4px;
+  }
+
+  #calendar td:first-child{
+    width:55px;
+    font-size:12px;
+  }
+
+  #calendar tr:first-child td{
+    font-size:13px;
+  }
+
+  .slot{
+    height:50px;
+    font-size:16px;
+    border-radius:10px;
+  }
+}
