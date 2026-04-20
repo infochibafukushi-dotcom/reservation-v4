@@ -2,6 +2,7 @@ const API = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
 
 let currentStart = new Date();
 let fullMode = false;
+let selected = null;
 
 function formatDate(d){
   const y = d.getFullYear();
@@ -14,7 +15,7 @@ function formatLabel(d){
   return `${d.getMonth()+1}/${d.getDate()}`;
 }
 
-function addDays(base, n){
+function addDays(base,n){
   const d = new Date(base);
   d.setDate(d.getDate()+n);
   return d;
@@ -27,20 +28,35 @@ async function render(){
 
   const res = await fetch(API + "/api/getInitData");
   const json = await res.json();
-
   const blocks = json.blocks || [];
 
-  // ヘッダ（日付）
+  const today = new Date();
+  const todayStr = formatDate(today);
+
   const head = document.createElement("tr");
   head.appendChild(document.createElement("td"));
 
   let days = [];
+
   for(let i=0;i<7;i++){
-    const d = addDays(currentStart, i);
+    const d = addDays(currentStart,i);
     days.push(d);
 
     const th = document.createElement("td");
     th.innerText = formatLabel(d);
+
+    const dStr = formatDate(d);
+
+    // 今日
+    if(dStr === todayStr){
+      th.style.background = "#fff3cd";
+      th.style.borderRadius = "10px";
+    }
+
+    // 土日
+    if(d.getDay() === 0) th.style.color = "#ff6b6b";
+    if(d.getDay() === 6) th.style.color = "#4dabf7";
+
     head.appendChild(th);
   }
 
@@ -66,7 +82,7 @@ async function render(){
         const dateStr = formatDate(d);
         const timeStr = `${("0"+h).slice(-2)}:${m===0?"00":"30"}`;
 
-        const isPast = new Date(dateStr+"T"+timeStr) < new Date();
+        const isPast = new Date(dateStr + "T" + timeStr) < new Date();
 
         const isBlocked = blocks.some(b =>
           b.date === dateStr && b.time === timeStr
@@ -79,12 +95,24 @@ async function render(){
           box.className = "slot ok";
           box.innerText = "◎";
 
+          if(selected && selected.date === dateStr && selected.time === timeStr){
+            box.style.border = "3px solid #00c853";
+            box.style.transform = "scale(1.05)";
+          }
+
           box.onclick = () => {
-            const q = new URLSearchParams({
-              date: dateStr,
-              time: timeStr
-            });
-            location.href = "form-step1.html?" + q.toString();
+
+            selected = {date:dateStr,time:timeStr};
+
+            render();
+
+            setTimeout(()=>{
+              const q = new URLSearchParams({
+                date:dateStr,
+                time:timeStr
+              });
+              location.href = "form-step1.html?" + q.toString();
+            },150);
           };
         }
 
@@ -101,17 +129,19 @@ async function render(){
     `${formatDate(days[0])}〜${formatDate(days[6])}`;
 }
 
-// ボタン
+// 前週
 document.getElementById("prev").onclick = ()=>{
-  currentStart = addDays(currentStart, -7);
+  currentStart = addDays(currentStart,-7);
   render();
 };
 
+// 次週
 document.getElementById("next").onclick = ()=>{
-  currentStart = addDays(currentStart, 7);
+  currentStart = addDays(currentStart,7);
   render();
 };
 
+// 深夜早朝
 document.getElementById("mode").onclick = ()=>{
   fullMode = !fullMode;
   render();
