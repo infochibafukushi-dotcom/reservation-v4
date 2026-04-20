@@ -13,7 +13,7 @@
 <div id="dt"></div>
 </div>
 
-<div style="padding:15px;max-width:400px;margin:auto;">
+<div style="padding:15px;max-width:420px;margin:auto;">
 <label>移動方法</label>
 <select id="vehicle"></select>
 
@@ -28,7 +28,7 @@
 
 <p>概算合計：<span id="total">0</span>円</p>
 
-<button onclick="next()" style="width:100%;padding:12px;background:#00c853;color:#fff;border:none;border-radius:12px;">次へ</button>
+<button onclick="next()" style="width:100%;padding:14px;background:#00c853;color:#fff;border:none;border-radius:14px;">次へ</button>
 </div>
 
 <script>
@@ -36,7 +36,7 @@ const API="https://throbbing-bush-8f59.info-chibafukushi.workers.dev/api/menu";
 const p=new URLSearchParams(location.search);
 const date=p.get("date");
 const time=p.get("time");
-dt.innerText=date+" "+time;
+dt.innerText=date+" "+time+" から";
 
 let data={};
 
@@ -50,7 +50,7 @@ fill("round",d.round);
 
 function fill(id,a){
 let el=document.getElementById(id);
-el.innerHTML="<option>選択してください</option>";
+el.innerHTML="<option value=''>選択してください</option>";
 a.forEach((x,i)=>{
 let o=document.createElement("option");
 o.value=i;o.text=x.name+" "+x.price+"円";
@@ -70,7 +70,8 @@ total.innerText=t;
 document.querySelectorAll("select").forEach(s=>s.onchange=calc);
 
 function next(){
-location.href="form-step2.html";
+if(!vehicle.value){alert("移動方法必須");return;}
+location.href="form-step2.html?date="+date+"&time="+time+"&total="+total.innerText;
 }
 </script>
 

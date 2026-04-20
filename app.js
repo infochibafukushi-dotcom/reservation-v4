@@ -1,6 +1,7 @@
 const API="https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
 
 let start=new Date();
+let full=false;
 
 function fmt(d){return d.toISOString().split("T")[0];}
 function add(d,n){let x=new Date(d);x.setDate(x.getDate()+n);return x;}
@@ -13,37 +14,37 @@ async function render(){
   const data=await res.json();
   const blocks=data.blocks||[];
 
-  const today=new Date();
-  today.setHours(0,0,0,0);
+  let today=new Date();today.setHours(0,0,0,0);
 
   let days=[];
-  for(let i=0;i<7;i++){
+  for(let i=0;i<14;i++){ // 最大14日持つ
     let d=add(start,i);
-    if(d<today) continue;
-    days.push(d);
+    if(d>=today){
+      days.push(d);
+      if(days.length==7) break;
+    }
   }
 
   const head=document.createElement("tr");
   head.appendChild(document.createElement("td"));
 
   days.forEach(d=>{
-    const td=document.createElement("td");
+    let td=document.createElement("td");
     td.innerText=(d.getMonth()+1)+"/"+d.getDate();
-
     if(d.getDay()==0) td.className="sun";
     if(d.getDay()==6) td.className="sat";
-
     if(fmt(d)==fmt(new Date())) td.className+=" today";
-
     head.appendChild(td);
   });
 
   table.appendChild(head);
 
-  for(let h=6;h<=21;h++){
+  let st=full?0:6;
+  let ed=full?23:21;
+
+  for(let h=st;h<=ed;h++){
     for(let m of [0,30]){
       let tr=document.createElement("tr");
-
       let t=document.createElement("td");
       t.innerText=("0"+h).slice(-2)+":"+(m==0?"00":"30");
       tr.appendChild(t);
@@ -82,5 +83,6 @@ async function render(){
 
 document.getElementById("prev").onclick=()=>{start=add(start,-7);render();}
 document.getElementById("next").onclick=()=>{start=add(start,7);render();}
+document.getElementById("mode").onclick=()=>{full=!full;render();}
 
 render();

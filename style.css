@@ -1,55 +1,13 @@
-body{
-  font-family:'Rounded Mplus 1c','Noto Sans JP',sans-serif;
-  background:#fff;
-  margin:0;
-}
-
-.header{
-  text-align:center;
-  padding:20px;
-}
-
-.phone{
-  position:absolute;
-  left:10px;
-  top:15px;
-  font-size:12px;
-}
-
-.toolbar{
-  text-align:center;
-  margin-bottom:10px;
-}
-
-table{
-  width:100%;
-  border-spacing:10px;
-}
-
-td{
-  text-align:center;
-}
-
-.slot{
-  border-radius:16px;
-  padding:14px;
-  font-size:18px;
-  border:2px solid #000;
-  transition:0.2s;
-}
-
-.ok{
-  background:#e6f7ff;
-}
-
-.ng{
-  background:#ffe6ea;
-}
-
-.slot:hover{
-  transform:scale(1.05);
-}
-
-.sun{color:#ff6b6b;}
-.sat{color:#4dabf7;}
-.today{background:#fff3cd;border-radius:8px;}
+body{font-family:'Noto Sans JP',sans-serif;background:#fff;margin:0}
+.header{text-align:center;padding:20px}
+.phone{position:absolute;left:10px;top:15px;font-size:12px}
+.toolbar{text-align:center;margin-bottom:10px}
+table{width:100%;border-spacing:10px}
+td{text-align:center}
+.slot{border-radius:18px;padding:14px;font-size:18px;border:2px solid #000;transition:.2s}
+.ok{background:#e6f7ff}
+.ng{background:#ffe6ea}
+.slot:hover{transform:scale(1.05)}
+.sun{color:#ff6b6b}
+.sat{color:#4dabf7}
+.today{background:#fff3cd;border-radius:8px}

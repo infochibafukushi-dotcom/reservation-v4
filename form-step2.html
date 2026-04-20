@@ -3,21 +3,42 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>予約</title>
+<title>予約入力</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div style="max-width:400px;margin:auto;padding:20px;">
+<div style="max-width:420px;margin:auto;padding:20px;">
 <h2>個人情報入力</h2>
 
-<input placeholder="お名前" style="width:100%;padding:10px;margin-bottom:10px;">
-<input placeholder="電話番号" style="width:100%;padding:10px;margin-bottom:10px;">
-<input placeholder="出発地" style="width:100%;padding:10px;margin-bottom:10px;">
-<input placeholder="行き先" style="width:100%;padding:10px;margin-bottom:10px;">
+<input id="name" placeholder="お名前" style="width:100%;padding:12px;margin-bottom:10px;">
+<input id="tel" placeholder="電話番号" style="width:100%;padding:12px;margin-bottom:10px;">
+<input id="from" placeholder="出発地" style="width:100%;padding:12px;margin-bottom:10px;">
+<input id="to" placeholder="行き先" style="width:100%;padding:12px;margin-bottom:10px;">
 
-<button style="width:100%;padding:12px;background:#00c853;color:#fff;border:none;border-radius:12px;">予約する</button>
+<button onclick="submit()" style="width:100%;padding:14px;background:#00c853;color:#fff;border:none;border-radius:14px;">予約する</button>
 </div>
+
+<script>
+const API="https://throbbing-bush-8f59.info-chibafukushi.workers.dev/api/createReservation";
+
+function submit(){
+if(!name.value||!tel.value||!from.value){alert("必須入力");return;}
+
+fetch(API,{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+name:name.value,
+phone:tel.value,
+date:new URLSearchParams(location.search).get("date"),
+time:new URLSearchParams(location.search).get("time"),
+pickup:from.value,
+destination:to.value
+})
+}).then(()=>alert("予約完了"));
+}
+</script>
 
 </body>
 </html>
