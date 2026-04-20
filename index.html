@@ -1,17 +1,41 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>予約</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>介護タクシー予約</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <main class="container">
+    <header class="hero">
+      <p class="hero__badge">24時間受付（仮）</p>
+      <h1>介護タクシー予約</h1>
+      <p class="hero__lead">LINE予約/美容予約サイト風の見やすいUIで、空き枠をそのまま選択できます。</p>
+    </header>
 
-<h1>介護タクシー予約</h1>
+    <section class="card">
+      <div class="calendar-toolbar">
+        <button id="prevWeek" class="btn btn--secondary" type="button">前週</button>
+        <div>
+          <p class="calendar-toolbar__label">予約カレンダー（7日表示）</p>
+          <p id="rangeLabel" class="calendar-toolbar__range"></p>
+        </div>
+        <button id="nextWeek" class="btn btn--secondary" type="button">次週</button>
+      </div>
 
-<table id="calendar"></table>
+      <div class="legend">
+        <span><i class="dot dot--ok"></i> 予約可</span>
+        <span><i class="dot dot--ng"></i> 予約不可</span>
+      </div>
 
-<script src="app.js"></script>
+      <div class="calendar-wrap">
+        <table id="calendar" class="calendar"></table>
+      </div>
+      <p class="calendar-note">※ 過去時間・満席枠は自動で予約不可になります。</p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
 </body>
 </html>

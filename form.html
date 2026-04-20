@@ -1,47 +1,98 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-<meta charset="UTF-8">
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>予約情報入力</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <main class="container container--narrow">
+    <section class="card">
+      <h1 class="form-title">予約情報入力</h1>
+      <p id="selectedSlot" class="selected-slot"></p>
 
-<div style="max-width:420px;margin:auto;padding:20px">
-<h2>予約入力</h2>
+      <div class="form-grid">
+        <label>お名前<input id="name" placeholder="例）山田 太郎"></label>
+        <label>電話番号<input id="tel" inputmode="numeric" placeholder="09012345678"></label>
+        <label>出発地<input id="from" placeholder="例）○○病院"></label>
+        <label>行き先<input id="to" placeholder="例）自宅"></label>
+      </div>
 
-<label>お名前</label><input id="name">
-<label>電話番号</label><input id="tel">
-<label>出発地</label><input id="from">
-<label>行き先</label><input id="to">
+      <label class="agree"><input type="checkbox" id="agree">利用規約に同意する</label>
 
-<label><input type="checkbox" id="agree"> 同意する</label>
-
-<button onclick="send()">予約する</button>
-</div>
+      <div class="actions">
+        <a class="btn btn--ghost" href="index.html">戻る</a>
+        <button class="btn" type="button" onclick="send()">予約を確定する</button>
+      </div>
+    </section>
+  </main>
 
 <script>
-const API="https://YOUR-WORKER-URL/api/createReservation";
+const API = "https://YOUR-WORKER-URL/api/createReservation";
 
-function validTel(t){return /^0\d{9,10}$/.test(t)}
+const query = new URLSearchParams(location.search);
+const date = query.get("date");
+const time = query.get("time");
 
-function send(){
-if(!name.value||!tel.value||!from.value){alert("必須入力");return}
-if(!validTel(tel.value)){alert("電話番号エラー");return}
-if(!agree.checked){alert("同意必須");return}
+const selectedSlot = document.getElementById("selectedSlot");
+selectedSlot.textContent = date && time
+  ? `選択中: ${date} ${time}`
+  : "日時が選択されていません。カレンダーから選択してください。";
 
-let p=new URLSearchParams(location.search);
+function validTel(t){
+  return /^0\d{9,10}$/.test(String(t || "").replace(/-/g, ""));
+}
 
-fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},
-body:JSON.stringify({
-name:name.value,
-phone:tel.value,
-date:p.get("date"),
-time:p.get("time"),
-pickup:from.value,
-destination:to.value
-})}).then(()=>location.href="thanks.html")
+async function send(){
+  if(!date || !time){
+    alert("日時が不正です。カレンダーから選択してください。");
+    return;
+  }
+
+  if(!name.value || !tel.value || !from.value){
+    alert("必須項目を入力してください");
+    return;
+  }
+
+  if(!validTel(tel.value)){
+    alert("電話番号形式が正しくありません");
+    return;
+  }
+
+  if(!agree.checked){
+    alert("同意チェックが必要です");
+    return;
+  }
+
+  const payload = {
+    name: name.value.trim(),
+    phone: tel.value.replace(/-/g, "").trim(),
+    date,
+    time,
+    pickup: from.value.trim(),
+    destination: to.value.trim()
+  };
+
+  try{
+    const res = await fetch(API, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload)
+    });
+
+    const json = await res.json();
+
+    if(!json.success){
+      alert(json.message || "予約に失敗しました");
+      return;
+    }
+
+    location.href = `thanks.html?id=${encodeURIComponent(json.id || "")}`;
+  }catch(e){
+    alert("通信エラーが発生しました。時間をおいて再試行してください。");
+  }
 }
 </script>
-
 </body>
 </html>
