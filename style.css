@@ -1,5 +1,382 @@
-body{font-family:sans-serif}
-table{border-spacing:6px}
-.slot{padding:10px;border:1px solid #000;border-radius:8px;cursor:pointer}
-.ok{background:#d0f0ff}
-.ng{background:#ffd0d0}
+:root {
+  --bg: #f4f6fb;
+  --card: #ffffff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --primary: #06c755;
+  --primary-dark: #04aa49;
+  --ng: #f8d7da;
+  --ok: #d9fbe8;
+  --line: #e5e7eb;
+  --shadow: 0 12px 24px rgba(16, 24, 40, 0.08);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif;
+  color: var(--text);
+  background: linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.container--narrow {
+  max-width: 720px;
+}
+
+.hero {
+  padding: 16px 4px 20px;
+}
+
+.hero__badge {
+  display: inline-block;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e8f7ee;
+  color: #0f6d35;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hero h1 {
+  margin: 12px 0 10px;
+  font-size: clamp(26px, 4vw, 36px);
+}
+
+.hero__lead {
+  margin: 0;
+  color: var(--muted);
+}
+
+.card {
+  background: var(--card);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  border: 1px solid #f0f2f8;
+  padding: 18px;
+}
+
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.calendar-toolbar__label {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.calendar-toolbar__range {
+  margin: 2px 0 0;
+  font-weight: 700;
+}
+
+.legend {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--muted);
+  margin: 10px 0;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 5px;
+}
+
+.dot--ok { background: #16a34a; }
+.dot--ng { background: #dc2626; }
+
+.calendar-wrap {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.calendar {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 920px;
+}
+
+.calendar th,
+.calendar td {
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  text-align: center;
+  padding: 8px;
+}
+
+.calendar th {
+  background: #f8fafc;
+  font-size: 14px;
+}
+
+.calendar th span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.time-cell {
+  width: 86px;
+  font-size: 12px;
+  color: var(--muted);
+  background: #fafafa;
+}
+
+.slot {
+  border: none;
+  width: 100%;
+  min-height: 34px;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.slot--ok {
+  background: var(--ok);
+  color: #086c2f;
+  cursor: pointer;
+}
+
+.slot--ok:hover { background: #c1f6dc; }
+
+.slot--ng {
+  background: var(--ng);
+  color: #9f1239;
+  cursor: not-allowed;
+}
+
+.calendar-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.btn {
+  appearance: none;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 10px 16px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.btn:hover { background: var(--primary-dark); }
+
+.btn--secondary {
+  background: #eef2f7;
+  color: #111827;
+}
+
+.btn--secondary:hover { background: #e4e9f0; }
+
+.btn--ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+.form-title { margin-top: 0; }
+
+.selected-slot {
+  margin-top: 0;
+  margin-bottom: 14px;
+  color: var(--muted);
+}
+
+.form-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.form-grid label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+input:focus {
+  outline: 2px solid #b2f0cb;
+  border-color: #8ce5b2;
+}
+
+.agree {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.agree input {
+  width: 18px;
+  margin: 0;
+}
+
+.actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.done {
+  text-align: center;
+  padding: 36px 20px;
+}
+
+.done__icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 8px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #e8f7ee;
+  color: #0d7f3c;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .container { padding: 14px; }
+
+  .calendar-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .calendar-toolbar > div {
+    width: 100%;
+    order: -1;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .actions .btn {
+    width: 100%;
+  }
+}
+
+
+.hidden { display: none; }
+
+.steps {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.step-badge {
+  display: inline-block;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #fff;
+}
+
+.step-badge--active {
+  border-color: #98eabc;
+  color: #0f6d35;
+  background: #e8f7ee;
+}
+
+.step-title {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.step-help {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.menu-grid label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 15px;
+  background: #fff;
+}
+
+.actions--end {
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .menu-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.loading {
+  margin: 8px 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.estimate {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border: 1px solid #dbe2ea;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #1f2937;
+}
+
+.estimate strong {
+  color: #0f6d35;
+  font-size: 18px;
+}
