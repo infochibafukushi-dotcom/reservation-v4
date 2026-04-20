@@ -1,31 +1,39 @@
+const API="/api/getInitData";
+
 const p=new URLSearchParams(location.search);
 const date=p.get("date");
 
 document.getElementById("date").innerText=date;
 
-const list=document.getElementById("times");
+fetch(API).then(r=>r.json()).then(data=>{
+
+const blocks=data.blocks||[];
+const wrap=document.getElementById("times");
 
 for(let h=6;h<=21;h++){
 for(let m of [0,30]){
 
 let time=("0"+h).slice(-2)+":"+(m==0?"00":"30");
 
-let el=document.createElement("div");
-el.className="time";
+let isBlock=blocks.some(b=>b.date==date && b.time==time);
 
-let status=Math.random()>0.2;
+let div=document.createElement("div");
+div.className="time";
 
-el.innerHTML=`
+div.innerHTML=`
 <span>${time}</span>
-<span class="${status?'ok':'ng'}">${status?'◎':'×'}</span>
+<span class="${isBlock?'ng':'ok'}">${isBlock?'×':'◎'}</span>
 `;
 
-if(status){
-el.onclick=()=>{
+if(!isBlock){
+div.onclick=()=>{
 location.href="form-step1.html?date="+date+"&time="+time;
 };
 }
 
-list.appendChild(el);
+wrap.appendChild(div);
+
 }
 }
+
+});

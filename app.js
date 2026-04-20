@@ -1,4 +1,6 @@
-const container=document.getElementById("dates");
+const API="/api/getInitData";
+
+const el=document.getElementById("dates");
 
 let today=new Date();
 
@@ -6,13 +8,13 @@ for(let i=0;i<14;i++){
 let d=new Date();
 d.setDate(today.getDate()+i);
 
-let el=document.createElement("div");
-el.className="date";
-el.innerText=(d.getMonth()+1)+"/"+d.getDate();
+let div=document.createElement("div");
+div.className="date";
+div.innerText=(d.getMonth()+1)+"/"+d.getDate();
 
-el.onclick=()=>{
+div.onclick=()=>{
 location.href="time.html?date="+d.toISOString().split("T")[0];
 };
 
-container.appendChild(el);
+el.appendChild(div);
 }
