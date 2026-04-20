@@ -19,10 +19,17 @@
 
       <section id="menuStep">
         <h2 class="step-title">メニューを選択</h2>
-        <p class="step-help">先にメニューを決めると、予約内容の確認がスムーズです。</p>
+        <p class="step-help">移動内容に合わせて選択してください。下記3項目は標準で含まれます。</p>
 
-        <div class="menu-grid">
-          <label>車種
+        <div class="base-fees">
+          <p><strong>基本運賃</strong><span id="baseFare">2,000円</span></p>
+          <p><strong>予約配車料</strong><span id="dispatchFee">500円</span></p>
+          <p><strong>特殊車両料</strong><span id="specialFee">1,000円</span></p>
+          <small>※ 走行距離・待機時間・追加介助により最終金額は変動する場合があります。</small>
+        </div>
+
+        <div class="menu-stack">
+          <label>移動手段
             <select id="vehicle"></select>
           </label>
           <label>介助
@@ -31,7 +38,7 @@
           <label>階段介助
             <select id="stairs"></select>
           </label>
-          <label>往復/付き添い
+          <label>待機/付き添い
             <select id="roundTrip"></select>
           </label>
         </div>
@@ -47,6 +54,11 @@
       <section id="infoStep" class="hidden">
         <h2 class="step-title">お客様情報入力</h2>
 
+        <div class="privacy-note">
+          <p><strong>個人情報ご提供のお願い</strong></p>
+          <p>配車手配・予約確認のご連絡・安全な送迎対応のため、連絡先や乗降場所などの情報が必要です。法令に基づき適切に管理し、予約業務以外には使用しません。</p>
+        </div>
+
         <div class="form-grid">
           <label>お名前<input id="name" placeholder="例）山田 太郎"></label>
           <label>電話番号<input id="tel" inputmode="numeric" placeholder="09012345678"></label>
@@ -54,7 +66,7 @@
           <label>行き先<input id="to" placeholder="例）自宅"></label>
         </div>
 
-        <label class="agree"><input type="checkbox" id="agree">個人情報の取扱いに同意する</label>
+        <label class="agree"><input type="checkbox" id="agree">上記の利用目的を確認し、個人情報の取扱いに同意する</label>
 
         <div class="actions">
           <button class="btn btn--ghost" type="button" id="backToMenuBtn">メニューへ戻る</button>
@@ -69,6 +81,19 @@
 const { API_BASE, ENDPOINTS } = window.APP_CONFIG;
 const API_CREATE = `${API_BASE}${ENDPOINTS.createReservation}`;
 const API_MENU = `${API_BASE}${ENDPOINTS.getMenu}`;
+
+const DEFAULT_BASE_FEES = {
+  baseFare: 2000,
+  dispatchFee: 500,
+  specialFee: 1000
+};
+
+const FALLBACK_MENU = {
+  vehicle: [{ name: "標準車いす対応", price: 0 }],
+  assist: [{ name: "基本介助", price: 0 }],
+  stairs: [{ name: "階段介助なし", price: 0 }],
+  round: [{ name: "片道", price: 0 }, { name: "待機", price: 1500 }, { name: "付き添い", price: 2000 }]
+};
 
 const query = new URLSearchParams(location.search);
 const date = query.get("date");
@@ -91,8 +116,9 @@ function formatYen(value){
 }
 
 function updateEstimate(){
-  const total = menuPriceState.vehicle + menuPriceState.assist + menuPriceState.stairs + menuPriceState.roundTrip;
-  document.getElementById("estimateTotal").textContent = formatYen(total);
+  const baseTotal = DEFAULT_BASE_FEES.baseFare + DEFAULT_BASE_FEES.dispatchFee + DEFAULT_BASE_FEES.specialFee;
+  const menuTotal = menuPriceState.vehicle + menuPriceState.assist + menuPriceState.stairs + menuPriceState.roundTrip;
+  document.getElementById("estimateTotal").textContent = formatYen(baseTotal + menuTotal);
 }
 
 function setStep(step){
@@ -113,7 +139,7 @@ function validTel(t){
 function renderSelect(id, list, placeholder){
   const selectEl = document.getElementById(id);
   const options = [`<option value="" data-price="0">${placeholder}</option>`].concat(
-    (list || []).map((item) => `<option value="${item.name}" data-price="${Number(item.price || 0)}">${item.name}${item.price ? `（${item.price}円）` : ""}</option>`)
+    (list || []).map((item) => `<option value="${item.name}" data-price="${Number(item.price || 0)}">${item.name}${item.price ? `（+${item.price}円）` : ""}</option>`)
   );
   selectEl.innerHTML = options.join("");
 
@@ -124,23 +150,34 @@ function renderSelect(id, list, placeholder){
   });
 }
 
+function renderBaseFees(){
+  document.getElementById("baseFare").textContent = formatYen(DEFAULT_BASE_FEES.baseFare);
+  document.getElementById("dispatchFee").textContent = formatYen(DEFAULT_BASE_FEES.dispatchFee);
+  document.getElementById("specialFee").textContent = formatYen(DEFAULT_BASE_FEES.specialFee);
+}
+
+function applyMenu(menu){
+  renderSelect("vehicle", menu.vehicle, "選択してください");
+  renderSelect("assist", menu.assist, "選択してください");
+  renderSelect("stairs", menu.stairs, "選択してください");
+  renderSelect("roundTrip", menu.round, "選択してください");
+  updateEstimate();
+}
 
 async function loadMenu(){
   try{
     const res = await fetch(API_MENU, { cache: "no-store" });
     const menu = await res.json();
 
-    renderSelect("vehicle", menu.vehicle, "選択してください");
-    renderSelect("assist", menu.assist, "選択してください");
-    renderSelect("stairs", menu.stairs, "選択してください");
-    renderSelect("roundTrip", menu.round, "選択してください");
-    updateEstimate();
+    const safeMenu = {
+      vehicle: (menu.vehicle && menu.vehicle.length) ? menu.vehicle : FALLBACK_MENU.vehicle,
+      assist: (menu.assist && menu.assist.length) ? menu.assist : FALLBACK_MENU.assist,
+      stairs: (menu.stairs && menu.stairs.length) ? menu.stairs : FALLBACK_MENU.stairs,
+      round: (menu.round && menu.round.length) ? menu.round : FALLBACK_MENU.round
+    };
+    applyMenu(safeMenu);
   }catch(e){
-    renderSelect("vehicle", [], "メニュー取得失敗");
-    renderSelect("assist", [], "メニュー取得失敗");
-    renderSelect("stairs", [], "メニュー取得失敗");
-    renderSelect("roundTrip", [], "メニュー取得失敗");
-    updateEstimate();
+    applyMenu(FALLBACK_MENU);
   }
 }
 
@@ -161,7 +198,7 @@ async function send(){
   }
 
   if(!agree.checked){
-    alert("同意チェックが必要です");
+    alert("個人情報取扱いへの同意が必要です");
     return;
   }
 
@@ -175,7 +212,8 @@ async function send(){
     vehicle: vehicle.value,
     assist: assist.value,
     stairs: stairs.value,
-    roundTrip: roundTrip.value
+    roundTrip: roundTrip.value,
+    notes: `概算金額:${document.getElementById("estimateTotal").textContent}`
   };
 
   try{
@@ -198,6 +236,7 @@ async function send(){
   }
 }
 
+renderBaseFees();
 loadMenu();
 setStep("menu");
 </script>

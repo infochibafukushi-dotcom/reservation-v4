@@ -23,13 +23,23 @@
         <button id="nextWeek" class="btn btn--secondary" type="button">次週</button>
       </div>
 
+      <div class="view-toggle" role="group" aria-label="表示モード切替">
+        <button id="standardViewBtn" class="btn btn--secondary is-active" type="button">通常時間</button>
+        <button id="fullDayViewBtn" class="btn btn--secondary" type="button">深夜早朝（24時間）</button>
+      </div>
+
       <div class="legend">
         <span><i class="dot dot--ok"></i> 予約可</span>
         <span><i class="dot dot--ng"></i> 予約不可</span>
       </div>
 
+      <div id="calendarLoading" class="loading-overlay" aria-live="polite">
+        <div class="loading-overlay__box">
+          <div class="spinner"></div>
+          <p>空き枠を読み込み中...</p>
+        </div>
+      </div>
 
-      <div id="calendarLoading" class="loading">カレンダーを読み込み中です...</div>
       <div class="calendar-wrap">
         <table id="calendar" class="calendar"></table>
       </div>

@@ -3,13 +3,16 @@ const BLOCKS_API = `${API_BASE}${ENDPOINTS.getBlocks}`;
 
 const DAYS_PER_PAGE = 7;
 const SLOT_MINUTES = 30;
-const START_HOUR = 6;
-const END_HOUR = 20;
+const STANDARD_START_HOUR = 6;
+const STANDARD_END_HOUR = 20;
+const FULL_START_HOUR = 0;
+const FULL_END_HOUR = 23;
 const BLOCKS_CACHE_KEY = "reservation_blocks_cache_v1";
 
 const state = {
   weekOffset: 0,
-  blockSet: new Set()
+  blockSet: new Set(),
+  fullDay: false
 };
 
 const el = {
@@ -17,7 +20,9 @@ const el = {
   rangeLabel: document.getElementById("rangeLabel"),
   prevWeek: document.getElementById("prevWeek"),
   nextWeek: document.getElementById("nextWeek"),
-  loading: document.getElementById("calendarLoading")
+  loading: document.getElementById("calendarLoading"),
+  standardViewBtn: document.getElementById("standardViewBtn"),
+  fullDayViewBtn: document.getElementById("fullDayViewBtn")
 };
 
 function formatDate(date) {
@@ -59,9 +64,13 @@ function makeDayList() {
 
 function makeTimes() {
   const times = [];
-  for (let h = START_HOUR; h <= END_HOUR; h++) {
+  const startHour = state.fullDay ? FULL_START_HOUR : STANDARD_START_HOUR;
+  const endHour = state.fullDay ? FULL_END_HOUR : STANDARD_END_HOUR;
+
+  for (let h = startHour; h <= endHour; h++) {
     for (let m = 0; m < 60; m += SLOT_MINUTES) {
-      if (h === END_HOUR && m > 0) continue;
+      if (h === endHour && state.fullDay && m > 30) continue;
+      if (!state.fullDay && h === endHour && m > 0) continue;
       times.push(formatTime(h, m));
     }
   }
@@ -77,10 +86,18 @@ function setLoading(isLoading) {
   el.loading.classList.toggle("hidden", !isLoading);
 }
 
+function setViewMode(fullDay) {
+  state.fullDay = fullDay;
+  el.standardViewBtn.classList.toggle("is-active", !fullDay);
+  el.fullDayViewBtn.classList.toggle("is-active", fullDay);
+  renderCalendar();
+}
+
 function updateRangeLabel(days) {
   const first = days[0];
   const last = days[days.length - 1];
-  el.rangeLabel.textContent = `${first.getFullYear()}/${first.getMonth() + 1}/${first.getDate()} - ${last.getMonth() + 1}/${last.getDate()}`;
+  const mode = state.fullDay ? "24時間表示" : "通常時間表示";
+  el.rangeLabel.textContent = `${first.getFullYear()}/${first.getMonth() + 1}/${first.getDate()} - ${last.getMonth() + 1}/${last.getDate()}（${mode}）`;
 }
 
 function renderCalendar() {
@@ -206,5 +223,8 @@ el.nextWeek.addEventListener("click", () => {
   state.weekOffset += 1;
   renderCalendar();
 });
+
+el.standardViewBtn.addEventListener("click", () => setViewMode(false));
+el.fullDayViewBtn.addEventListener("click", () => setViewMode(true));
 
 init();
