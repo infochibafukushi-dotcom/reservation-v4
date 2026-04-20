@@ -1,72 +1,120 @@
-let week=0;
-let full=false;
-let selectedDate="",selectedTime="";
-let menuData={vehicle:[],assist:[],stairs:[],round:[]};
+const API = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
 
-function render(){
-  let table=document.getElementById("calendar");
-  table.innerHTML="";
-  let tr=document.createElement("tr");
+let currentStart = new Date();
+let fullMode = false;
+
+function formatDate(d){
+  const y = d.getFullYear();
+  const m = ("0"+(d.getMonth()+1)).slice(-2);
+  const day = ("0"+d.getDate()).slice(-2);
+  return `${y}-${m}-${day}`;
+}
+
+function formatLabel(d){
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+
+function addDays(base, n){
+  const d = new Date(base);
+  d.setDate(d.getDate()+n);
+  return d;
+}
+
+async function render(){
+
+  const table = document.getElementById("calendar");
+  table.innerHTML = "";
+
+  const res = await fetch(API + "/api/getInitData");
+  const json = await res.json();
+
+  const blocks = json.blocks || [];
+
+  // ヘッダ（日付）
+  const head = document.createElement("tr");
+  head.appendChild(document.createElement("td"));
+
+  let days = [];
   for(let i=0;i<7;i++){
-    let td=document.createElement("td");
-    let btn=document.createElement("div");
-    btn.className="slot ok";
-    btn.innerText="◎";
-    btn.onclick=()=>openForm("日付","時間");
-    td.appendChild(btn);
-    tr.appendChild(td);
+    const d = addDays(currentStart, i);
+    days.push(d);
+
+    const th = document.createElement("td");
+    th.innerText = formatLabel(d);
+    head.appendChild(th);
   }
-  table.appendChild(tr);
+
+  table.appendChild(head);
+
+  const start = fullMode ? 0 : 6;
+  const end = fullMode ? 23 : 21;
+
+  for(let h=start; h<=end; h++){
+    for(let m of [0,30]){
+
+      const tr = document.createElement("tr");
+
+      const timeTd = document.createElement("td");
+      timeTd.innerText = `${("0"+h).slice(-2)}:${m===0?"00":"30"}`;
+      tr.appendChild(timeTd);
+
+      days.forEach(d => {
+
+        const td = document.createElement("td");
+        const box = document.createElement("div");
+
+        const dateStr = formatDate(d);
+        const timeStr = `${("0"+h).slice(-2)}:${m===0?"00":"30"}`;
+
+        const isPast = new Date(dateStr+"T"+timeStr) < new Date();
+
+        const isBlocked = blocks.some(b =>
+          b.date === dateStr && b.time === timeStr
+        );
+
+        if(isPast || isBlocked){
+          box.className = "slot ng";
+          box.innerText = "×";
+        }else{
+          box.className = "slot ok";
+          box.innerText = "◎";
+
+          box.onclick = () => {
+            const q = new URLSearchParams({
+              date: dateStr,
+              time: timeStr
+            });
+            location.href = "form-step1.html?" + q.toString();
+          };
+        }
+
+        td.appendChild(box);
+        tr.appendChild(td);
+
+      });
+
+      table.appendChild(tr);
+    }
+  }
+
+  document.getElementById("range").innerText =
+    `${formatDate(days[0])}〜${formatDate(days[6])}`;
 }
 
-function openForm(date,time){
-  document.getElementById("calendarArea").style.display="none";
-  document.getElementById("formArea").style.display="block";
-  document.getElementById("selectedDateTime").innerText=date+" "+time;
-  loadMenu();
-}
+// ボタン
+document.getElementById("prev").onclick = ()=>{
+  currentStart = addDays(currentStart, -7);
+  render();
+};
 
-function backToCalendar(){
-  document.getElementById("calendarArea").style.display="block";
-  document.getElementById("formArea").style.display="none";
-}
+document.getElementById("next").onclick = ()=>{
+  currentStart = addDays(currentStart, 7);
+  render();
+};
 
-function loadMenu(){
-  fetch("/api/menu")
-  .then(r=>r.json())
-  .then(data=>{
-    menuData=data;
-    fill("vehicle",data.vehicle);
-    fill("assist",data.assist);
-    fill("stairs",data.stairs);
-    fill("round",data.round);
-  });
-}
-
-function fill(id,arr){
-  let el=document.getElementById(id);
-  el.innerHTML="";
-  arr.forEach((x,i)=>{
-    let o=document.createElement("option");
-    o.value=i;
-    o.textContent=x.name+"("+x.price+"円)";
-    el.appendChild(o);
-  });
-}
-
-function calc(){
-  let t=0;
-  if(vehicle.value) t+=menuData.vehicle[vehicle.value].price;
-  if(assist.value) t+=menuData.assist[assist.value].price;
-  if(stairs.value) t+=menuData.stairs[stairs.value].price;
-  if(round.value) t+=menuData.round[round.value].price;
-  total.innerText=t;
-}
-
-function submitForm(){
-  if(!agree.checked) return alert("同意必須");
-  if(!name.value||!phone.value||!from.value||!to.value) return alert("未入力あり");
-  alert("予約完了（仮）");
-}
+document.getElementById("mode").onclick = ()=>{
+  fullMode = !fullMode;
+  render();
+};
 
 render();
