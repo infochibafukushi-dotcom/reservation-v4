@@ -1,121 +1,64 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>サービス選択</title>
-<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="card">
-  <div class="header-mini">
-    <button class="back" onclick="history.back()">戻る</button>
-    <div id="dt"></div>
-  </div>
+<h2>サービス選択</h2>
 
-  <h2>サービス選択</h2>
+<select id="vehicle"></select>
+<select id="assist"></select>
+<select id="stairs"></select>
+<select id="round"></select>
 
-  <div class="field">
-    <label>移動方法 *</label>
-    <select id="vehicle"></select>
-  </div>
+<p>合計：<span id="total">0</span>円</p>
 
-  <div class="field">
-    <label>介助内容 *</label>
-    <select id="assist"></select>
-  </div>
-
-  <div class="field">
-    <label>階段介助 *</label>
-    <select id="stairs"></select>
-  </div>
-
-  <div class="field">
-    <label>往復送迎 *</label>
-    <select id="round"></select>
-  </div>
-
-  <div class="total">概算合計：<span id="total">0</span>円</div>
-  <div class="note">上記料金に加え距離・時間により運賃は加算されます。</div>
-
-  <button class="btn" id="nextBtn">次へ</button>
-</div>
+<button onclick="next()">次へ</button>
 
 <script>
-// 日時表示
-const p = new URLSearchParams(location.search);
-const date = p.get('date'); const time = p.get('time');
-document.getElementById('dt').innerText = date + ' ' + time;
+const API = "/api/menu";
 
-// 仮データ（D1接続後はここを置換）
-const data = {
-  vehicle: [
-    {n:'無料車いす',p:0},
-    {n:'リクライニング車いすレンタル(2500円)',p:2500},
-    {n:'ストレッチャー(4000円)',p:4000},
-    {n:'ご自身の車いす',p:0}
-  ],
-  assist: [
-    {n:'乗降介助(1500円)',p:1500},
-    {n:'身体介助(3000円)',p:3000},
-    {n:'介助不要(0円)',p:0}
-  ],
-  stairs: [
-    {n:'不要(0円)',p:0},
-    {n:'見守り介助(0円)',p:0},
-    {n:'2階移動(3000円)',p:3000},
-    {n:'3階移動(5000円)',p:5000}
-  ],
-  round: [
-    {n:'不要(0円)',p:0},
-    {n:'待機(1000円)',p:1000},
-    {n:'病院付き添い(1500円)',p:1500}
-  ]
-};
+let data;
+
+fetch(API)
+.then(r=>r.json())
+.then(json=>{
+  data = json;
+  fill("vehicle", data.vehicle);
+  fill("assist", data.assist);
+  fill("stairs", data.stairs);
+  fill("round", data.round);
+});
 
 function fill(id, arr){
-  const s = document.getElementById(id);
-  s.innerHTML = '<option value="">選択してください</option>';
+  const el = document.getElementById(id);
+  el.innerHTML = "<option value=''>選択</option>";
   arr.forEach((x,i)=>{
-    const o=document.createElement('option');
-    o.value=i; o.textContent=x.n;
-    s.appendChild(o);
+    const o = document.createElement("option");
+    o.value = i;
+    o.textContent = x.name + " ("+x.price+"円)";
+    el.appendChild(o);
   });
 }
-fill('vehicle', data.vehicle);
-fill('assist', data.assist);
-fill('stairs', data.stairs);
-fill('round', data.round);
 
 function calc(){
   let t=0;
-  const v=document.getElementById('vehicle').value;
-  const a=document.getElementById('assist').value;
-  const s=document.getElementById('stairs').value;
-  const r=document.getElementById('round').value;
-  if(v!=='') t+=data.vehicle[v].p;
-  if(a!=='') t+=data.assist[a].p;
-  if(s!=='') t+=data.stairs[s].p;
-  if(r!=='') t+=data.round[r].p;
-  document.getElementById('total').innerText = t;
-  return t;
+  if(vehicle.value) t+=data.vehicle[vehicle.value].price;
+  if(assist.value) t+=data.assist[assist.value].price;
+  if(stairs.value) t+=data.stairs[stairs.value].price;
+  if(round.value) t+=data.round[round.value].price;
+  total.innerText=t;
 }
-['vehicle','assist','stairs','round'].forEach(id=>{
-  document.getElementById(id).addEventListener('change', calc);
+
+["vehicle","assist","stairs","round"].forEach(id=>{
+  document.getElementById(id).addEventListener("change",calc);
 });
 
-document.getElementById('nextBtn').onclick = ()=>{
-  const total = calc();
-  const q = new URLSearchParams({
-    date, time, total,
-    vehicle: document.getElementById('vehicle').value,
-    assist: document.getElementById('assist').value,
-    stairs: document.getElementById('stairs').value,
-    round: document.getElementById('round').value
-  });
-  location.href = 'form-step2.html?' + q.toString();
-};
+function next(){
+  location.href="form-step2.html?total="+total.innerText;
+}
 </script>
 
 </body>
