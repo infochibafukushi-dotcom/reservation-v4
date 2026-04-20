@@ -1,21 +1,23 @@
-const API_BASE = "https://YOUR-WORKER-URL";
-const INIT_API = `${API_BASE}/api/getInitData`;
+const { API_BASE, ENDPOINTS } = window.APP_CONFIG;
+const BLOCKS_API = `${API_BASE}${ENDPOINTS.getBlocks}`;
 
 const DAYS_PER_PAGE = 7;
-const SLOT_MINUTES = 30; // 30分表示（必要なら60へ変更）
+const SLOT_MINUTES = 30;
 const START_HOUR = 6;
 const END_HOUR = 20;
+const BLOCKS_CACHE_KEY = "reservation_blocks_cache_v1";
 
 const state = {
   weekOffset: 0,
-  blocks: []
+  blockSet: new Set()
 };
 
 const el = {
   calendar: document.getElementById("calendar"),
   rangeLabel: document.getElementById("rangeLabel"),
   prevWeek: document.getElementById("prevWeek"),
-  nextWeek: document.getElementById("nextWeek")
+  nextWeek: document.getElementById("nextWeek"),
+  loading: document.getElementById("calendarLoading")
 };
 
 function formatDate(date) {
@@ -42,9 +44,12 @@ function startOfDay(date) {
   return d;
 }
 
+function slotKey(dateStr, timeStr) {
+  return `${dateStr}_${timeStr}`;
+}
+
 function isPastSlot(dateStr, timeStr) {
-  const slotTime = new Date(`${dateStr}T${timeStr}:00`);
-  return slotTime.getTime() < Date.now();
+  return new Date(`${dateStr}T${timeStr}:00`).getTime() < Date.now();
 }
 
 function makeDayList() {
@@ -63,22 +68,13 @@ function makeTimes() {
   return times;
 }
 
-async function fetchBlocks() {
-  try {
-    const res = await fetch(INIT_API);
-    const json = await res.json();
-    state.blocks = json.blocks || [];
-  } catch (e) {
-    state.blocks = [];
-  }
-}
-
-function isBlocked(dateStr, timeStr) {
-  return state.blocks.some((b) => b.date === dateStr && b.time === timeStr);
-}
-
 function toJaWeekDay(date) {
   return ["日", "月", "火", "水", "木", "金", "土"][date.getDay()];
+}
+
+function setLoading(isLoading) {
+  if (!el.loading) return;
+  el.loading.classList.toggle("hidden", !isLoading);
 }
 
 function updateRangeLabel(days) {
@@ -92,7 +88,6 @@ function renderCalendar() {
 
   const days = makeDayList();
   const times = makeTimes();
-
   updateRangeLabel(days);
 
   const thead = document.createElement("thead");
@@ -121,7 +116,7 @@ function renderCalendar() {
 
     days.forEach((day) => {
       const dateStr = formatDate(day);
-      const blocked = isBlocked(dateStr, time) || isPastSlot(dateStr, time);
+      const blocked = state.blockSet.has(slotKey(dateStr, time)) || isPastSlot(dateStr, time);
 
       const td = document.createElement("td");
       const btn = document.createElement("button");
@@ -146,9 +141,60 @@ function renderCalendar() {
   el.calendar.appendChild(tbody);
 }
 
+function applyBlocks(blocks) {
+  state.blockSet = new Set((blocks || []).map((b) => slotKey(b.date, b.time)));
+}
+
+function loadCachedBlocks() {
+  try {
+    const raw = localStorage.getItem(BLOCKS_CACHE_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    applyBlocks(parsed.blocks || []);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function cacheBlocks(blocks) {
+  try {
+    localStorage.setItem(BLOCKS_CACHE_KEY, JSON.stringify({
+      fetchedAt: Date.now(),
+      blocks
+    }));
+  } catch (e) {
+    // no-op
+  }
+}
+
+async function fetchLatestBlocks() {
+  const res = await fetch(BLOCKS_API, { cache: "no-store" });
+  const json = await res.json();
+  const blocks = json.blocks || [];
+  applyBlocks(blocks);
+  cacheBlocks(blocks);
+}
+
 async function init() {
-  await fetchBlocks();
-  renderCalendar();
+  setLoading(true);
+  const hasCache = loadCachedBlocks();
+  if (hasCache) {
+    renderCalendar();
+    setLoading(false);
+  }
+
+  try {
+    await fetchLatestBlocks();
+    renderCalendar();
+    setLoading(false);
+  } catch (e) {
+    if (!hasCache) {
+      applyBlocks([]);
+      renderCalendar();
+    }
+    setLoading(false);
+  }
 }
 
 el.prevWeek.addEventListener("click", () => {

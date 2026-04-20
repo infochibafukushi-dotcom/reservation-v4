@@ -12,24 +12,63 @@
       <h1 class="form-title">予約情報入力</h1>
       <p id="selectedSlot" class="selected-slot"></p>
 
-      <div class="form-grid">
-        <label>お名前<input id="name" placeholder="例）山田 太郎"></label>
-        <label>電話番号<input id="tel" inputmode="numeric" placeholder="09012345678"></label>
-        <label>出発地<input id="from" placeholder="例）○○病院"></label>
-        <label>行き先<input id="to" placeholder="例）自宅"></label>
+      <div class="steps">
+        <span id="stepMenuBadge" class="step-badge step-badge--active">1. メニュー選択</span>
+        <span id="stepInfoBadge" class="step-badge">2. お客様情報入力</span>
       </div>
 
-      <label class="agree"><input type="checkbox" id="agree">利用規約に同意する</label>
+      <section id="menuStep">
+        <h2 class="step-title">メニューを選択</h2>
+        <p class="step-help">先にメニューを決めると、予約内容の確認がスムーズです。</p>
 
-      <div class="actions">
-        <a class="btn btn--ghost" href="index.html">戻る</a>
-        <button class="btn" type="button" onclick="send()">予約を確定する</button>
-      </div>
+        <div class="menu-grid">
+          <label>車種
+            <select id="vehicle"></select>
+          </label>
+          <label>介助
+            <select id="assist"></select>
+          </label>
+          <label>階段介助
+            <select id="stairs"></select>
+          </label>
+          <label>往復/付き添い
+            <select id="roundTrip"></select>
+          </label>
+        </div>
+
+        <p class="estimate">概算金額: <strong id="estimateTotal">0円</strong></p>
+
+        <div class="actions actions--end">
+          <a class="btn btn--ghost" href="index.html">戻る</a>
+          <button class="btn" type="button" id="toInfoBtn">次へ</button>
+        </div>
+      </section>
+
+      <section id="infoStep" class="hidden">
+        <h2 class="step-title">お客様情報入力</h2>
+
+        <div class="form-grid">
+          <label>お名前<input id="name" placeholder="例）山田 太郎"></label>
+          <label>電話番号<input id="tel" inputmode="numeric" placeholder="09012345678"></label>
+          <label>出発地<input id="from" placeholder="例）○○病院"></label>
+          <label>行き先<input id="to" placeholder="例）自宅"></label>
+        </div>
+
+        <label class="agree"><input type="checkbox" id="agree">個人情報の取扱いに同意する</label>
+
+        <div class="actions">
+          <button class="btn btn--ghost" type="button" id="backToMenuBtn">メニューへ戻る</button>
+          <button class="btn" type="button" onclick="send()">予約を確定する</button>
+        </div>
+      </section>
     </section>
   </main>
 
+<script src="config.js"></script>
 <script>
-const API = "https://YOUR-WORKER-URL/api/createReservation";
+const { API_BASE, ENDPOINTS } = window.APP_CONFIG;
+const API_CREATE = `${API_BASE}${ENDPOINTS.createReservation}`;
+const API_MENU = `${API_BASE}${ENDPOINTS.getMenu}`;
 
 const query = new URLSearchParams(location.search);
 const date = query.get("date");
@@ -40,8 +79,69 @@ selectedSlot.textContent = date && time
   ? `選択中: ${date} ${time}`
   : "日時が選択されていません。カレンダーから選択してください。";
 
+const menuStep = document.getElementById("menuStep");
+const infoStep = document.getElementById("infoStep");
+const stepMenuBadge = document.getElementById("stepMenuBadge");
+const stepInfoBadge = document.getElementById("stepInfoBadge");
+
+const menuPriceState = { vehicle: 0, assist: 0, stairs: 0, roundTrip: 0 };
+
+function formatYen(value){
+  return `${Number(value || 0).toLocaleString("ja-JP")}円`;
+}
+
+function updateEstimate(){
+  const total = menuPriceState.vehicle + menuPriceState.assist + menuPriceState.stairs + menuPriceState.roundTrip;
+  document.getElementById("estimateTotal").textContent = formatYen(total);
+}
+
+function setStep(step){
+  const menuActive = step === "menu";
+  menuStep.classList.toggle("hidden", !menuActive);
+  infoStep.classList.toggle("hidden", menuActive);
+  stepMenuBadge.classList.toggle("step-badge--active", menuActive);
+  stepInfoBadge.classList.toggle("step-badge--active", !menuActive);
+}
+
+document.getElementById("toInfoBtn").addEventListener("click", () => setStep("info"));
+document.getElementById("backToMenuBtn").addEventListener("click", () => setStep("menu"));
+
 function validTel(t){
   return /^0\d{9,10}$/.test(String(t || "").replace(/-/g, ""));
+}
+
+function renderSelect(id, list, placeholder){
+  const selectEl = document.getElementById(id);
+  const options = [`<option value="" data-price="0">${placeholder}</option>`].concat(
+    (list || []).map((item) => `<option value="${item.name}" data-price="${Number(item.price || 0)}">${item.name}${item.price ? `（${item.price}円）` : ""}</option>`)
+  );
+  selectEl.innerHTML = options.join("");
+
+  selectEl.addEventListener("change", () => {
+    const selected = selectEl.options[selectEl.selectedIndex];
+    menuPriceState[id] = Number(selected?.dataset?.price || 0);
+    updateEstimate();
+  });
+}
+
+
+async function loadMenu(){
+  try{
+    const res = await fetch(API_MENU, { cache: "no-store" });
+    const menu = await res.json();
+
+    renderSelect("vehicle", menu.vehicle, "選択してください");
+    renderSelect("assist", menu.assist, "選択してください");
+    renderSelect("stairs", menu.stairs, "選択してください");
+    renderSelect("roundTrip", menu.round, "選択してください");
+    updateEstimate();
+  }catch(e){
+    renderSelect("vehicle", [], "メニュー取得失敗");
+    renderSelect("assist", [], "メニュー取得失敗");
+    renderSelect("stairs", [], "メニュー取得失敗");
+    renderSelect("roundTrip", [], "メニュー取得失敗");
+    updateEstimate();
+  }
 }
 
 async function send(){
@@ -71,11 +171,15 @@ async function send(){
     date,
     time,
     pickup: from.value.trim(),
-    destination: to.value.trim()
+    destination: to.value.trim(),
+    vehicle: vehicle.value,
+    assist: assist.value,
+    stairs: stairs.value,
+    roundTrip: roundTrip.value
   };
 
   try{
-    const res = await fetch(API, {
+    const res = await fetch(API_CREATE, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify(payload)
@@ -93,6 +197,9 @@ async function send(){
     alert("通信エラーが発生しました。時間をおいて再試行してください。");
   }
 }
+
+loadMenu();
+setStep("menu");
 </script>
 </body>
 </html>

@@ -15,6 +15,12 @@ export default {
       return new Response(null, { headers });
     }
 
+    // ===== ブロック一覧（軽量） =====
+    if (path === "/api/getBlocks") {
+      const blocks = await env.DB.prepare("SELECT date, time FROM blocks").all();
+      return new Response(JSON.stringify({ blocks: blocks.results || [] }), { headers });
+    }
+
     // ===== 初期データ =====
     if (path === "/api/getInitData") {
       const reservations = await env.DB.prepare("SELECT * FROM reservations ORDER BY reservation_datetime ASC").all();
