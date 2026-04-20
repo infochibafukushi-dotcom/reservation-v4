@@ -1,9 +1,7 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>個人情報入力</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -25,6 +23,13 @@
 <label>行き先</label>
 <input id="to">
 
+<div class="checkbox">
+<input type="checkbox" id="agree"> 個人情報の利用に同意する
+<div class="small">
+ご入力いただいた情報は予約対応のみに使用します
+</div>
+</div>
+
 <button class="btn" onclick="send()">予約する</button>
 
 </div>
@@ -40,13 +45,15 @@ return /^0\d{9,10}$/.test(t);
 function send(){
 
 if(!name.value||!tel.value||!from.value){
-alert("必須項目を入力してください");
-return;
+alert("必須項目を入力してください");return;
 }
 
 if(!validTel(tel.value)){
-alert("電話番号形式が不正です");
-return;
+alert("電話番号が不正です");return;
+}
+
+if(!agree.checked){
+alert("同意が必要です");return;
 }
 
 const p=new URLSearchParams(location.search);
@@ -62,9 +69,7 @@ time:p.get("time"),
 pickup:from.value,
 destination:to.value
 })
-}).then(()=>{
-location.href="thanks.html";
-});
+}).then(()=>location.href="thanks.html");
 }
 </script>
 

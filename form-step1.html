@@ -9,10 +9,10 @@
 <body>
 
 <div class="container">
-<div class="card">
 
+<div class="card">
 <h2>サービス選択</h2>
-<div id="dt" style="text-align:center;"></div>
+<div id="dt"></div>
 
 <label>移動方法</label>
 <select id="vehicle"></select>
@@ -26,19 +26,22 @@
 <label>往復・付き添い</label>
 <select id="round"></select>
 
-<div class="total">概算合計：<span id="total">0</span>円</div>
+<div class="total">
+基本運賃：730円<br>
+配車予約：500円<br>
+特殊車両：1000円<br>
+概算合計：<span id="total">2230</span>円～
+</div>
 
 <button class="btn" onclick="next()">次へ</button>
-
 </div>
+
 </div>
 
 <script>
 const API="https://throbbing-bush-8f59.info-chibafukushi.workers.dev/api/menu";
 const p=new URLSearchParams(location.search);
-const date=p.get("date");
-const time=p.get("time");
-dt.innerText=date+" "+time+" から";
+dt.innerText=p.get("date")+" "+p.get("time")+" から";
 
 let data={};
 
@@ -61,18 +64,21 @@ el.add(o);
 }
 
 function calc(){
-let t=0;
+let base=2230;
+let t=base;
+
 ["vehicle","assist","stairs","round"].forEach(id=>{
 let v=document.getElementById(id).value;
 if(v && data[id]) t+=data[id][v].price;
 });
+
 total.innerText=t;
 }
 
 document.querySelectorAll("select").forEach(s=>s.onchange=calc);
 
 function next(){
-if(!vehicle.value){alert("移動方法は必須です");return;}
+if(!vehicle.value){alert("移動方法必須");return;}
 const q=new URLSearchParams(location.search);
 q.set("total",total.innerText);
 location.href="confirm.html?"+q.toString();

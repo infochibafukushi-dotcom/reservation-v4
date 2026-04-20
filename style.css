@@ -1,20 +1,21 @@
 body{
 font-family:'Noto Sans JP',sans-serif;
-background:#f7f7f7;
+background:#f4f6f8;
 margin:0;
 }
 
 .container{
 max-width:420px;
 margin:auto;
-padding:16px;
+padding:20px;
 }
 
 .card{
 background:#fff;
-border-radius:16px;
-padding:16px;
-box-shadow:0 4px 12px rgba(0,0,0,0.08);
+border-radius:18px;
+padding:20px;
+box-shadow:0 8px 20px rgba(0,0,0,0.08);
+margin-bottom:16px;
 }
 
 h2{text-align:center;margin-bottom:10px;}
@@ -22,11 +23,11 @@ h2{text-align:center;margin-bottom:10px;}
 label{
 font-size:13px;
 color:#666;
-display:block;
 margin-top:10px;
+display:block;
 }
 
-select,input{
+input,select{
 width:100%;
 padding:12px;
 border-radius:12px;
@@ -36,9 +37,8 @@ font-size:14px;
 }
 
 .total{
-text-align:right;
+margin-top:12px;
 font-weight:bold;
-margin-top:10px;
 }
 
 .btn{
@@ -50,4 +50,14 @@ border:none;
 border-radius:14px;
 margin-top:14px;
 font-size:16px;
+}
+
+.small{
+font-size:12px;
+color:#888;
+margin-top:6px;
+}
+
+.checkbox{
+margin-top:12px;
 }
