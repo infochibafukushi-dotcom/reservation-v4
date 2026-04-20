@@ -56,7 +56,8 @@
 
         <div class="privacy-note">
           <p><strong>個人情報ご提供のお願い</strong></p>
-          <p>配車手配・予約確認のご連絡・安全な送迎対応のため、連絡先や乗降場所などの情報が必要です。法令に基づき適切に管理し、予約業務以外には使用しません。</p>
+          <p id="privacyReason">配車手配・予約確認のご連絡・安全な送迎対応のため、連絡先や乗降場所などの情報が必要です。法令に基づき適切に管理し、予約業務以外には使用しません。</p>
+          <label class="agree"><input type="checkbox" id="agree">上記の利用目的を確認し、個人情報の取扱いに同意する</label>
         </div>
 
         <div class="form-grid">
@@ -65,8 +66,6 @@
           <label>出発地<input id="from" placeholder="例）○○病院"></label>
           <label>行き先<input id="to" placeholder="例）自宅"></label>
         </div>
-
-        <label class="agree"><input type="checkbox" id="agree">上記の利用目的を確認し、個人情報の取扱いに同意する</label>
 
         <div class="actions">
           <button class="btn btn--ghost" type="button" id="backToMenuBtn">メニューへ戻る</button>
@@ -81,6 +80,8 @@
 const { API_BASE, ENDPOINTS } = window.APP_CONFIG;
 const API_CREATE = `${API_BASE}${ENDPOINTS.createReservation}`;
 const API_MENU = `${API_BASE}${ENDPOINTS.getMenu}`;
+const API_UI_TEXTS = `${API_BASE}${ENDPOINTS.getUITexts}`;
+const API_BASE_FEES = `${API_BASE}${ENDPOINTS.baseFees}`;
 
 const DEFAULT_BASE_FEES = {
   baseFare: 2000,
@@ -148,6 +149,36 @@ function renderSelect(id, list, placeholder){
     menuPriceState[id] = Number(selected?.dataset?.price || 0);
     updateEstimate();
   });
+}
+
+
+async function loadUITexts(){
+  try {
+    const res = await fetch(API_UI_TEXTS);
+    const data = await res.json();
+    const t = data.uiTexts || {};
+    if (t.form_title) document.querySelector(".form-title").textContent = t.form_title;
+    if (t.privacy_reason) document.getElementById("privacyReason").textContent = t.privacy_reason;
+  } catch (e) {
+    // no-op
+  }
+}
+
+async function loadBaseFees(){
+  try {
+    const res = await fetch(API_BASE_FEES);
+    const data = await res.json();
+    const fees = data.baseFees || {};
+    DEFAULT_BASE_FEES.baseFare = Number(fees.baseFare ?? DEFAULT_BASE_FEES.baseFare);
+    DEFAULT_BASE_FEES.dispatchFee = Number(fees.dispatchFee ?? DEFAULT_BASE_FEES.dispatchFee);
+    DEFAULT_BASE_FEES.specialFee = Number(fees.specialFee ?? DEFAULT_BASE_FEES.specialFee);
+    if (fees.note) {
+      const noteEl = document.querySelector(".base-fees small");
+      if (noteEl) noteEl.textContent = `※ ${fees.note}`;
+    }
+  } catch (e) {
+    // no-op
+  }
 }
 
 function renderBaseFees(){
@@ -236,9 +267,11 @@ async function send(){
   }
 }
 
-renderBaseFees();
-loadMenu();
-setStep("menu");
+Promise.all([loadUITexts(), loadBaseFees()]).finally(() => {
+  renderBaseFees();
+  loadMenu();
+  setStep("menu");
+});
 </script>
 </body>
 </html>

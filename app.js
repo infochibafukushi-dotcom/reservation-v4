@@ -1,5 +1,6 @@
 const { API_BASE, ENDPOINTS } = window.APP_CONFIG;
 const BLOCKS_API = `${API_BASE}${ENDPOINTS.getBlocks}`;
+const UI_TEXTS_API = `${API_BASE}${ENDPOINTS.getUITexts}`;
 
 const DAYS_PER_PAGE = 7;
 const SLOT_MINUTES = 30;
@@ -23,8 +24,28 @@ const el = {
   loading: document.getElementById("calendarLoading"),
   standardViewBtn: document.getElementById("standardViewBtn"),
   fullDayViewBtn: document.getElementById("fullDayViewBtn"),
-  logoAdminTrigger: document.getElementById("logoAdminTrigger")
+  logoAdminTrigger: document.getElementById("logoAdminTrigger"),
+  indexTitle: document.getElementById("indexTitle"),
+  indexSubtitle: document.getElementById("indexSubtitle"),
+  loadingText: document.getElementById("loadingText"),
+  calendarNote: document.getElementById("calendarNote")
 };
+
+
+
+async function applyUITexts() {
+  try {
+    const res = await fetch(UI_TEXTS_API, { cache: "no-store" });
+    const data = await res.json();
+    const t = data.uiTexts || {};
+    if (t.index_title && el.indexTitle) el.indexTitle.textContent = t.index_title;
+    if (t.index_subtitle && el.indexSubtitle) el.indexSubtitle.textContent = t.index_subtitle;
+    if (t.calendar_loading && el.loadingText) el.loadingText.textContent = t.calendar_loading;
+    if (t.calendar_note && el.calendarNote) el.calendarNote.textContent = t.calendar_note;
+  } catch (e) {
+    // no-op
+  }
+}
 
 function formatDate(date) {
   return date.toISOString().slice(0, 10);
@@ -227,6 +248,7 @@ function handleLogoTap() {
 }
 
 async function init() {
+  await applyUITexts();
   setLoading(true);
   const hasCache = loadCachedBlocks();
   if (hasCache) {

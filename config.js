@@ -3,6 +3,9 @@ window.APP_CONFIG = {
   ENDPOINTS: {
     getBlocks: "/api/getBlocks",
     getMenu: "/api/menu",
-    createReservation: "/api/createReservation"
+    createReservation: "/api/createReservation",
+    getUITexts: "/api/getUITexts",
+    baseFees: "/api/baseFees",
+    cancelReservation: "/api/cancelReservation"
   }
 };
