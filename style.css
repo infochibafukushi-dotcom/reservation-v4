@@ -1,47 +1,11 @@
-body{
-font-family:'Noto Sans JP',sans-serif;
-background:#f4f6f8;
-margin:0;
-}
-
-.header{
-text-align:center;
-padding:20px;
-background:#fff;
-}
-
-.container{
-max-width:420px;
-margin:auto;
-padding:15px;
-}
-
-.dates{
-display:flex;
-overflow-x:auto;
-gap:10px;
-}
-
-.date{
-background:#fff;
-padding:14px;
-border-radius:14px;
-min-width:80px;
-text-align:center;
-box-shadow:0 2px 8px rgba(0,0,0,0.1);
-cursor:pointer;
-}
-
-.time{
-display:flex;
-justify-content:space-between;
-padding:14px;
-margin-bottom:10px;
-background:#fff;
-border-radius:14px;
-box-shadow:0 2px 8px rgba(0,0,0,0.1);
-cursor:pointer;
-}
-
-.ok{color:#00c853;font-weight:bold;}
-.ng{color:#ff5252;}
+body{font-family:'Noto Sans JP',sans-serif;background:#f4f6f8;margin:0}
+.header{text-align:center;padding:20px;background:#fff}
+.toolbar{text-align:center;padding:10px}
+table{width:100%;border-spacing:8px}
+td{text-align:center}
+.slot{border-radius:16px;padding:14px;border:2px solid #000}
+.ok{background:#e6f7ff}
+.ng{background:#ffe6ea}
+.sun{color:#ff6b6b}
+.sat{color:#4dabf7}
+.today{background:#fff3cd}

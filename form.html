@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><link rel="stylesheet" href="style.css"></head>
+<body>
+
+<div style="max-width:420px;margin:auto;padding:20px">
+<h2>予約入力</h2>
+
+<label>お名前</label><input id="name">
+<label>電話番号</label><input id="tel">
+<label>出発地</label><input id="from">
+<label>行き先</label><input id="to">
+
+<label><input type="checkbox" id="agree"> 同意する</label>
+
+<button onclick="send()">予約する</button>
+</div>
+
+<script>
+const API="/api/createReservation";
+function validTel(t){return /^0\d{9,10}$/.test(t)}
+
+function send(){
+if(!name.value||!tel.value||!from.value){alert("必須入力");return}
+if(!validTel(tel.value)){alert("電話番号エラー");return}
+if(!agree.checked){alert("同意必須");return}
+
+let p=new URLSearchParams(location.search);
+
+fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+name:name.value,
+phone:tel.value,
+date:p.get("date"),
+time:p.get("time"),
+pickup:from.value,
+destination:to.value
+})}).then(()=>location.href="thanks.html")
+}
+</script>
+
+</body>
+</html>
