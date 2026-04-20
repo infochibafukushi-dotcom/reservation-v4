@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><link rel="stylesheet" href="style.css"></head>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="style.css">
+</head>
 <body>
 
 <div style="max-width:420px;margin:auto;padding:20px">
@@ -17,7 +20,8 @@
 </div>
 
 <script>
-const API="/api/createReservation";
+const API="https://YOUR-WORKER-URL/api/createReservation";
+
 function validTel(t){return /^0\d{9,10}$/.test(t)}
 
 function send(){
