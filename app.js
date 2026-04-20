@@ -1,150 +1,82 @@
-const API = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
+const API="https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
 
-let currentStart = new Date();
-let fullMode = false;
-let selected = null;
+let start=new Date();
 
-function formatDate(d){
-  const y = d.getFullYear();
-  const m = ("0"+(d.getMonth()+1)).slice(-2);
-  const day = ("0"+d.getDate()).slice(-2);
-  return `${y}-${m}-${day}`;
-}
-
-function formatLabel(d){
-  return `${d.getMonth()+1}/${d.getDate()}`;
-}
-
-function addDays(base,n){
-  const d = new Date(base);
-  d.setDate(d.getDate()+n);
-  return d;
-}
+function fmt(d){return d.toISOString().split("T")[0];}
+function add(d,n){let x=new Date(d);x.setDate(x.getDate()+n);return x;}
 
 async function render(){
+  const table=document.getElementById("calendar");
+  table.innerHTML="";
 
-  const table = document.getElementById("calendar");
-  table.innerHTML = "";
+  const res=await fetch(API+"/api/getInitData");
+  const data=await res.json();
+  const blocks=data.blocks||[];
 
-  const res = await fetch(API + "/api/getInitData");
-  const json = await res.json();
-  const blocks = json.blocks || [];
+  const today=new Date();
 
-  const today = new Date();
-  const todayStr = formatDate(today);
+  let days=[];
+  for(let i=0;i<7;i++){
+    let d=add(start,i);
+    if(d<today.setHours(0,0,0,0)) continue; // 過去日付除外
+    days.push(d);
+  }
 
-  const head = document.createElement("tr");
+  const head=document.createElement("tr");
   head.appendChild(document.createElement("td"));
 
-  let days = [];
-
-  for(let i=0;i<7;i++){
-    const d = addDays(currentStart,i);
-    days.push(d);
-
-    const th = document.createElement("td");
-    th.innerText = formatLabel(d);
-
-    const dStr = formatDate(d);
-
-    // 今日
-    if(dStr === todayStr){
-      th.style.background = "#fff3cd";
-      th.style.borderRadius = "10px";
-    }
-
-    // 土日
-    if(d.getDay() === 0) th.style.color = "#ff6b6b";
-    if(d.getDay() === 6) th.style.color = "#4dabf7";
-
-    head.appendChild(th);
-  }
+  days.forEach(d=>{
+    const td=document.createElement("td");
+    td.innerText=(d.getMonth()+1)+"/"+d.getDate();
+    if(d.getDay()==0) td.style.color="red";
+    if(d.getDay()==6) td.style.color="blue";
+    head.appendChild(td);
+  });
 
   table.appendChild(head);
 
-  const start = fullMode ? 0 : 6;
-  const end = fullMode ? 23 : 21;
-
-  for(let h=start; h<=end; h++){
+  for(let h=6;h<=21;h++){
     for(let m of [0,30]){
+      let tr=document.createElement("tr");
 
-      const tr = document.createElement("tr");
+      let t=document.createElement("td");
+      t.innerText=("0"+h).slice(-2)+":"+(m==0?"00":"30");
+      tr.appendChild(t);
 
-      const timeTd = document.createElement("td");
-      timeTd.innerText = `${("0"+h).slice(-2)}:${m===0?"00":"30"}`;
-      tr.appendChild(timeTd);
+      days.forEach(d=>{
+        let td=document.createElement("td");
+        let box=document.createElement("div");
 
-      days.forEach(d => {
+        let ds=fmt(d);
+        let ts=("0"+h).slice(-2)+":"+(m==0?"00":"30");
 
-        const td = document.createElement("td");
-        const box = document.createElement("div");
+        let past=new Date(ds+"T"+ts)<new Date();
 
-        const dateStr = formatDate(d);
-        const timeStr = `${("0"+h).slice(-2)}:${m===0?"00":"30"}`;
+        let block=blocks.some(b=>b.date==ds&&b.time==ts);
 
-        const isPast = new Date(dateStr + "T" + timeStr) < new Date();
-
-        const isBlocked = blocks.some(b =>
-          b.date === dateStr && b.time === timeStr
-        );
-
-        if(isPast || isBlocked){
-          box.className = "slot ng";
-          box.innerText = "×";
+        if(past||block){
+          box.className="ng";
+          box.innerText="×";
         }else{
-          box.className = "slot ok";
-          box.innerText = "◎";
-
-          if(selected && selected.date === dateStr && selected.time === timeStr){
-            box.style.border = "3px solid #00c853";
-            box.style.transform = "scale(1.05)";
-          }
-
-          box.onclick = () => {
-
-            selected = {date:dateStr,time:timeStr};
-
-            render();
-
-            setTimeout(()=>{
-              const q = new URLSearchParams({
-                date:dateStr,
-                time:timeStr
-              });
-              location.href = "form-step1.html?" + q.toString();
-            },150);
+          box.className="ok";
+          box.innerText="◎";
+          box.onclick=()=>{
+            location.href="form-step1.html?date="+ds+"&time="+ts;
           };
         }
 
         td.appendChild(box);
         tr.appendChild(td);
-
       });
 
       table.appendChild(tr);
     }
   }
 
-  document.getElementById("range").innerText =
-    `${formatDate(days[0])}〜${formatDate(days[6])}`;
+  document.getElementById("range").innerText=fmt(days[0])+"〜"+fmt(days[6]);
 }
 
-// 前週
-document.getElementById("prev").onclick = ()=>{
-  currentStart = addDays(currentStart,-7);
-  render();
-};
-
-// 次週
-document.getElementById("next").onclick = ()=>{
-  currentStart = addDays(currentStart,7);
-  render();
-};
-
-// 深夜早朝
-document.getElementById("mode").onclick = ()=>{
-  fullMode = !fullMode;
-  render();
-};
+document.getElementById("prev").onclick=()=>{start=add(start,-7);render();}
+document.getElementById("next").onclick=()=>{start=add(start,7);render();}
 
 render();

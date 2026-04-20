@@ -8,64 +8,23 @@
 </head>
 <body>
 
-<header class="header">
+<div class="header">
   <div class="phone">
-    <div class="icon">📞</div>
-    <div class="text">電話予約</div>
+    <div>📞</div>
+    <small>電話予約</small>
   </div>
-
-  <div class="center">
-    <h1>介護タクシー予約</h1>
-    <p>丁寧・安全な送迎をご提供します</p>
-  </div>
-</header>
-
-<div id="calendarArea">
-  <div class="toolbar">
-    <button id="prev">←</button>
-    <div id="range"></div>
-    <button id="next">→</button>
-    <button id="mode">深夜早朝</button>
-  </div>
-
-  <table id="calendar"></table>
+  <h1>介護タクシー予約</h1>
+  <p>丁寧・安全な送迎をご提供します</p>
 </div>
 
-<!-- フォーム（追記） -->
-<div id="formArea" style="display:none;">
-  <div class="formCard">
-
-    <h2>ご予約</h2>
-    <div id="selectedDateTime"></div>
-
-    <label><input type="checkbox" id="agree"> 個人情報に同意 *</label>
-
-    <select id="usageType">
-      <option value="">ご利用区分</option>
-      <option>初めて</option>
-      <option>2回目以上</option>
-    </select>
-
-    <input id="name" placeholder="お名前(カタカナ)">
-    <input id="phone" placeholder="電話番号">
-    <input id="from" placeholder="出発地">
-    <input id="to" placeholder="行き先">
-    <textarea id="note" placeholder="その他"></textarea>
-
-    <h3>サービス選択</h3>
-
-    <select id="vehicle"></select>
-    <select id="assist"></select>
-    <select id="stairs"></select>
-    <select id="round"></select>
-
-    <div class="total">概算合計：<span id="total">0</span>円</div>
-
-    <button onclick="submitForm()">予約する</button>
-    <button onclick="backToCalendar()">戻る</button>
-
-  </div>
+<div class="toolbar">
+  <button id="prev">←</button>
+  <span id="range"></span>
+  <button id="next">→</button>
+  <button id="mode">深夜早朝</button>
 </div>
+
+<table id="calendar"></table>
 
 <script src="app.js"></script>
 </body>
