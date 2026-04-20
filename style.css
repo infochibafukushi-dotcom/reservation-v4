@@ -1,8 +1,5 @@
-body{font-family:'Noto Sans JP',sans-serif;background:#f4f6f8;margin:0}
-.header{text-align:center;padding:20px;background:#fff}
-.toolbar{text-align:center;padding:10px}
-table{width:100%;border-spacing:8px}
-td{text-align:center}
-.slot{border-radius:16px;padding:14px;border:2px solid #000;cursor:pointer}
-.ok{background:#e6f7ff}
-.ng{background:#ffe6ea}
+body{font-family:sans-serif}
+table{border-spacing:6px}
+.slot{padding:10px;border:1px solid #000;border-radius:8px;cursor:pointer}
+.ok{background:#d0f0ff}
+.ng{background:#ffd0d0}
