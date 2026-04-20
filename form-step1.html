@@ -4,120 +4,143 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>サービス選択</title>
-<link rel="stylesheet" href="style.css">
+
+<style>
+body{
+  font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
+  background:#fff;
+  margin:0;
+}
+
+.wrap{
+  max-width:420px;
+  margin:auto;
+  padding:16px;
+}
+
+.card{
+  background:#fff;
+  border-radius:16px;
+  box-shadow:0 2px 10px rgba(0,0,0,0.1);
+  padding:16px;
+}
+
+h2{
+  text-align:center;
+  margin:0 0 10px;
+}
+
+.dt{
+  text-align:center;
+  font-size:14px;
+  margin-bottom:12px;
+}
+
+.select{
+  width:100%;
+  padding:12px;
+  border-radius:12px;
+  border:1px solid #ccc;
+  margin-bottom:12px;
+  font-size:14px;
+}
+
+.total{
+  font-size:18px;
+  font-weight:bold;
+  text-align:right;
+  margin-top:10px;
+}
+
+.note{
+  font-size:12px;
+  color:#666;
+  margin-top:6px;
+}
+
+.btn{
+  width:100%;
+  padding:14px;
+  background:#00c853;
+  color:#fff;
+  border:none;
+  border-radius:14px;
+  font-size:16px;
+  margin-top:14px;
+}
+</style>
+
 </head>
 <body>
+
+<div class="wrap">
 <div class="card">
-  <div class="header-mini">
-    <button class="back" onclick="history.back()">戻る</button>
-    <div id="dt"></div>
-  </div>
 
-  <h2>サービス選択</h2>
+<h2>サービス選択</h2>
+<div id="dt" class="dt"></div>
 
-  <div class="field">
-    <label>移動方法 *</label>
-    <select id="vehicle"></select>
-  </div>
+<select id="vehicle" class="select"></select>
+<select id="assist" class="select"></select>
+<select id="stairs" class="select"></select>
+<select id="round" class="select"></select>
 
-  <div class="field">
-    <label>介助内容 *</label>
-    <select id="assist"></select>
-  </div>
+<div class="total">概算合計：<span id="total">0</span>円</div>
+<div class="note">上記料金に加え距離・時間により運賃は加算されます。</div>
 
-  <div class="field">
-    <label>階段介助 *</label>
-    <select id="stairs"></select>
-  </div>
+<button class="btn" onclick="next()">次へ</button>
 
-  <div class="field">
-    <label>往復送迎 *</label>
-    <select id="round"></select>
-  </div>
-
-  <div class="total">概算合計：<span id="total">0</span>円</div>
-  <div class="note">上記料金に加え距離・時間により運賃は加算されます。</div>
-
-  <button class="btn" id="nextBtn">次へ</button>
+</div>
 </div>
 
 <script>
-const WORKER_API = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev/api/menu";
-const params = new URLSearchParams(location.search);
-const date = params.get("date") || "";
-const time = params.get("time") || "";
-document.getElementById("dt").innerText = `${date} ${time} から`;
+const API="https://throbbing-bush-8f59.info-chibafukushi.workers.dev/api/menu";
 
-let menuData = {
-  vehicle: [],
-  assist: [],
-  stairs: [],
-  round: []
-};
+const p=new URLSearchParams(location.search);
+const date=p.get("date");
+const time=p.get("time");
 
-function fillSelect(id, items){
-  const el = document.getElementById(id);
-  el.innerHTML = '<option value="">選択してください</option>';
-  items.forEach((item, idx) => {
-    const o = document.createElement("option");
-    o.value = idx;
-    o.textContent = `${item.name}${Number(item.price || 0) > 0 ? ` (${Number(item.price).toLocaleString()}円)` : ""}`;
+dt.innerText=date+" "+time+" から";
+
+let data={};
+
+fetch(API)
+.then(r=>r.json())
+.then(d=>{
+  data=d;
+  fill("vehicle",d.vehicle);
+  fill("assist",d.assist);
+  fill("stairs",d.stairs);
+  fill("round",d.round);
+});
+
+function fill(id,arr){
+  const el=document.getElementById(id);
+  el.innerHTML="<option value=''>選択してください</option>";
+  arr.forEach((x,i)=>{
+    const o=document.createElement("option");
+    o.value=i;
+    o.textContent=x.name+" ("+x.price+"円)";
     el.appendChild(o);
   });
 }
 
-function selectedPrice(groupName, selectId){
-  const idx = document.getElementById(selectId).value;
-  if (idx === "") return 0;
-  const row = menuData[groupName][Number(idx)];
-  return Number(row?.price || 0);
-}
-
 function calc(){
-  const total =
-    selectedPrice("vehicle", "vehicle") +
-    selectedPrice("assist", "assist") +
-    selectedPrice("stairs", "stairs") +
-    selectedPrice("round", "round");
-
-  document.getElementById("total").innerText = total.toLocaleString();
-  return total;
+  let t=0;
+  if(vehicle.value) t+=data.vehicle[vehicle.value].price;
+  if(assist.value) t+=data.assist[assist.value].price;
+  if(stairs.value) t+=data.stairs[stairs.value].price;
+  if(round.value) t+=data.round[round.value].price;
+  total.innerText=t;
 }
 
-["vehicle", "assist", "stairs", "round"].forEach(id => {
-  document.getElementById(id).addEventListener("change", calc);
+document.querySelectorAll("select").forEach(s=>{
+  s.onchange=calc;
 });
 
-document.getElementById("nextBtn").addEventListener("click", () => {
-  const total = calc();
-  const q = new URLSearchParams({
-    date,
-    time,
-    total: String(total),
-    vehicleIndex: document.getElementById("vehicle").value,
-    assistIndex: document.getElementById("assist").value,
-    stairsIndex: document.getElementById("stairs").value,
-    roundIndex: document.getElementById("round").value
-  });
-  location.href = "form-step2.html?" + q.toString();
-});
-
-fetch(WORKER_API)
-  .then(r => {
-    if (!r.ok) throw new Error("menu api error");
-    return r.json();
-  })
-  .then(json => {
-    menuData = json || menuData;
-    fillSelect("vehicle", menuData.vehicle || []);
-    fillSelect("assist", menuData.assist || []);
-    fillSelect("stairs", menuData.stairs || []);
-    fillSelect("round", menuData.round || []);
-    calc();
-  })
-  .catch(() => {
-    alert("メニュー取得に失敗しました");
-  });
+function next(){
+  location.href="form-step2.html?date="+date+"&time="+time+"&total="+total.innerText;
+}
 </script>
+
 </body>
 </html>
