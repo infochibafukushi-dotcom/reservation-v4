@@ -46,8 +46,42 @@ body {
 }
 
 .hero h1 {
-  margin: 12px 0 10px;
-  font-size: clamp(26px, 4vw, 36px);
+  margin: 0;
+  font-size: clamp(24px, 4vw, 34px);
+}
+
+
+.hero-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 12px;
+}
+
+.logo-btn:focus-visible {
+  outline: 2px solid #86efac;
+}
+
+.hero-logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 3px 10px rgba(16, 24, 40, 0.14);
+}
+
+.hero-sub {
+  margin: 2px 0 0;
+  color: #4b5563;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .hero__lead {
@@ -334,6 +368,15 @@ input:focus {
     font-size: 12px;
   }
 
+  .hero-logo {
+    width: 44px;
+    height: 44px;
+  }
+
+  .hero-sub {
+    font-size: 12px;
+  }
+
   .loading-overlay__box p {
     font-size: 16px;
   }
@@ -409,6 +452,10 @@ select {
   }
 }
 
+
+.loading-overlay.hidden {
+  display: none !important;
+}
 
 .loading-overlay {
   position: absolute;

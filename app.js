@@ -22,7 +22,8 @@ const el = {
   nextWeek: document.getElementById("nextWeek"),
   loading: document.getElementById("calendarLoading"),
   standardViewBtn: document.getElementById("standardViewBtn"),
-  fullDayViewBtn: document.getElementById("fullDayViewBtn")
+  fullDayViewBtn: document.getElementById("fullDayViewBtn"),
+  logoAdminTrigger: document.getElementById("logoAdminTrigger")
 };
 
 function formatDate(date) {
@@ -193,6 +194,38 @@ async function fetchLatestBlocks() {
   cacheBlocks(blocks);
 }
 
+
+
+let logoTapCount = 0;
+let logoTapTimer = null;
+
+function resetLogoTap() {
+  logoTapCount = 0;
+  if (logoTapTimer) {
+    clearTimeout(logoTapTimer);
+    logoTapTimer = null;
+  }
+}
+
+function handleLogoTap() {
+  logoTapCount += 1;
+
+  if (logoTapTimer) clearTimeout(logoTapTimer);
+  logoTapTimer = setTimeout(() => {
+    resetLogoTap();
+  }, 5000);
+
+  if (logoTapCount < 5) return;
+
+  const pass = prompt("管理画面パスワードを入力してください");
+  if (pass === "1234") {
+    location.href = "admin.html";
+  } else {
+    alert("パスワードが違います");
+  }
+  resetLogoTap();
+}
+
 async function init() {
   setLoading(true);
   const hasCache = loadCachedBlocks();
@@ -226,5 +259,6 @@ el.nextWeek.addEventListener("click", () => {
 
 el.standardViewBtn.addEventListener("click", () => setViewMode(false));
 el.fullDayViewBtn.addEventListener("click", () => setViewMode(true));
+if (el.logoAdminTrigger) el.logoAdminTrigger.addEventListener("click", handleLogoTap);
 
 init();
