@@ -3,27 +3,53 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>予約入力</title>
+<title>個人情報入力</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div style="max-width:420px;margin:auto;padding:20px;">
+<div class="container">
+<div class="card">
+
 <h2>個人情報入力</h2>
 
-<input id="name" placeholder="お名前" style="width:100%;padding:12px;margin-bottom:10px;">
-<input id="tel" placeholder="電話番号" style="width:100%;padding:12px;margin-bottom:10px;">
-<input id="from" placeholder="出発地" style="width:100%;padding:12px;margin-bottom:10px;">
-<input id="to" placeholder="行き先" style="width:100%;padding:12px;margin-bottom:10px;">
+<label>お名前</label>
+<input id="name">
 
-<button onclick="submit()" style="width:100%;padding:14px;background:#00c853;color:#fff;border:none;border-radius:14px;">予約する</button>
+<label>電話番号</label>
+<input id="tel">
+
+<label>出発地</label>
+<input id="from">
+
+<label>行き先</label>
+<input id="to">
+
+<button class="btn" onclick="send()">予約する</button>
+
+</div>
 </div>
 
 <script>
 const API="https://throbbing-bush-8f59.info-chibafukushi.workers.dev/api/createReservation";
 
-function submit(){
-if(!name.value||!tel.value||!from.value){alert("必須入力");return;}
+function validTel(t){
+return /^0\d{9,10}$/.test(t);
+}
+
+function send(){
+
+if(!name.value||!tel.value||!from.value){
+alert("必須項目を入力してください");
+return;
+}
+
+if(!validTel(tel.value)){
+alert("電話番号形式が不正です");
+return;
+}
+
+const p=new URLSearchParams(location.search);
 
 fetch(API,{
 method:"POST",
@@ -31,12 +57,14 @@ headers:{"Content-Type":"application/json"},
 body:JSON.stringify({
 name:name.value,
 phone:tel.value,
-date:new URLSearchParams(location.search).get("date"),
-time:new URLSearchParams(location.search).get("time"),
+date:p.get("date"),
+time:p.get("time"),
 pickup:from.value,
 destination:to.value
 })
-}).then(()=>alert("予約完了"));
+}).then(()=>{
+location.href="thanks.html";
+});
 }
 </script>
 

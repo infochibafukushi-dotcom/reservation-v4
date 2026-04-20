@@ -1,13 +1,53 @@
-body{font-family:'Noto Sans JP',sans-serif;background:#fff;margin:0}
-.header{text-align:center;padding:20px}
-.phone{position:absolute;left:10px;top:15px;font-size:12px}
-.toolbar{text-align:center;margin-bottom:10px}
-table{width:100%;border-spacing:10px}
-td{text-align:center}
-.slot{border-radius:18px;padding:14px;font-size:18px;border:2px solid #000;transition:.2s}
-.ok{background:#e6f7ff}
-.ng{background:#ffe6ea}
-.slot:hover{transform:scale(1.05)}
-.sun{color:#ff6b6b}
-.sat{color:#4dabf7}
-.today{background:#fff3cd;border-radius:8px}
+body{
+font-family:'Noto Sans JP',sans-serif;
+background:#f7f7f7;
+margin:0;
+}
+
+.container{
+max-width:420px;
+margin:auto;
+padding:16px;
+}
+
+.card{
+background:#fff;
+border-radius:16px;
+padding:16px;
+box-shadow:0 4px 12px rgba(0,0,0,0.08);
+}
+
+h2{text-align:center;margin-bottom:10px;}
+
+label{
+font-size:13px;
+color:#666;
+display:block;
+margin-top:10px;
+}
+
+select,input{
+width:100%;
+padding:12px;
+border-radius:12px;
+border:1px solid #ddd;
+margin-top:4px;
+font-size:14px;
+}
+
+.total{
+text-align:right;
+font-weight:bold;
+margin-top:10px;
+}
+
+.btn{
+width:100%;
+padding:14px;
+background:#00c853;
+color:#fff;
+border:none;
+border-radius:14px;
+margin-top:14px;
+font-size:16px;
+}

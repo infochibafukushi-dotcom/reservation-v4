@@ -8,12 +8,12 @@
 </head>
 <body>
 
-<div class="header">
-<h2>サービス選択</h2>
-<div id="dt"></div>
-</div>
+<div class="container">
+<div class="card">
 
-<div style="padding:15px;max-width:420px;margin:auto;">
+<h2>サービス選択</h2>
+<div id="dt" style="text-align:center;"></div>
+
 <label>移動方法</label>
 <select id="vehicle"></select>
 
@@ -26,9 +26,11 @@
 <label>往復・付き添い</label>
 <select id="round"></select>
 
-<p>概算合計：<span id="total">0</span>円</p>
+<div class="total">概算合計：<span id="total">0</span>円</div>
 
-<button onclick="next()" style="width:100%;padding:14px;background:#00c853;color:#fff;border:none;border-radius:14px;">次へ</button>
+<button class="btn" onclick="next()">次へ</button>
+
+</div>
 </div>
 
 <script>
@@ -70,8 +72,10 @@ total.innerText=t;
 document.querySelectorAll("select").forEach(s=>s.onchange=calc);
 
 function next(){
-if(!vehicle.value){alert("移動方法必須");return;}
-location.href="form-step2.html?date="+date+"&time="+time+"&total="+total.innerText;
+if(!vehicle.value){alert("移動方法は必須です");return;}
+const q=new URLSearchParams(location.search);
+q.set("total",total.innerText);
+location.href="confirm.html?"+q.toString();
 }
 </script>
 
