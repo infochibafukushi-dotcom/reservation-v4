@@ -14,11 +14,12 @@ async function render(){
   const blocks=data.blocks||[];
 
   const today=new Date();
+  today.setHours(0,0,0,0);
 
   let days=[];
   for(let i=0;i<7;i++){
     let d=add(start,i);
-    if(d<today.setHours(0,0,0,0)) continue; // 過去日付除外
+    if(d<today) continue;
     days.push(d);
   }
 
@@ -28,8 +29,12 @@ async function render(){
   days.forEach(d=>{
     const td=document.createElement("td");
     td.innerText=(d.getMonth()+1)+"/"+d.getDate();
-    if(d.getDay()==0) td.style.color="red";
-    if(d.getDay()==6) td.style.color="blue";
+
+    if(d.getDay()==0) td.className="sun";
+    if(d.getDay()==6) td.className="sat";
+
+    if(fmt(d)==fmt(new Date())) td.className+=" today";
+
     head.appendChild(td);
   });
 
@@ -51,14 +56,13 @@ async function render(){
         let ts=("0"+h).slice(-2)+":"+(m==0?"00":"30");
 
         let past=new Date(ds+"T"+ts)<new Date();
-
         let block=blocks.some(b=>b.date==ds&&b.time==ts);
 
         if(past||block){
-          box.className="ng";
+          box.className="slot ng";
           box.innerText="×";
         }else{
-          box.className="ok";
+          box.className="slot ok";
           box.innerText="◎";
           box.onclick=()=>{
             location.href="form-step1.html?date="+ds+"&time="+ts;
@@ -73,7 +77,7 @@ async function render(){
     }
   }
 
-  document.getElementById("range").innerText=fmt(days[0])+"〜"+fmt(days[6]);
+  document.getElementById("range").innerText=fmt(days[0])+"〜"+fmt(days[days.length-1]);
 }
 
 document.getElementById("prev").onclick=()=>{start=add(start,-7);render();}

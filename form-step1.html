@@ -8,9 +8,12 @@
 </head>
 <body>
 
+<div class="header">
 <h2>サービス選択</h2>
 <div id="dt"></div>
+</div>
 
+<div style="padding:15px;max-width:400px;margin:auto;">
 <label>移動方法</label>
 <select id="vehicle"></select>
 
@@ -25,7 +28,8 @@
 
 <p>概算合計：<span id="total">0</span>円</p>
 
-<button onclick="next()">次へ</button>
+<button onclick="next()" style="width:100%;padding:12px;background:#00c853;color:#fff;border:none;border-radius:12px;">次へ</button>
+</div>
 
 <script>
 const API="https://throbbing-bush-8f59.info-chibafukushi.workers.dev/api/menu";
@@ -66,7 +70,7 @@ total.innerText=t;
 document.querySelectorAll("select").forEach(s=>s.onchange=calc);
 
 function next(){
-location.href="form-step2.html?date="+date+"&time="+time+"&total="+total.innerText;
+location.href="form-step2.html";
 }
 </script>
 
