@@ -22,8 +22,7 @@ const el = {
   prevWeek: document.getElementById("prevWeek"),
   nextWeek: document.getElementById("nextWeek"),
   loading: document.getElementById("calendarLoading"),
-  standardViewBtn: document.getElementById("standardViewBtn"),
-  fullDayViewBtn: document.getElementById("fullDayViewBtn"),
+  modeToggleBtn: document.getElementById("modeToggleBtn"),
   logoAdminTrigger: document.getElementById("logoAdminTrigger"),
   indexTitle: document.getElementById("indexTitle"),
   indexSubtitle: document.getElementById("indexSubtitle"),
@@ -108,11 +107,22 @@ function setLoading(isLoading) {
   el.loading.classList.toggle("hidden", !isLoading);
 }
 
-function setViewMode(fullDay) {
-  state.fullDay = fullDay;
-  el.standardViewBtn.classList.toggle("is-active", !fullDay);
-  el.fullDayViewBtn.classList.toggle("is-active", fullDay);
+function updateModeButtonLabel() {
+  if (!el.modeToggleBtn) return;
+  el.modeToggleBtn.textContent = state.fullDay ? "通常時間表示" : "深夜早朝予約（24時間）";
+}
+
+function toggleViewMode() {
+  state.fullDay = !state.fullDay;
+  updateModeButtonLabel();
   renderCalendar();
+}
+
+
+
+function updateWeekButtons() {
+  if (!el.prevWeek) return;
+  el.prevWeek.disabled = state.weekOffset <= 0;
 }
 
 function updateRangeLabel(days) {
@@ -128,6 +138,7 @@ function renderCalendar() {
   const days = makeDayList();
   const times = makeTimes();
   updateRangeLabel(days);
+  updateWeekButtons();
 
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
@@ -249,6 +260,7 @@ function handleLogoTap() {
 
 async function init() {
   await applyUITexts();
+  updateModeButtonLabel();
   setLoading(true);
   const hasCache = loadCachedBlocks();
   if (hasCache) {
@@ -270,7 +282,7 @@ async function init() {
 }
 
 el.prevWeek.addEventListener("click", () => {
-  state.weekOffset -= 1;
+  state.weekOffset = Math.max(0, state.weekOffset - 1);
   renderCalendar();
 });
 
@@ -279,8 +291,7 @@ el.nextWeek.addEventListener("click", () => {
   renderCalendar();
 });
 
-el.standardViewBtn.addEventListener("click", () => setViewMode(false));
-el.fullDayViewBtn.addEventListener("click", () => setViewMode(true));
+if (el.modeToggleBtn) el.modeToggleBtn.addEventListener("click", toggleViewMode);
 if (el.logoAdminTrigger) el.logoAdminTrigger.addEventListener("click", handleLogoTap);
 
 init();

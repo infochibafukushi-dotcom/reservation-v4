@@ -8,6 +8,7 @@ const API = {
   getBaseFees: `${API_BASE}${ENDPOINTS.baseFees}`,
   setBaseFees: `${API_BASE}${ENDPOINTS.baseFees}`,
   getMenu: `${API_BASE}${ENDPOINTS.getMenu}`,
+  getBlocks: `${API_BASE}${ENDPOINTS.getBlocks}`,
   menuCreate: `${API_BASE}/api/admin/menu/create`,
   menuUpdate: `${API_BASE}/api/admin/menu/update`,
   menuDelete: `${API_BASE}/api/admin/menu/delete`,
@@ -24,6 +25,11 @@ const uiTextDefaults = {
   form_title: "予約情報入力"
 };
 
+const adminBlockState = {
+  weekOffset: 0,
+  blocks: new Set()
+};
+
 function apiPost(url, body) {
   return fetch(url, {
     method: "POST",
@@ -32,13 +38,48 @@ function apiPost(url, body) {
   }).then(r => r.json());
 }
 
+function formatDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function addDays(date, n) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+
+function slotKey(date, time) {
+  return `${date}_${time}`;
+}
+
+function times() {
+  const out = [];
+  for (let h = 6; h <= 20; h++) {
+    for (let m = 0; m <= 30; m += 30) {
+      if (h === 20 && m > 0) continue;
+      out.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+    }
+  }
+  return out;
+}
+
+function weekDays() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() + adminBlockState.weekOffset * 7);
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+}
+
+function dayFullyBlocked(dateStr) {
+  return times().every(t => adminBlockState.blocks.has(slotKey(dateStr, t)));
+}
+
 async function login() {
   const pass = document.getElementById("password").value;
   if (pass !== "1234") {
     alert("パスワード違う");
     return;
   }
-
   document.getElementById("loginArea").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
   renderAdmin();
@@ -48,7 +89,10 @@ async function renderAdmin() {
   document.getElementById("app").innerHTML = `
     <h2>UIテキスト編集</h2>
     <textarea id="uiTexts" style="width:100%;min-height:180px"></textarea>
-    <button class="btn" onclick="saveUITexts()">UIテキスト保存</button>
+    <div class="actions">
+      <button class="btn" onclick="saveUITexts()">UIテキスト保存</button>
+      <button class="btn btn--secondary" onclick="saveAllSettings()">設定をまとめて保存</button>
+    </div>
 
     <h2>基本料金編集</h2>
     <label>基本運賃<input id="baseFare"></label>
@@ -73,14 +117,13 @@ async function renderAdmin() {
     <button class="btn" onclick="createMenu()">追加</button>
 
     <h2>カレンダーブロック管理</h2>
-    <label>日付<input type="date" id="blockDate"></label>
-    <label>時間<input type="time" id="blockTime" step="1800"></label>
-    <div class="actions">
-      <button class="btn" onclick="blockDay()">1日全体ブロック</button>
-      <button class="btn btn--secondary" onclick="unblockDay()">1日全体ブロック解除</button>
-      <button class="btn" onclick="blockSlot()">1コマブロック</button>
-      <button class="btn btn--secondary" onclick="unblockSlot()">1コマ解除</button>
+    <div class="calendar-toolbar">
+      <button class="btn btn--secondary" onclick="prevAdminWeek()">前週</button>
+      <p id="adminRangeLabel" class="calendar-toolbar__range"></p>
+      <button class="btn btn--secondary" onclick="nextAdminWeek()">次週</button>
     </div>
+    <p class="calendar-note">日付ヘッダーを押すとその日を一括ブロック/解除。各◎/×で1コマ切替。</p>
+    <div class="calendar-wrap"><table id="adminBlockCalendar" class="calendar"></table></div>
 
     <h2>予約一覧（キャンセル可）</h2>
     <div id="resList"></div>
@@ -89,7 +132,14 @@ async function renderAdmin() {
   await loadUITexts();
   await loadBaseFees();
   await loadMenu();
+  await loadBlocksAndRenderCalendar();
   await loadReservations();
+}
+
+async function saveAllSettings() {
+  await saveUITexts(true);
+  await saveBaseFees(true);
+  alert("設定を保存しました");
 }
 
 async function loadUITexts() {
@@ -99,13 +149,14 @@ async function loadUITexts() {
   document.getElementById("uiTexts").value = JSON.stringify(merged, null, 2);
 }
 
-async function saveUITexts() {
+async function saveUITexts(silent = false) {
   try {
     const parsed = JSON.parse(document.getElementById("uiTexts").value || "{}");
     await apiPost(API.setUITexts, { uiTexts: parsed });
-    alert("UIテキスト保存完了");
+    if (!silent) alert("UIテキスト保存完了");
   } catch {
-    alert("JSON形式が不正です");
+    if (!silent) alert("JSON形式が不正です");
+    throw new Error("invalid json");
   }
 }
 
@@ -119,7 +170,7 @@ async function loadBaseFees() {
   document.getElementById("baseNote").value = fees.note ?? "走行距離・待機時間・追加介助により最終金額は変動する場合があります。";
 }
 
-async function saveBaseFees() {
+async function saveBaseFees(silent = false) {
   await apiPost(API.setBaseFees, {
     baseFees: {
       baseFare: Number(document.getElementById("baseFare").value || 0),
@@ -128,7 +179,7 @@ async function saveBaseFees() {
       note: document.getElementById("baseNote").value || ""
     }
   });
-  alert("基本料金保存完了");
+  if (!silent) alert("基本料金保存完了");
 }
 
 async function loadMenu() {
@@ -186,32 +237,78 @@ async function toggleMenuHidden(id) {
   await loadMenu();
 }
 
-async function blockDay() {
-  await apiPost(API.blockDay, { date: document.getElementById("blockDate").value, mode: "block" });
-  alert("1日ブロック完了");
+async function loadBlocksAndRenderCalendar() {
+  const res = await fetch(API.getBlocks, { cache: "no-store" });
+  const data = await res.json();
+  adminBlockState.blocks = new Set((data.blocks || []).map(b => slotKey(b.date, b.time)));
+  renderAdminCalendar();
 }
 
-async function unblockDay() {
-  await apiPost(API.blockDay, { date: document.getElementById("blockDate").value, mode: "unblock" });
-  alert("1日ブロック解除完了");
-}
+function renderAdminCalendar() {
+  const days = weekDays();
+  const table = document.getElementById("adminBlockCalendar");
+  const range = document.getElementById("adminRangeLabel");
+  range.textContent = `${formatDate(days[0])} - ${formatDate(days[6])}`;
 
-async function blockSlot() {
-  await apiPost(API.blockSlot, {
-    date: document.getElementById("blockDate").value,
-    time: document.getElementById("blockTime").value,
-    mode: "block"
+  table.innerHTML = "";
+  const head = document.createElement("tr");
+  const c = document.createElement("th");
+  c.textContent = "時間";
+  head.appendChild(c);
+
+  days.forEach(d => {
+    const th = document.createElement("th");
+    const ds = formatDate(d);
+    th.innerHTML = `${d.getMonth() + 1}/${d.getDate()}`;
+    th.style.cursor = "pointer";
+    th.title = "この日を一括ブロック/解除";
+    th.addEventListener("click", () => toggleDay(ds));
+    head.appendChild(th);
   });
-  alert("1コマブロック完了");
+  table.appendChild(head);
+
+  times().forEach(time => {
+    const tr = document.createElement("tr");
+    const t = document.createElement("td");
+    t.className = "time-cell";
+    t.textContent = time;
+    tr.appendChild(t);
+
+    days.forEach(d => {
+      const ds = formatDate(d);
+      const blocked = adminBlockState.blocks.has(slotKey(ds, time));
+      const td = document.createElement("td");
+      const btn = document.createElement("button");
+      btn.className = `slot ${blocked ? "slot--ng" : "slot--ok"}`;
+      btn.textContent = blocked ? "×" : "◎";
+      btn.addEventListener("click", () => toggleSlot(ds, time, blocked));
+      td.appendChild(btn);
+      tr.appendChild(td);
+    });
+
+    table.appendChild(tr);
+  });
 }
 
-async function unblockSlot() {
-  await apiPost(API.blockSlot, {
-    date: document.getElementById("blockDate").value,
-    time: document.getElementById("blockTime").value,
-    mode: "unblock"
-  });
-  alert("1コマブロック解除完了");
+async function toggleDay(date) {
+  const fullBlocked = dayFullyBlocked(date);
+  await apiPost(API.blockDay, { date, mode: fullBlocked ? "unblock" : "block" });
+  await loadBlocksAndRenderCalendar();
+}
+
+async function toggleSlot(date, time, blocked) {
+  await apiPost(API.blockSlot, { date, time, mode: blocked ? "unblock" : "block" });
+  await loadBlocksAndRenderCalendar();
+}
+
+async function prevAdminWeek() {
+  adminBlockState.weekOffset -= 1;
+  renderAdminCalendar();
+}
+
+async function nextAdminWeek() {
+  adminBlockState.weekOffset += 1;
+  renderAdminCalendar();
 }
 
 async function loadReservations() {
@@ -228,5 +325,6 @@ async function loadReservations() {
 
 async function cancelReservation(id) {
   await apiPost(API.cancelReservation, { id });
+  await loadBlocksAndRenderCalendar();
   await loadReservations();
 }
