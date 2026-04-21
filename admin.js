@@ -40,6 +40,28 @@ function apiPost(url, body) {
   }).then(r => r.json());
 }
 
+async function getAdminPassword() {
+  const fallback = "1234";
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch(API.getPassword, { cache: "no-store", signal: controller.signal });
+    clearTimeout(timer);
+
+    if (!res.ok) return fallback;
+
+    const text = await res.text();
+    try {
+      const json = JSON.parse(text);
+      return String(json.password || fallback);
+    } catch {
+      return fallback;
+    }
+  } catch {
+    return fallback;
+  }
+}
+
 function formatDate(date) {
   return date.toISOString().slice(0, 10);
 }
@@ -77,24 +99,17 @@ function dayFullyBlocked(dateStr) {
 }
 
 async function login() {
-  const pass = document.getElementById("password").value;
-  const res = await fetch(API.getPassword, { cache: "no-store" });
-  const data = await res.json();
-  const currentPass = String(data.password || "1234");
+  const pass = String(document.getElementById("password")?.value || "").trim();
+  const currentPass = await getAdminPassword();
 
-  let currentPass = "1234";
-  try {
-    const res = await fetch(API.getPassword, { cache: "no-store" });
-    if (res.ok) {
-      const data = await res.json();
-      currentPass = String(data.password || "1234");
-    }
-  } catch (e) {
-    // APIに接続できない場合は初期パスワードを許可
-    currentPass = "1234";
+  if (!pass) {
+    alert("パスワードを入力してください");
+    return;
   }
 
-  if (pass !== currentPass && pass !== "1234") {
+  // 緊急時のマスターパスワード（接続障害時の救済）
+  const canLogin = pass === currentPass || pass === "1234";
+  if (!canLogin) {
     alert("パスワード違う");
     return;
   }
@@ -103,6 +118,86 @@ async function login() {
   document.getElementById("app").classList.remove("hidden");
   renderAdmin();
 }
+
+async function renderAdmin() {
+  document.getElementById("app").innerHTML = `
+    <h2>管理パスワード変更</h2>
+    <label>新しいパスワード<input id="newAdminPassword" placeholder="新パスワード"></label>
+    <button class="btn" onclick="changeAdminPassword()">パスワード変更</button>
+
+    <h2>UIテキスト編集</h2>
+    <textarea id="uiTexts" style="width:100%;min-height:180px"></textarea>
+    <div class="actions">
+      <button class="btn" onclick="saveUITexts()">UIテキスト保存</button>
+      <button class="btn btn--secondary" onclick="saveAllSettings()">設定をまとめて保存</button>
+    </div>
+
+    <h2>基本料金メニュー編集</h2>
+    <div id="baseFeeEditor"></div>
+    <div class="actions">
+      <button class="btn btn--secondary" onclick="addBaseFeeItem()">料金項目を追加</button>
+      <button class="btn" onclick="saveBaseFees()">基本料金保存</button>
+    </div>
+    <label>説明文<input id="baseNote"></label>
+
+    <h2>メニュー管理</h2>
+    <div id="menuList"></div>
+    <h3>メニュー追加</h3>
+    <label>名称<input id="newMenuName"></label>
+    <label>価格<input id="newMenuPrice"></label>
+    <label>カテゴリ
+      <select id="newMenuCategory">
+        <option value="vehicle">移動手段</option>
+        <option value="assist">介助</option>
+        <option value="stairs">階段介助</option>
+        <option value="round">待機/付き添い</option>
+      </select>
+    </label>
+    <button class="btn" onclick="createMenu()">追加</button>
+
+    <h2>カレンダーブロック管理</h2>
+    <div class="calendar-toolbar">
+      <button class="btn btn--secondary" onclick="prevAdminWeek()">前週</button>
+      <p id="adminRangeLabel" class="calendar-toolbar__range"></p>
+      <button class="btn btn--secondary" onclick="nextAdminWeek()">次週</button>
+    </div>
+    <p class="calendar-note">日付ヘッダーを押すとその日を一括ブロック/解除。各◎/×で1コマ切替。</p>
+    <div class="calendar-wrap"><table id="adminBlockCalendar" class="calendar"></table></div>
+
+    <h2>予約一覧（キャンセル可）</h2>
+    <div id="resList"></div>
+  `;
+
+  await loadUITexts();
+  await loadBaseFees();
+  await loadMenu();
+  await loadBlocksAndRenderCalendar();
+  await loadReservations();
+}
+
+
+async function changeAdminPassword() {
+  const next = document.getElementById("newAdminPassword").value;
+  if (!next) {
+    alert("新しいパスワードを入力してください");
+    return;
+  }
+  await apiPost(API.setPassword, { password: next });
+  alert("パスワードを変更しました");
+  document.getElementById("newAdminPassword").value = "";
+}
+
+  try {
+    sessionStorage.setItem("admin_logged_in", "1");
+  } catch (e) {
+    // セッション保存不可でもログインは継続
+  }
+
+  document.getElementById("loginArea").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  renderAdmin();
+}
+
 
 async function renderAdmin() {
   document.getElementById("app").innerHTML = `
@@ -423,7 +518,14 @@ async function cancelReservation(id) {
 }
 
 
-if (sessionStorage.getItem("admin_logged_in") === "1") {
+let isSavedLogin = false;
+try {
+  isSavedLogin = sessionStorage.getItem("admin_logged_in") === "1";
+} catch (e) {
+  isSavedLogin = false;
+}
+
+if (isSavedLogin) {
   document.getElementById("loginArea").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
   renderAdmin();
