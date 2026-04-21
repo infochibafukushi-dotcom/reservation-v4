@@ -78,6 +78,9 @@ function dayFullyBlocked(dateStr) {
 
 async function login() {
   const pass = document.getElementById("password").value;
+  const res = await fetch(API.getPassword, { cache: "no-store" });
+  const data = await res.json();
+  const currentPass = String(data.password || "1234");
 
   let currentPass = "1234";
   try {
