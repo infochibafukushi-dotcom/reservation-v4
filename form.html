@@ -22,10 +22,8 @@
         <p class="step-help">移動内容に合わせて選択してください。下記3項目は標準で含まれます。</p>
 
         <div class="base-fees">
-          <p><strong>基本運賃</strong><span id="baseFare">2,000円</span></p>
-          <p><strong>予約配車料</strong><span id="dispatchFee">500円</span></p>
-          <p><strong>特殊車両料</strong><span id="specialFee">1,000円</span></p>
-          <small>※ 走行距離・待機時間・追加介助により最終金額は変動する場合があります。</small>
+          <div id="baseFeeList"></div>
+          <small id="baseFeeNote">※ 走行距離・待機時間・追加介助により最終金額は変動する場合があります。</small>
         </div>
 
         <div class="menu-stack">
@@ -84,9 +82,12 @@ const API_UI_TEXTS = `${API_BASE}${ENDPOINTS.getUITexts}`;
 const API_BASE_FEES = `${API_BASE}${ENDPOINTS.baseFees}`;
 
 const DEFAULT_BASE_FEES = {
-  baseFare: 2000,
-  dispatchFee: 500,
-  specialFee: 1000
+  items: [
+    { id: "base", label: "基本運賃", price: 2000, visible: true },
+    { id: "dispatch", label: "予約配車料", price: 500, visible: true },
+    { id: "special", label: "特殊車両料", price: 1000, visible: true }
+  ],
+  note: "走行距離・待機時間・追加介助により最終金額は変動する場合があります。"
 };
 
 const FALLBACK_MENU = {
@@ -116,8 +117,12 @@ function formatYen(value){
   return `${Number(value || 0).toLocaleString("ja-JP")}円`;
 }
 
+function currentBaseItems(){
+  return (DEFAULT_BASE_FEES.items || []).filter(item => item.visible !== false);
+}
+
 function updateEstimate(){
-  const baseTotal = DEFAULT_BASE_FEES.baseFare + DEFAULT_BASE_FEES.dispatchFee + DEFAULT_BASE_FEES.specialFee;
+  const baseTotal = currentBaseItems().reduce((sum, item) => sum + Number(item.price || 0), 0);
   const menuTotal = menuPriceState.vehicle + menuPriceState.assist + menuPriceState.stairs + menuPriceState.roundTrip;
   document.getElementById("estimateTotal").textContent = formatYen(baseTotal + menuTotal);
 }
@@ -169,22 +174,28 @@ async function loadBaseFees(){
     const res = await fetch(API_BASE_FEES);
     const data = await res.json();
     const fees = data.baseFees || {};
-    DEFAULT_BASE_FEES.baseFare = Number(fees.baseFare ?? DEFAULT_BASE_FEES.baseFare);
-    DEFAULT_BASE_FEES.dispatchFee = Number(fees.dispatchFee ?? DEFAULT_BASE_FEES.dispatchFee);
-    DEFAULT_BASE_FEES.specialFee = Number(fees.specialFee ?? DEFAULT_BASE_FEES.specialFee);
-    if (fees.note) {
-      const noteEl = document.querySelector(".base-fees small");
-      if (noteEl) noteEl.textContent = `※ ${fees.note}`;
+    if (Array.isArray(fees.items) && fees.items.length) {
+      DEFAULT_BASE_FEES.items = fees.items;
+    } else {
+      const legacyItems = [
+        { id: "base", label: "基本運賃", price: Number(fees.baseFare ?? 2000), visible: true },
+        { id: "dispatch", label: "予約配車料", price: Number(fees.dispatchFee ?? 500), visible: true },
+        { id: "special", label: "特殊車両料", price: Number(fees.specialFee ?? 1000), visible: true }
+      ];
+      DEFAULT_BASE_FEES.items = legacyItems;
     }
+    DEFAULT_BASE_FEES.note = fees.note || DEFAULT_BASE_FEES.note;
   } catch (e) {
     // no-op
   }
 }
 
 function renderBaseFees(){
-  document.getElementById("baseFare").textContent = formatYen(DEFAULT_BASE_FEES.baseFare);
-  document.getElementById("dispatchFee").textContent = formatYen(DEFAULT_BASE_FEES.dispatchFee);
-  document.getElementById("specialFee").textContent = formatYen(DEFAULT_BASE_FEES.specialFee);
+  const listEl = document.getElementById("baseFeeList");
+  listEl.innerHTML = currentBaseItems().map(item => (
+    `<p><strong>${item.label}</strong><span>${formatYen(item.price)}</span></p>`
+  )).join("");
+  document.getElementById("baseFeeNote").textContent = `※ ${DEFAULT_BASE_FEES.note}`;
 }
 
 function applyMenu(menu){

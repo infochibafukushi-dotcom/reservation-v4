@@ -94,12 +94,13 @@ async function renderAdmin() {
       <button class="btn btn--secondary" onclick="saveAllSettings()">設定をまとめて保存</button>
     </div>
 
-    <h2>基本料金編集</h2>
-    <label>基本運賃<input id="baseFare"></label>
-    <label>予約配車料<input id="dispatchFee"></label>
-    <label>特殊車両料<input id="specialFee"></label>
+    <h2>基本料金メニュー編集</h2>
+    <div id="baseFeeEditor"></div>
+    <div class="actions">
+      <button class="btn btn--secondary" onclick="addBaseFeeItem()">料金項目を追加</button>
+      <button class="btn" onclick="saveBaseFees()">基本料金保存</button>
+    </div>
     <label>説明文<input id="baseNote"></label>
-    <button class="btn" onclick="saveBaseFees()">基本料金保存</button>
 
     <h2>メニュー管理</h2>
     <div id="menuList"></div>
@@ -164,22 +165,79 @@ async function loadBaseFees() {
   const res = await fetch(API.getBaseFees);
   const data = await res.json();
   const fees = data.baseFees || {};
-  document.getElementById("baseFare").value = fees.baseFare ?? 2000;
-  document.getElementById("dispatchFee").value = fees.dispatchFee ?? 500;
-  document.getElementById("specialFee").value = fees.specialFee ?? 1000;
+  const items = Array.isArray(fees.items) && fees.items.length
+    ? fees.items
+    : [
+        { id: "base", label: "基本運賃", price: Number(fees.baseFare ?? 2000), visible: true },
+        { id: "dispatch", label: "予約配車料", price: Number(fees.dispatchFee ?? 500), visible: true },
+        { id: "special", label: "特殊車両料", price: Number(fees.specialFee ?? 1000), visible: true }
+      ];
+
+  document.getElementById("baseFeeEditor").innerHTML = items.map((item, i) => `
+    <div style="border:1px solid #ddd;padding:8px;margin-bottom:8px">
+      <input id="fee_label_${i}" value="${item.label || ""}" placeholder="項目名">
+      <input id="fee_price_${i}" value="${Number(item.price || 0)}" placeholder="価格">
+      <label><input type="checkbox" id="fee_visible_${i}" ${item.visible !== false ? "checked" : ""}> 表示</label>
+      <button class="btn btn--secondary" onclick="deleteBaseFeeItem(${i})">削除</button>
+    </div>
+  `).join("");
+
+  document.getElementById("baseFeeEditor").dataset.count = String(items.length);
   document.getElementById("baseNote").value = fees.note ?? "走行距離・待機時間・追加介助により最終金額は変動する場合があります。";
+}
+
+
+function collectBaseFeeItems() {
+  const count = Number(document.getElementById("baseFeeEditor").dataset.count || 0);
+  const items = [];
+  for (let i = 0; i < count; i++) {
+    const labelEl = document.getElementById(`fee_label_${i}`);
+    const priceEl = document.getElementById(`fee_price_${i}`);
+    const visibleEl = document.getElementById(`fee_visible_${i}`);
+    if (!labelEl || !priceEl || !visibleEl) continue;
+    items.push({
+      id: `fee_${i}_${Date.now()}`,
+      label: labelEl.value,
+      price: Number(priceEl.value || 0),
+      visible: visibleEl.checked
+    });
+  }
+  return items;
 }
 
 async function saveBaseFees(silent = false) {
   await apiPost(API.setBaseFees, {
     baseFees: {
-      baseFare: Number(document.getElementById("baseFare").value || 0),
-      dispatchFee: Number(document.getElementById("dispatchFee").value || 0),
-      specialFee: Number(document.getElementById("specialFee").value || 0),
+      items: collectBaseFeeItems(),
       note: document.getElementById("baseNote").value || ""
     }
   });
   if (!silent) alert("基本料金保存完了");
+}
+
+
+
+function addBaseFeeItem() {
+  const editor = document.getElementById("baseFeeEditor");
+  const count = Number(editor.dataset.count || 0);
+  const i = count;
+  const div = document.createElement("div");
+  div.style = "border:1px solid #ddd;padding:8px;margin-bottom:8px";
+  div.innerHTML = `
+    <input id="fee_label_${i}" value="新規料金" placeholder="項目名">
+    <input id="fee_price_${i}" value="0" placeholder="価格">
+    <label><input type="checkbox" id="fee_visible_${i}" checked> 表示</label>
+    <button class="btn btn--secondary" onclick="deleteBaseFeeItem(${i})">削除</button>
+  `;
+  editor.appendChild(div);
+  editor.dataset.count = String(count + 1);
+}
+
+function deleteBaseFeeItem(index) {
+  const labelEl = document.getElementById(`fee_label_${index}`);
+  if (!labelEl) return;
+  const wrapper = labelEl.closest("div");
+  if (wrapper) wrapper.remove();
 }
 
 async function loadMenu() {
