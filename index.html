@@ -1,60 +1,90 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>介護タクシー予約</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<title>予約システム</title>
+<style>
+body { font-family: sans-serif; padding:20px; }
+input, button { display:block; margin:10px 0; padding:10px; width:100%; }
+button { background:#007bff; color:#fff; border:none; }
+.card { border:1px solid #ccc; padding:10px; margin:10px 0; }
+</style>
 </head>
+
 <body>
-  <main class="container">
-    <header class="hero">
-      <div class="hero-title-row">
-        <button id="logoAdminTrigger" class="logo-btn" type="button" aria-label="ロゴ">
-          <img src="logo (4).png" alt="介護タクシーロゴ" class="hero-logo">
-        </button>
-        <div>
-          <h1 id="indexTitle">介護タクシー予約</h1>
-          <p id="indexSubtitle" class="hero-sub">丁寧・安全な送迎をご提供します</p>
-        </div>
-      </div>
-      <button id="openAdminBtn" class="btn btn--ghost" type="button">管理画面</button>
-    </header>
 
-    <section class="card">
-      <div class="calendar-toolbar">
-        <button id="prevWeek" class="btn btn--secondary" type="button">前週</button>
-        <div>
-          <p class="calendar-toolbar__label">予約カレンダー（7日表示）</p>
-          <p id="rangeLabel" class="calendar-toolbar__range"></p>
-        </div>
-        <button id="nextWeek" class="btn btn--secondary" type="button">次週</button>
-      </div>
+<h2>予約フォーム</h2>
 
-      <div class="view-toggle" role="group" aria-label="表示モード切替">
-        <button id="modeToggleBtn" class="btn btn--secondary" type="button">深夜早朝予約（24時間）</button>
-      </div>
+<input id="name" placeholder="名前">
+<input id="phone" placeholder="電話">
+<input id="date" type="date">
+<input id="time" type="time">
+<input id="pickup" placeholder="出発地">
+<input id="destination" placeholder="到着地">
+<input id="vehicle" placeholder="車両">
+<input id="assist" placeholder="介助">
+<input id="stairs" placeholder="階段">
+<input id="roundTrip" placeholder="往復">
 
-      <div class="legend">
-        <span><i class="dot dot--ok"></i> 予約可</span>
-        <span><i class="dot dot--ng"></i> 予約不可</span>
-      </div>
+<button onclick="sendReservation()">予約する</button>
 
-      <div id="calendarLoading" class="loading-overlay" aria-live="polite">
-        <div class="loading-overlay__box">
-          <div class="spinner"></div>
-          <p id="loadingText">空き枠を読み込み中...</p>
-        </div>
-      </div>
+<hr>
 
-      <div class="calendar-wrap">
-        <table id="calendar" class="calendar"></table>
-      </div>
-      <p id="calendarNote" class="calendar-note">※ 当日は3時間以内の枠を予約不可にしています。</p>
-    </section>
-  </main>
+<h2>予約一覧</h2>
+<button onclick="loadList()">更新</button>
+<div id="list"></div>
 
-  <script src="config.js"></script>
-  <script src="app.js"></script>
+<script>
+
+const API = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
+
+async function sendReservation() {
+
+  const data = {
+    name: document.getElementById("name").value,
+    phone: document.getElementById("phone").value,
+    date: document.getElementById("date").value,
+    time: document.getElementById("time").value,
+    pickup: document.getElementById("pickup").value,
+    destination: document.getElementById("destination").value,
+    vehicle: document.getElementById("vehicle").value,
+    assist: document.getElementById("assist").value,
+    stairs: document.getElementById("stairs").value,
+    roundTrip: document.getElementById("roundTrip").value
+  };
+
+  const res = await fetch(API + "/api/createReservation", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  });
+
+  const json = await res.json();
+
+  alert("予約完了 ID：" + json.id);
+
+  loadList();
+}
+
+async function loadList() {
+
+  const res = await fetch(API + "/api/getReservations");
+  const data = await res.json();
+
+  const list = document.getElementById("list");
+
+  list.innerHTML = data.map(d => `
+    <div class="card">
+      <div><b>${d.name}</b></div>
+      <div>${d.phone}</div>
+      <div>${d.date} ${d.time}</div>
+      <div>${d.pickup} → ${d.destination}</div>
+      <div>ID: ${d.id}</div>
+    </div>
+  `).join("");
+}
+
+</script>
+
 </body>
 </html>
