@@ -248,15 +248,10 @@ function handleLogoTap() {
   }, 5000);
 
   if (logoTapCount < 5) return;
-
-  const pass = prompt("管理画面パスワードを入力してください");
-  if (pass === "1234") {
-    location.href = "admin.html";
-  } else {
-    alert("パスワードが違います");
-  }
   resetLogoTap();
+  location.href = "admin.html";
 }
+
 
 async function init() {
   await applyUITexts();

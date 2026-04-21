@@ -14,7 +14,9 @@ const API = {
   menuDelete: `${API_BASE}/api/admin/menu/delete`,
   menuToggleHidden: `${API_BASE}/api/admin/menu/toggleHidden`,
   blockDay: `${API_BASE}/api/admin/blocks/day`,
-  blockSlot: `${API_BASE}/api/admin/blocks/slot`
+  blockSlot: `${API_BASE}/api/admin/blocks/slot`,
+  getPassword: `${API_BASE}/api/admin/getPassword`,
+  setPassword: `${API_BASE}/api/admin/setPassword`
 };
 
 const uiTextDefaults = {
@@ -76,10 +78,15 @@ function dayFullyBlocked(dateStr) {
 
 async function login() {
   const pass = document.getElementById("password").value;
-  if (pass !== "1234") {
+  const res = await fetch(API.getPassword, { cache: "no-store" });
+  const data = await res.json();
+  const currentPass = String(data.password || "1234");
+
+  if (pass !== currentPass) {
     alert("パスワード違う");
     return;
   }
+  sessionStorage.setItem("admin_logged_in", "1");
   document.getElementById("loginArea").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
   renderAdmin();
@@ -87,6 +94,10 @@ async function login() {
 
 async function renderAdmin() {
   document.getElementById("app").innerHTML = `
+    <h2>管理パスワード変更</h2>
+    <label>新しいパスワード<input id="newAdminPassword" placeholder="新パスワード"></label>
+    <button class="btn" onclick="changeAdminPassword()">パスワード変更</button>
+
     <h2>UIテキスト編集</h2>
     <textarea id="uiTexts" style="width:100%;min-height:180px"></textarea>
     <div class="actions">
@@ -135,6 +146,18 @@ async function renderAdmin() {
   await loadMenu();
   await loadBlocksAndRenderCalendar();
   await loadReservations();
+}
+
+
+async function changeAdminPassword() {
+  const next = document.getElementById("newAdminPassword").value;
+  if (!next) {
+    alert("新しいパスワードを入力してください");
+    return;
+  }
+  await apiPost(API.setPassword, { password: next });
+  alert("パスワードを変更しました");
+  document.getElementById("newAdminPassword").value = "";
 }
 
 async function saveAllSettings() {
@@ -385,4 +408,11 @@ async function cancelReservation(id) {
   await apiPost(API.cancelReservation, { id });
   await loadBlocksAndRenderCalendar();
   await loadReservations();
+}
+
+
+if (sessionStorage.getItem("admin_logged_in") === "1") {
+  document.getElementById("loginArea").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  renderAdmin();
 }

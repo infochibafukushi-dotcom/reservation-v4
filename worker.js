@@ -98,6 +98,20 @@ export default {
       return json({ success: true }, headers);
     }
 
+
+    if (path === "/api/admin/getPassword") {
+      const password = await getSetting(env.DB, "admin_password", "1234");
+      return json({ password }, headers);
+    }
+
+    if (path === "/api/admin/setPassword" && request.method === "POST") {
+      const body = await request.json();
+      const password = String(body.password || "").trim();
+      if (!password) return json({ success: false, message: "password required" }, headers, 400);
+      await setSetting(env.DB, "admin_password", password);
+      return json({ success: true }, headers);
+    }
+
     if (path === "/api/baseFees" && request.method === "GET") {
       const baseFees = await getSetting(env.DB, "base_fees", {
         baseFare: 2000,
