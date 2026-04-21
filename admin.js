@@ -113,6 +113,47 @@ async function login() {
     alert("パスワード違う");
     return;
   }
+  sessionStorage.setItem("admin_logged_in", "1");
+  document.getElementById("loginArea").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  renderAdmin();
+}
+
+async function renderAdmin() {
+  document.getElementById("app").innerHTML = `
+    <h2>管理パスワード変更</h2>
+    <label>新しいパスワード<input id="newAdminPassword" placeholder="新パスワード"></label>
+    <button class="btn" onclick="changeAdminPassword()">パスワード変更</button>
+
+    <h2>UIテキスト編集</h2>
+    <textarea id="uiTexts" style="width:100%;min-height:180px"></textarea>
+    <div class="actions">
+      <button class="btn" onclick="saveUITexts()">UIテキスト保存</button>
+      <button class="btn btn--secondary" onclick="saveAllSettings()">設定をまとめて保存</button>
+    </div>
+
+    <h2>基本料金メニュー編集</h2>
+    <div id="baseFeeEditor"></div>
+    <div class="actions">
+      <button class="btn btn--secondary" onclick="addBaseFeeItem()">料金項目を追加</button>
+      <button class="btn" onclick="saveBaseFees()">基本料金保存</button>
+    </div>
+    <label>説明文<input id="baseNote"></label>
+
+    <h2>メニュー管理</h2>
+    <div id="menuList"></div>
+    <h3>メニュー追加</h3>
+    <label>名称<input id="newMenuName"></label>
+    <label>価格<input id="newMenuPrice"></label>
+    <label>カテゴリ
+      <select id="newMenuCategory">
+        <option value="vehicle">移動手段</option>
+        <option value="assist">介助</option>
+        <option value="stairs">階段介助</option>
+        <option value="round">待機/付き添い</option>
+      </select>
+    </label>
+    <button class="btn" onclick="createMenu()">追加</button>
 
   try {
     sessionStorage.setItem("admin_logged_in", "1");
