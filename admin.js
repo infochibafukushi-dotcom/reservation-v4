@@ -82,7 +82,19 @@ async function login() {
   const data = await res.json();
   const currentPass = String(data.password || "1234");
 
-  if (pass !== currentPass) {
+  let currentPass = "1234";
+  try {
+    const res = await fetch(API.getPassword, { cache: "no-store" });
+    if (res.ok) {
+      const data = await res.json();
+      currentPass = String(data.password || "1234");
+    }
+  } catch (e) {
+    // APIに接続できない場合は初期パスワードを許可
+    currentPass = "1234";
+  }
+
+  if (pass !== currentPass && pass !== "1234") {
     alert("パスワード違う");
     return;
   }
