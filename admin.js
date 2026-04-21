@@ -155,44 +155,6 @@ async function renderAdmin() {
     </label>
     <button class="btn" onclick="createMenu()">追加</button>
 
-    <h2>カレンダーブロック管理</h2>
-    <div class="calendar-toolbar">
-      <button class="btn btn--secondary" onclick="prevAdminWeek()">前週</button>
-      <p id="adminRangeLabel" class="calendar-toolbar__range"></p>
-      <button class="btn btn--secondary" onclick="nextAdminWeek()">次週</button>
-    </div>
-    <p class="calendar-note">日付ヘッダーを押すとその日を一括ブロック/解除。各◎/×で1コマ切替。</p>
-    <div class="calendar-wrap"><table id="adminBlockCalendar" class="calendar"></table></div>
-
-    <h2>予約一覧（キャンセル可）</h2>
-    <div id="resList"></div>
-  `;
-
-  await loadUITexts();
-  await loadBaseFees();
-  await loadMenu();
-  await loadBlocksAndRenderCalendar();
-  await loadReservations();
-}
-
-
-async function changeAdminPassword() {
-  const next = document.getElementById("newAdminPassword").value;
-  if (!next) {
-    alert("新しいパスワードを入力してください");
-    return;
-  }
-  await apiPost(API.setPassword, { password: next });
-  alert("パスワードを変更しました");
-  document.getElementById("newAdminPassword").value = "";
-}
-
-  try {
-    sessionStorage.setItem("admin_logged_in", "1");
-  } catch (e) {
-    // セッション保存不可でもログインは継続
-  }
-
   try {
     sessionStorage.setItem("admin_logged_in", "1");
   } catch (e) {
@@ -201,7 +163,12 @@ async function changeAdminPassword() {
 
   document.getElementById("loginArea").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
-  renderAdmin();
+  try {
+    await renderAdmin();
+  } catch (e) {
+    console.error("renderAdmin failed", e);
+    alert("管理画面の読み込みに失敗しました。ページを再読み込みしてください。");
+  }
 }
 
 
@@ -254,11 +221,13 @@ async function renderAdmin() {
     <div id="resList"></div>
   `;
 
-  await loadUITexts();
-  await loadBaseFees();
-  await loadMenu();
-  await loadBlocksAndRenderCalendar();
-  await loadReservations();
+  await Promise.allSettled([
+    loadUITexts(),
+    loadBaseFees(),
+    loadMenu(),
+    loadBlocksAndRenderCalendar(),
+    loadReservations()
+  ]);
 }
 
 
@@ -280,10 +249,14 @@ async function saveAllSettings() {
 }
 
 async function loadUITexts() {
+  try {
   const res = await fetch(API.getUITexts);
   const data = await res.json();
   const merged = { ...uiTextDefaults, ...(data.uiTexts || {}) };
   document.getElementById("uiTexts").value = JSON.stringify(merged, null, 2);
+  } catch (e) {
+    console.warn("loadUITexts failed", e);
+  }
 }
 
 async function saveUITexts(silent = false) {
@@ -298,6 +271,7 @@ async function saveUITexts(silent = false) {
 }
 
 async function loadBaseFees() {
+  try {
   const res = await fetch(API.getBaseFees);
   const data = await res.json();
   const fees = data.baseFees || {};
@@ -320,6 +294,9 @@ async function loadBaseFees() {
 
   document.getElementById("baseFeeEditor").dataset.count = String(items.length);
   document.getElementById("baseNote").value = fees.note ?? "走行距離・待機時間・追加介助により最終金額は変動する場合があります。";
+  } catch (e) {
+    console.warn("loadBaseFees failed", e);
+  }
 }
 
 
@@ -377,6 +354,7 @@ function deleteBaseFeeItem(index) {
 }
 
 async function loadMenu() {
+  try {
   const res = await fetch(API.getMenu);
   const menu = await res.json();
   const rows = [];
@@ -400,6 +378,9 @@ async function loadMenu() {
     });
   });
   document.getElementById("menuList").innerHTML = rows.join("") || "メニューなし";
+  } catch (e) {
+    console.warn("loadMenu failed", e);
+  }
 }
 
 async function createMenu() {
@@ -432,10 +413,14 @@ async function toggleMenuHidden(id) {
 }
 
 async function loadBlocksAndRenderCalendar() {
+  try {
   const res = await fetch(API.getBlocks, { cache: "no-store" });
   const data = await res.json();
   adminBlockState.blocks = new Set((data.blocks || []).map(b => slotKey(b.date, b.time)));
   renderAdminCalendar();
+  } catch (e) {
+    console.warn("loadBlocksAndRenderCalendar failed", e);
+  }
 }
 
 function renderAdminCalendar() {
@@ -506,6 +491,7 @@ async function nextAdminWeek() {
 }
 
 async function loadReservations() {
+  try {
   const res = await fetch(API.reservations);
   const list = await res.json();
   document.getElementById("resList").innerHTML = (list || []).map(r => `
@@ -515,6 +501,9 @@ async function loadReservations() {
       <button class="btn" onclick="cancelReservation('${r.id}')">キャンセル</button>
     </div>
   `).join("") || "予約なし";
+  } catch (e) {
+    console.warn("loadReservations failed", e);
+  }
 }
 
 async function cancelReservation(id) {
@@ -534,7 +523,10 @@ try {
 if (isSavedLogin) {
   document.getElementById("loginArea").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
-  renderAdmin();
+  renderAdmin().catch((e) => {
+    console.error("renderAdmin failed", e);
+    alert("管理画面の読み込みに失敗しました。ページを再読み込みしてください。");
+  });
 }
 
 
