@@ -2,87 +2,102 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>予約システム</title>
-<style>
-body { font-family: sans-serif; padding:20px; }
-input, button { display:block; margin:10px 0; padding:10px; width:100%; }
-button { background:#007bff; color:#fff; border:none; }
-.card { border:1px solid #ccc; padding:10px; margin:10px 0; }
-</style>
-</head>
+<title>予約カレンダー</title>
 
+<style>
+body { font-family:sans-serif; padding:20px; }
+input, button { margin:5px; padding:8px; }
+.calendar { display:grid; grid-template-columns:repeat(7,1fr); gap:5px; }
+.day { border:1px solid #ccc; padding:10px; min-height:80px; }
+.booked { background:#ffcccc; }
+</style>
+
+</head>
 <body>
 
-<h2>予約フォーム</h2>
+<h2>予約</h2>
 
 <input id="name" placeholder="名前">
-<input id="phone" placeholder="電話">
 <input id="date" type="date">
 <input id="time" type="time">
-<input id="pickup" placeholder="出発地">
-<input id="destination" placeholder="到着地">
-<input id="vehicle" placeholder="車両">
-<input id="assist" placeholder="介助">
-<input id="stairs" placeholder="階段">
-<input id="roundTrip" placeholder="往復">
-
-<button onclick="sendReservation()">予約する</button>
+<button onclick="send()">予約</button>
 
 <hr>
 
-<h2>予約一覧</h2>
-<button onclick="loadList()">更新</button>
-<div id="list"></div>
+<h2>カレンダー</h2>
+<div id="calendar" class="calendar"></div>
 
 <script>
 
 const API = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
 
-async function sendReservation() {
+// =====================
+// 予約送信
+// =====================
+async function send() {
 
   const data = {
     name: document.getElementById("name").value,
-    phone: document.getElementById("phone").value,
     date: document.getElementById("date").value,
-    time: document.getElementById("time").value,
-    pickup: document.getElementById("pickup").value,
-    destination: document.getElementById("destination").value,
-    vehicle: document.getElementById("vehicle").value,
-    assist: document.getElementById("assist").value,
-    stairs: document.getElementById("stairs").value,
-    roundTrip: document.getElementById("roundTrip").value
+    time: document.getElementById("time").value
   };
 
-  const res = await fetch(API + "/api/createReservation", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data)
+  await fetch(API + "/api/createReservation", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify(data)
   });
 
-  const json = await res.json();
-
-  alert("予約完了 ID：" + json.id);
-
-  loadList();
+  alert("予約完了");
+  load();
 }
 
-async function loadList() {
+// =====================
+// データ取得
+// =====================
+async function load() {
 
   const res = await fetch(API + "/api/getReservations");
   const data = await res.json();
 
-  const list = document.getElementById("list");
-
-  list.innerHTML = data.map(d => `
-    <div class="card">
-      <div><b>${d.name}</b></div>
-      <div>${d.phone}</div>
-      <div>${d.date} ${d.time}</div>
-      <div>${d.pickup} → ${d.destination}</div>
-      <div>ID: ${d.id}</div>
-    </div>
-  `).join("");
+  renderCalendar(data);
 }
+
+// =====================
+// カレンダー生成
+// =====================
+function renderCalendar(data) {
+
+  const cal = document.getElementById("calendar");
+  cal.innerHTML = "";
+
+  const today = new Date();
+
+  for (let i=0;i<30;i++) {
+
+    const d = new Date();
+    d.setDate(today.getDate()+i);
+
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,"0");
+    const dd = String(d.getDate()).padStart(2,"0");
+
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+
+    // 予約判定
+    const booked = data.some(r => r.date === dateStr);
+
+    cal.innerHTML += `
+      <div class="day ${booked ? 'booked':''}">
+        ${dateStr}
+        <div>${booked ? "予約あり" : ""}</div>
+      </div>
+    `;
+  }
+}
+
+// 初期表示
+load();
 
 </script>
 
