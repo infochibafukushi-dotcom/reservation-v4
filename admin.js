@@ -530,3 +530,25 @@ if (isSavedLogin) {
   document.getElementById("app").classList.remove("hidden");
   renderAdmin();
 }
+
+
+function setupLoginUI() {
+  const loginBtn = document.getElementById("loginBtn");
+  const passwordInput = document.getElementById("password");
+
+  if (loginBtn) {
+    loginBtn.addEventListener("click", login);
+  }
+
+  if (passwordInput) {
+    passwordInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        login();
+      }
+    });
+  }
+}
+
+setupLoginUI();
+window.login = login;
