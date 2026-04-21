@@ -106,6 +106,24 @@ async function login() {
     alert("パスワード違う");
     return;
   }
+  sessionStorage.setItem("admin_logged_in", "1");
+  document.getElementById("loginArea").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  renderAdmin();
+}
+
+async function renderAdmin() {
+  document.getElementById("app").innerHTML = `
+    <h2>管理パスワード変更</h2>
+    <label>新しいパスワード<input id="newAdminPassword" placeholder="新パスワード"></label>
+    <button class="btn" onclick="changeAdminPassword()">パスワード変更</button>
+
+    <h2>UIテキスト編集</h2>
+    <textarea id="uiTexts" style="width:100%;min-height:180px"></textarea>
+    <div class="actions">
+      <button class="btn" onclick="saveUITexts()">UIテキスト保存</button>
+      <button class="btn btn--secondary" onclick="saveAllSettings()">設定をまとめて保存</button>
+    </div>
 
   try {
     sessionStorage.setItem("admin_logged_in", "1");
