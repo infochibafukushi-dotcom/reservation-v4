@@ -41,25 +41,14 @@ function apiPost(url, body) {
 }
 
 async function getAdminPassword() {
-  const fallback = "1234";
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2500);
-    const res = await fetch(API.getPassword, { cache: "no-store", signal: controller.signal });
-    clearTimeout(timer);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2500);
+  const res = await fetch(API.getPassword, { cache: "no-store", signal: controller.signal });
+  clearTimeout(timer);
 
-    if (!res.ok) return fallback;
-
-    const text = await res.text();
-    try {
-      const json = JSON.parse(text);
-      return String(json.password || fallback);
-    } catch {
-      return fallback;
-    }
-  } catch {
-    return fallback;
-  }
+  if (!res.ok) throw new Error("password api failed");
+  const data = await res.json();
+  return String(data.password || "1234");
 }
 
 function formatDate(date) {
@@ -100,16 +89,20 @@ function dayFullyBlocked(dateStr) {
 
 async function login() {
   const pass = String(document.getElementById("password")?.value || "").trim();
-  const currentPass = await getAdminPassword();
-
   if (!pass) {
     alert("パスワードを入力してください");
     return;
   }
 
-  // 緊急時のマスターパスワード（接続障害時の救済）
-  const canLogin = pass === currentPass || pass === "1234";
-  if (!canLogin) {
+  let currentPass = "";
+  try {
+    currentPass = await getAdminPassword();
+  } catch (e) {
+    alert("認証サーバーに接続できません。URL設定を確認してください。");
+    return;
+  }
+
+  if (pass !== currentPass) {
     alert("パスワード違う");
     return;
   }
@@ -139,21 +132,6 @@ async function renderAdmin() {
       <button class="btn" onclick="saveBaseFees()">基本料金保存</button>
     </div>
     <label>説明文<input id="baseNote"></label>
-
-    <h2>メニュー管理</h2>
-    <div id="menuList"></div>
-    <h3>メニュー追加</h3>
-    <label>名称<input id="newMenuName"></label>
-    <label>価格<input id="newMenuPrice"></label>
-    <label>カテゴリ
-      <select id="newMenuCategory">
-        <option value="vehicle">移動手段</option>
-        <option value="assist">介助</option>
-        <option value="stairs">階段介助</option>
-        <option value="round">待機/付き添い</option>
-      </select>
-    </label>
-    <button class="btn" onclick="createMenu()">追加</button>
 
   try {
     sessionStorage.setItem("admin_logged_in", "1");

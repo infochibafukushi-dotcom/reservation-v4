@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="container">
+  <main class="container container--narrow">
     <header class="hero">
       <div class="hero-title-row">
         <button id="logoAdminTrigger" class="logo-btn" type="button" aria-label="ロゴ">
@@ -22,35 +22,18 @@
     </header>
 
     <section class="card">
-      <div class="calendar-toolbar">
-        <button id="prevWeek" class="btn btn--secondary" type="button">前週</button>
-        <div>
-          <p class="calendar-toolbar__label">予約カレンダー（7日表示）</p>
-          <p id="rangeLabel" class="calendar-toolbar__range"></p>
-        </div>
-        <button id="nextWeek" class="btn btn--secondary" type="button">次週</button>
-      </div>
+      <p class="step-help">最短で予約したい方は下のボタンから進めます。</p>
+      <button id="earliestBtn" class="btn btn--large" type="button">最短で予約する</button>
 
-      <div class="view-toggle" role="group" aria-label="表示モード切替">
-        <button id="modeToggleBtn" class="btn btn--secondary" type="button">深夜早朝予約（24時間）</button>
-      </div>
+      <div id="slotLoading" class="loading-inline">空き枠を確認中...</div>
 
-      <div class="legend">
-        <span><i class="dot dot--ok"></i> 予約可</span>
-        <span><i class="dot dot--ng"></i> 予約不可</span>
-      </div>
+      <h2 class="slot-heading">今日の空き</h2>
+      <div id="todaySlots" class="slot-list"></div>
 
-      <div id="calendarLoading" class="loading-overlay" aria-live="polite">
-        <div class="loading-overlay__box">
-          <div class="spinner"></div>
-          <p id="loadingText">空き枠を読み込み中...</p>
-        </div>
-      </div>
+      <h2 class="slot-heading">明日の空き</h2>
+      <div id="tomorrowSlots" class="slot-list"></div>
 
-      <div class="calendar-wrap">
-        <table id="calendar" class="calendar"></table>
-      </div>
-      <p id="calendarNote" class="calendar-note">※ 過去時間・満席枠は自動で予約不可になります。</p>
+      <p id="calendarNote" class="calendar-note">※ 空き枠はリアルタイムで変動します。</p>
     </section>
   </main>
 

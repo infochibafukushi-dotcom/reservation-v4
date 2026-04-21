@@ -557,3 +557,55 @@ select {
   font-size: 13px;
   line-height: 1.6;
 }
+
+
+.btn--large {
+  width: 100%;
+  padding: 14px;
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.loading-inline {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.slot-heading {
+  margin: 16px 0 8px;
+  font-size: 18px;
+}
+
+.slot-list {
+  display: grid;
+  gap: 10px;
+}
+
+.slot-cta {
+  width: 100%;
+  border: 1px solid #c7f0d7;
+  background: #f0fff6;
+  border-radius: 12px;
+  padding: 12px;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.slot-cta strong {
+  font-size: 18px;
+}
+
+.slot-cta span {
+  color: #0f6d35;
+  font-weight: 700;
+}
+
+.slot-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
