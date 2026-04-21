@@ -27,7 +27,8 @@ const el = {
   indexTitle: document.getElementById("indexTitle"),
   indexSubtitle: document.getElementById("indexSubtitle"),
   loadingText: document.getElementById("loadingText"),
-  calendarNote: document.getElementById("calendarNote")
+  calendarNote: document.getElementById("calendarNote"),
+  openAdminBtn: document.getElementById("openAdminBtn")
 };
 
 
@@ -239,6 +240,10 @@ function resetLogoTap() {
   }
 }
 
+function openAdminPage() {
+  window.location.href = "./admin.html";
+}
+
 function handleLogoTap() {
   logoTapCount += 1;
 
@@ -249,7 +254,7 @@ function handleLogoTap() {
 
   if (logoTapCount < 5) return;
   resetLogoTap();
-  location.href = "admin.html";
+  openAdminPage();
 }
 
 
@@ -288,5 +293,6 @@ el.nextWeek.addEventListener("click", () => {
 
 if (el.modeToggleBtn) el.modeToggleBtn.addEventListener("click", toggleViewMode);
 if (el.logoAdminTrigger) el.logoAdminTrigger.addEventListener("click", handleLogoTap);
+if (el.openAdminBtn) el.openAdminBtn.addEventListener("click", openAdminPage);
 
 init();

@@ -193,6 +193,12 @@ async function changeAdminPassword() {
     // セッション保存不可でもログインは継続
   }
 
+  try {
+    sessionStorage.setItem("admin_logged_in", "1");
+  } catch (e) {
+    // セッション保存不可でもログインは継続
+  }
+
   document.getElementById("loginArea").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
   renderAdmin();
