@@ -1,17 +1,43 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>予約</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>介護タクシー予約</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <main class="container container--narrow">
+    <header class="hero">
+      <div class="hero-title-row">
+        <button id="logoAdminTrigger" class="logo-btn" type="button" aria-label="ロゴ">
+          <img src="logo (4).png" alt="介護タクシーロゴ" class="hero-logo">
+        </button>
+        <div>
+          <h1 id="indexTitle">介護タクシー予約</h1>
+          <p id="indexSubtitle" class="hero-sub">丁寧・安全な送迎をご提供します</p>
+        </div>
+      </div>
+      <button id="openAdminBtn" class="btn btn--ghost" type="button">管理画面</button>
+    </header>
 
-<h1>介護タクシー予約</h1>
+    <section class="card">
+      <p class="step-help">最短で予約したい方は下のボタンから進めます。</p>
+      <button id="earliestBtn" class="btn btn--large" type="button">最短で予約する</button>
 
-<table id="calendar"></table>
+      <div id="slotLoading" class="loading-inline">空き枠を確認中...</div>
 
-<script src="app.js"></script>
+      <h2 class="slot-heading">今日の空き</h2>
+      <div id="todaySlots" class="slot-list"></div>
+
+      <h2 class="slot-heading">明日の空き</h2>
+      <div id="tomorrowSlots" class="slot-list"></div>
+
+      <p id="calendarNote" class="calendar-note">※ 空き枠はリアルタイムで変動します。</p>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
