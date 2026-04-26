@@ -8,15 +8,28 @@
 </head>
 <body>
 
-<main class="page">
+<div class="container">
 
+<header class="header">
+<img src="logo.png" class="logo">
+<div>
 <h1>介護タクシー予約</h1>
+<p>丁寧・安全な送迎をご提供します</p>
+</div>
+</header>
+
+<div class="controls">
+<button id="prev">← 前へ</button>
+<div id="range">2026/04/26 - 05/02</div>
+<button id="next">次へ →</button>
+<button class="other">他時間予約</button>
+</div>
 
 <div class="calendar-wrap">
 <div id="calendar"></div>
 </div>
 
-</main>
+</div>
 
 <script src="calendar.js"></script>
 </body>

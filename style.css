@@ -1,61 +1,61 @@
 
-body{
-font-family:sans-serif;
-margin:0;
-background:#f5f5f5;
-}
+body{margin:0;font-family:sans-serif;background:#f3f4f6}
 
-.page{
-padding:10px;
-}
+.container{padding:10px}
 
-.calendar-wrap{
-overflow:auto;
-background:#fff;
-padding:10px;
-border-radius:10px;
-}
+.header{display:flex;gap:10px;align-items:center}
+.logo{width:60px}
+
+.controls{display:flex;gap:10px;align-items:center;margin:10px 0;flex-wrap:wrap}
+
+.calendar-wrap{overflow:auto;background:#fff;padding:10px;border-radius:12px}
 
 .grid{
 display:grid;
 grid-template-columns:60px repeat(7,1fr);
-gap:4px;
+gap:6px;
 }
 
-.time{
-background:#eee;
+.time,.day,.cell{
 text-align:center;
-font-size:12px;
-padding:6px;
-border-radius:6px;
+border-radius:10px;
+font-weight:bold;
 }
 
-.day{
-background:#ddd;
-text-align:center;
-font-size:12px;
-padding:6px;
-border-radius:6px;
-}
+.time{background:#e5e7eb;padding:8px;font-size:12px}
+.day{background:#d1d5db;padding:8px;font-size:12px}
 
 .cell{
-text-align:center;
-padding:10px 0;
-border-radius:8px;
-font-weight:bold;
-background:#bfefff;
+background:#d9f3ff;
+padding:12px 0;
+cursor:pointer;
+border:2px solid #bfefff;
+}
+
+.cell:hover{
+transform:scale(1.05);
 }
 
 .ng{
-background:#ffc0c0;
+background:#ffd6d6;
+border:2px solid #ffb3b3;
+cursor:not-allowed;
 }
 
 @media(max-width:600px){
+
 .grid{
 grid-template-columns:40px repeat(7,1fr);
+gap:4px;
 }
+
 .cell{
-padding:6px 0;
+padding:8px 0;
 font-size:12px;
 }
+
+.time,.day{
+font-size:10px;
+}
+
 }

@@ -13,6 +13,7 @@ html+='<div class="day">'+(d+1)+'日</div>'
 
 for(let h=6;h<=21;h++){
 html+='<div class="time">'+pad(h)+':00</div>'
+
 for(let d=0;d<7;d++){
 html+='<div class="cell">◎</div>'
 }
