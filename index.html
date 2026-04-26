@@ -1,105 +1,142 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>予約カレンダー</title>
-
-<style>
-body { font-family:sans-serif; padding:20px; }
-input, button { margin:5px; padding:8px; }
-.calendar { display:grid; grid-template-columns:repeat(7,1fr); gap:5px; }
-.day { border:1px solid #ccc; padding:10px; min-height:80px; }
-.booked { background:#ffcccc; }
-</style>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>介護タクシー予約</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preload" as="image" href="logo.png">
 </head>
 <body>
-
-<h2>予約</h2>
-
-<input id="name" placeholder="名前">
-<input id="date" type="date">
-<input id="time" type="time">
-<button onclick="send()">予約</button>
-
-<hr>
-
-<h2>カレンダー</h2>
-<div id="calendar" class="calendar"></div>
-
-<script>
-
-const API = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
-
-// =====================
-// 予約送信
-// =====================
-async function send() {
-
-  const data = {
-    name: document.getElementById("name").value,
-    date: document.getElementById("date").value,
-    time: document.getElementById("time").value
-  };
-
-  await fetch(API + "/api/createReservation", {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify(data)
-  });
-
-  alert("予約完了");
-  load();
-}
-
-// =====================
-// データ取得
-// =====================
-async function load() {
-
-  const res = await fetch(API + "/api/getReservations");
-  const data = await res.json();
-
-  renderCalendar(data);
-}
-
-// =====================
-// カレンダー生成
-// =====================
-function renderCalendar(data) {
-
-  const cal = document.getElementById("calendar");
-  cal.innerHTML = "";
-
-  const today = new Date();
-
-  for (let i=0;i<30;i++) {
-
-    const d = new Date();
-    d.setDate(today.getDate()+i);
-
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth()+1).padStart(2,"0");
-    const dd = String(d.getDate()).padStart(2,"0");
-
-    const dateStr = `${yyyy}-${mm}-${dd}`;
-
-    // 予約判定
-    const booked = data.some(r => r.date === dateStr);
-
-    cal.innerHTML += `
-      <div class="day ${booked ? 'booked':''}">
-        ${dateStr}
-        <div>${booked ? "予約あり" : ""}</div>
+  <main class="page">
+    <header class="hero">
+      <button id="logoAdminTrigger" class="logo-btn" type="button" aria-label="管理画面">
+        <img src="logo.png" class="hero-logo" alt="介護タクシー予約">
+      </button>
+      <div class="hero-text">
+        <h1 id="indexTitle">介護タクシー予約</h1>
+        <p id="indexSubtitle">丁寧・安全な送迎をご提供します</p>
       </div>
-    `;
-  }
-}
+    </header>
 
-// 初期表示
-load();
+    <section class="card">
+      <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="loading-box">
+          <div class="spinner"></div>
+          <p id="loadingText">空き枠を読み込み中...</p>
+        </div>
+      </div>
 
-</script>
+      <div class="top-line">
+        <div class="legend">
+          <span><i class="dot dot-ok"></i>予約可能</span>
+          <span><i class="dot dot-ng"></i>予約不可</span>
+        </div>
+        <button id="modeToggleBtn" class="pill-btn" type="button">深夜早朝予約</button>
+      </div>
 
+      <div class="calendar-toolbar">
+        <button id="prevWeek" class="nav-btn" type="button">←</button>
+        <div id="dateRange" class="date-range">読み込み中</div>
+        <button id="nextWeek" class="nav-btn" type="button">→</button>
+      </div>
+
+      <p id="calendarNote" class="calendar-note">◎を押すと予約フォームが開きます。過去時間・満席枠は自動で予約不可になります。</p>
+
+      <div class="scroll-container">
+        <div id="calendarGrid" class="calendar-grid"></div>
+      </div>
+
+      <div class="admin-link-row">
+        <button id="openAdminBtn" class="text-link" type="button">管理画面</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="bookingModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-panel">
+      <button id="closeBookingBtn" class="modal-close" type="button">×</button>
+      <h2>予約情報入力</h2>
+      <p id="selectedSlotInfo" class="selected-slot"></p>
+
+      <div class="steps">
+        <span id="stepMenuBadge" class="step-badge active">1. 内容選択</span>
+        <span id="stepInfoBadge" class="step-badge">2. お客様情報</span>
+      </div>
+
+      <section id="menuStep">
+        <label>移動方法
+          <select id="moveType">
+            <option value="車いす">車いす</option>
+            <option value="ストレッチャー">ストレッチャー</option>
+            <option value="ご自身の車いす">ご自身の車いす</option>
+          </select>
+        </label>
+        <label>介助内容
+          <select id="assistanceType">
+            <option value="乗降介助">乗降介助</option>
+            <option value="身体介助">身体介助</option>
+            <option value="介助不要">介助不要</option>
+          </select>
+        </label>
+        <label>階段介助
+          <select id="stairAssistance">
+            <option value="不要">不要</option>
+            <option value="見守り介助">見守り介助</option>
+            <option value="2階移動">2階移動</option>
+            <option value="3階移動">3階移動</option>
+            <option value="4階移動">4階移動</option>
+          </select>
+        </label>
+        <label>往復・待機
+          <select id="roundTrip">
+            <option value="片道">片道</option>
+            <option value="往復">往復</option>
+            <option value="待機">待機</option>
+            <option value="病院付き添い">病院付き添い</option>
+          </select>
+        </label>
+        <p class="estimate">概算金額：<strong id="estimateTotal">0円</strong></p>
+        <button id="toInfoBtn" class="primary-btn" type="button">次へ</button>
+      </section>
+
+      <section id="infoStep" class="hidden">
+        <div class="privacy-note">
+          <strong>個人情報ご提供のお願い</strong>
+          <p>配車手配・予約確認のご連絡・安全な送迎対応のため、連絡先や乗降場所などの情報が必要です。</p>
+          <label class="check"><input type="checkbox" id="agree"> 個人情報の取扱いに同意する</label>
+        </div>
+
+        <label>お名前
+          <input id="customerName" placeholder="例）山田 太郎">
+        </label>
+        <label>電話番号
+          <input id="customerPhone" inputmode="numeric" placeholder="09012345678">
+        </label>
+        <label>出発地
+          <input id="pickupLocation" placeholder="例）千葉市中央区〇〇">
+        </label>
+        <label>行き先
+          <input id="destination" placeholder="例）〇〇病院">
+        </label>
+        <label>備考
+          <textarea id="notes" rows="3" placeholder="任意"></textarea>
+        </label>
+
+        <div class="modal-actions">
+          <button id="backToMenuBtn" class="secondary-btn" type="button">戻る</button>
+          <button id="submitBookingBtn" class="primary-btn" type="button">予約を確定する</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="config.js"></script>
+  <script src="index.api.js"></script>
+  <script src="index.booking.js"></script>
+  <script src="index.calendar.js"></script>
+  <script src="index.ui.js"></script>
 </body>
 </html>
