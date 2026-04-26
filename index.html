@@ -11,7 +11,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 
-<link rel="stylesheet" href="style.css?v=20260426">
+<!-- CSSも強制更新 -->
+<link rel="stylesheet" href="style.css?v=20260427">
 
 </head>
 <body>
@@ -20,7 +21,8 @@
 
 <header class="header">
   <button id="logoAdminTrigger" class="logo-btn">
-    <img src="logo.png?v=20260426" class="logo">
+    <!-- ロゴもキャッシュ対策 -->
+    <img src="logo.png?v=20260427" class="logo">
   </button>
   <div>
     <h1>介護タクシー予約</h1>
@@ -63,6 +65,7 @@
 
 </main>
 
+<!-- モーダル -->
 <div id="bookingModal" class="modal hidden">
   <div class="modal-panel">
 
@@ -131,12 +134,12 @@
 
 <div id="toast" class="toast"></div>
 
-<!-- JS 強制更新 -->
-<script src="config.js?v=20260426"></script>
-<script src="index.api.js?v=20260426"></script>
-<script src="index.booking.js?v=20260426"></script>
-<script src="index.calendar.js?v=20260426"></script>
-<script src="index.ui.js?v=20260426"></script>
+<!-- JS全部キャッシュ回避 -->
+<script src="config.js?v=20260427"></script>
+<script src="index.api.js?v=20260427"></script>
+<script src="index.booking.js?v=20260427"></script>
+<script src="index.calendar.js?v=20260427"></script>
+<script src="index.ui.js?v=20260427"></script>
 
 </body>
 </html>
