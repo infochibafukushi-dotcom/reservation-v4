@@ -1,4 +1,3 @@
-// GASなし / Cloudflare Workers + D1 設定
 window.APP_CONFIG = {
   API_BASE: "https://throbbing-bush-8f59.info-chibafukushi.workers.dev",
   ENDPOINTS: {
@@ -15,7 +14,6 @@ window.APP_CONFIG = {
     saveSettings: "/api/admin/settings/save",
     getMenu: "/api/menu",
     saveMenu: "/api/admin/menu/save",
-    getUITexts: "/api/getUITexts",
     baseFees: "/api/baseFees"
   }
 };

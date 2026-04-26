@@ -1,1 +1,1 @@
-document.addEventListener("DOMContentLoaded",()=>{let logoTap=0,timer=null;function openAdmin(){location.href="admin.html"}document.getElementById("logoAdminTrigger")?.addEventListener("click",()=>{logoTap+=1;clearTimeout(timer);timer=setTimeout(()=>logoTap=0,4000);if(logoTap>=5){logoTap=0;openAdmin()}})});
+document.addEventListener('DOMContentLoaded',()=>{let n=0,t=null;document.getElementById('logoAdminTrigger')?.addEventListener('click',()=>{n++;clearTimeout(t);t=setTimeout(()=>n=0,4000);if(n>=5){n=0;location.href='admin.html'}})});
