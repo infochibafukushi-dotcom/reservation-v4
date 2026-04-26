@@ -1,0 +1,1 @@
+Admin UI aligned to calendar-first structure
