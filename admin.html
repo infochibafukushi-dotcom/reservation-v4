@@ -1,44 +1,50 @@
 <!doctype html>
 <html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>管理画面</title>
-<link rel="stylesheet" href="style.css">
-</head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>管理画面</title><link rel="stylesheet" href="style.css"></head>
 <body>
-
 <main class="admin-shell">
+  <div class="admin-title"><h1>管理画面</h1><p>予約確認・ブロック管理・売上管理</p></div>
+  <section id="loginArea" class="admin-card"><h2>ログイン</h2><label>パスワード<input id="adminPassword" type="password" placeholder="1234"></label><button id="loginBtn" class="primary-btn">ログイン</button></section>
+  <section id="adminView" class="hidden admin-grid">
+    <div class="admin-card">
+      <h2>カレンダー管理</h2>
+      <div class="calendar-nav"><button id="adminPrev" class="nav-btn">← 前へ</button><div id="adminRange" class="date-range"></div><button id="adminNext" class="nav-btn">次へ →</button></div>
+      <p class="note">◎/×で1枠切替。日付ヘッダーで1日まとめて切替。</p>
+      <div class="calendar-wrap"><div id="adminCalendar" class="calendar-grid"></div></div>
+    </div>
 
-<h1>管理画面</h1>
+    <div class="stats">
+      <div class="stat"><span>予約件数</span><strong id="statCount">0</strong></div>
+      <div class="stat"><span>未対応</span><strong id="statActive">0</strong></div>
+      <div class="stat"><span>完了</span><strong id="statDone">0</strong></div>
+      <div class="stat"><span>概算売上</span><strong id="statSales">0円</strong></div>
+    </div>
 
-<div class="accordion">
+    <button class="accordion-btn" data-acc="res">予約一覧 <span>開閉</span></button>
+    <div id="acc-res" class="accordion-body open admin-card"><div class="actions"><button id="refreshBtn" class="secondary-btn">更新</button><button id="csvBtn" class="secondary-btn">CSV</button></div><div id="reservationList"></div></div>
 
-<button class="acc-btn">① 基本料金設定</button>
-<div class="acc-content">
-<label>基本運賃<input id="baseFee" type="number"></label>
-<label>予約配車料<input id="dispatchFee" type="number"></label>
-<label>特殊車両料<input id="vehicleFee" type="number"></label>
-<button id="saveBaseFees">保存</button>
-</div>
+    <button class="accordion-btn" data-acc="base">基本料金設定 <span>開閉</span></button>
+    <div id="acc-base" class="accordion-body admin-card">
+      <label>基本運賃<input id="baseFee" type="number"></label>
+      <label>予約配車料<input id="dispatchFee" type="number"></label>
+      <label>特殊車両料<input id="specialFee" type="number"></label>
+      <button id="saveBaseBtn" class="primary-btn">基本料金保存</button>
+    </div>
 
-<button class="acc-btn">② メニュー設定</button>
-<div class="acc-content">
-<div id="menuEditor"></div>
-<button id="saveMenu">保存</button>
-</div>
+    <button class="accordion-btn" data-acc="menu">メニュー・料金設定 <span>開閉</span></button>
+    <div id="acc-menu" class="accordion-body admin-card"><div id="menuEditor"></div><div class="actions"><button id="addMenuBtn" class="secondary-btn">項目追加</button><button id="saveMenuBtn" class="primary-btn">メニュー保存</button></div></div>
 
-<button class="acc-btn">③ 設定</button>
-<div class="acc-content">
-<label>Webhook<input id="webhook"></label>
-<button id="saveSettings">保存</button>
-</div>
-
-</div>
-
+    <button class="accordion-btn" data-acc="settings">通知・設定 <span>開閉</span></button>
+    <div id="acc-settings" class="accordion-body admin-card">
+      <label>Webhook URL<input id="webhookUrl"></label>
+      <label>管理パスワード変更<input id="newPassword"></label>
+      <button id="saveSettingsBtn" class="primary-btn">設定保存</button>
+    </div>
+  </section>
 </main>
-
+<div id="toast" class="toast"></div>
 <script src="config.js"></script>
+<script src="index.api.js"></script>
 <script src="admin.js"></script>
 </body>
 </html>

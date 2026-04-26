@@ -1,34 +1,24 @@
-
-const {ENDPOINTS}=window.APP_CONFIG
-
-document.querySelectorAll(".acc-btn").forEach(btn=>{
-btn.onclick=()=>{
-const content=btn.nextElementSibling
-content.classList.toggle("active")
-}
-})
-
-async function loadBaseFees(){
-const res=await fetch(ENDPOINTS.baseFees).then(r=>r.json())
-document.getElementById("baseFee").value=res.baseFees.items[0].price
-document.getElementById("dispatchFee").value=res.baseFees.items[1].price
-document.getElementById("vehicleFee").value=res.baseFees.items[2].price
-}
-
-async function saveBaseFees(){
-const payload={
-base:document.getElementById("baseFee").value,
-dispatch:document.getElementById("dispatchFee").value,
-vehicle:document.getElementById("vehicleFee").value
-}
-await fetch(ENDPOINTS.saveBaseFees,{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify(payload)
-})
-alert("保存完了")
-}
-
-document.getElementById("saveBaseFees").onclick=saveBaseFees
-
-loadBaseFees()
+const st={page:0,blocks:[],blockSet:new Set(),reservations:[],menu:[]};
+function pad(v){return String(v).padStart(2,"0")}function fmt(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`}function addD(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}function jDay(d){return["日","月","火","水","木","金","土"][d.getDay()]}function key(d,t){return`${d}_${t}`}function today(){const d=new Date();d.setHours(0,0,0,0);return d}function dates(){const s=addD(today(),st.page*7);return Array.from({length:7},(_,i)=>addD(s,i))}function times(){const o=[];for(let h=6;h<=21;h++){for(let m=0;m<60;m+=30){if(h===21&&m>0)continue;o.push(`${pad(h)}:${pad(m)}`)}}return o}function yen(n){return`${Number(n||0).toLocaleString("ja-JP")}円`}
+async function login(){const r=await apiPost(ENDPOINTS.login,{password:document.getElementById("adminPassword").value});if(!r.success)return toast("パスワードが違います");sessionStorage.setItem("admin_auth","1");document.getElementById("loginArea").classList.add("hidden");document.getElementById("adminView").classList.remove("hidden");loadAll()}
+async function loadAll(){await Promise.all([loadBlocks(),loadReservations(),loadSettings(),loadMenu(),loadBaseFees()])}
+async function loadBlocks(){const d=await apiGet(ENDPOINTS.getBlocks);st.blocks=d.blocks||[];st.blockSet=new Set(st.blocks.map(b=>key(b.date,b.time)));renderCal()}
+async function loadReservations(){st.reservations=await apiGet(ENDPOINTS.getReservations);renderReservations();renderStats()}
+async function loadSettings(){try{const d=await apiGet(ENDPOINTS.getSettings);document.getElementById("webhookUrl").value=d.settings?.notify_webhook_url||""}catch{}}
+async function loadBaseFees(){const d=await apiGet(ENDPOINTS.baseFees);const items=d.baseFees?.items||[];document.getElementById("baseFee").value=items.find(x=>x.id==="base")?.price??2000;document.getElementById("dispatchFee").value=items.find(x=>x.id==="dispatch")?.price??500;document.getElementById("specialFee").value=items.find(x=>x.id==="special")?.price??1000}
+async function loadMenu(){const m=await apiGet(ENDPOINTS.getMenu);st.menu=[...(m.move_type||m.vehicle||[]).map(x=>({...x,group:"move_type"})),...(m.assist||[]).map(x=>({...x,group:"assist"})),...(m.stairs||[]).map(x=>({...x,group:"stairs"})),...(m.equipment||[]).map(x=>({...x,group:"equipment"})),...(m.round||[]).map(x=>({...x,group:"round"}))];renderMenu()}
+function renderCal(){const g=document.getElementById("adminCalendar"),ds=dates(),ts=times();g.innerHTML="";document.getElementById("adminRange").textContent=`${fmt(ds[0]).replaceAll("-","/")} - ${fmt(ds[6]).slice(5).replace("-","/")}`;let c=document.createElement("div");c.className="time-label sticky-corner";c.textContent="時間";g.appendChild(c);ds.forEach(d=>{const e=document.createElement("button");e.type="button";e.className=`day-head ${[0,6].includes(d.getDay())?"weekend":""}`;e.innerHTML=`<span>${d.getMonth()+1}/${d.getDate()}</span><small>${jDay(d)}</small>`;e.onclick=()=>toggleDay(fmt(d));g.appendChild(e)});ts.forEach(t=>{const te=document.createElement("div");te.className="time-label";te.textContent=t;g.appendChild(te);ds.forEach(d=>{const date=fmt(d),b=st.blockSet.has(key(date,t));const el=document.createElement("button");el.type="button";el.className=`slot-cell ${b?"ng":""}`;el.textContent=b?"×":"◎";el.onclick=()=>toggleSlot(date,t,b);g.appendChild(el)})});document.getElementById("adminPrev").disabled=st.page<=0}
+async function toggleSlot(date,time,blocked){await apiPost(ENDPOINTS.blockSlot,{date,time,mode:blocked?"unblock":"block"});await loadBlocks()}
+async function toggleDay(date){await apiPost(ENDPOINTS.blockDay,{date,mode:"toggle"});await loadBlocks()}
+function renderStats(){const list=st.reservations||[],active=list.filter(x=>(x.status||"active")==="active").length,done=list.filter(x=>x.status==="done").length,sales=list.reduce((s,x)=>s+Number(String(x.estimate||"0").replace(/[^\d]/g,"")||0),0);document.getElementById("statCount").textContent=list.length;document.getElementById("statActive").textContent=active;document.getElementById("statDone").textContent=done;document.getElementById("statSales").textContent=yen(sales)}
+function renderReservations(){document.getElementById("reservationList").innerHTML=(st.reservations||[]).map(r=>`<div class="res-row"><strong>${escapeHtml(r.name||"")}</strong> <span class="status">${escapeHtml(r.status||"active")}</span><div>${escapeHtml(r.phone||"")}</div><div>${escapeHtml(r.date||"")} ${escapeHtml(r.time||"")}</div><div>${escapeHtml(r.pickup||"")} → ${escapeHtml(r.destination||"")}</div><div>${escapeHtml(r.vehicle||"")} / ${escapeHtml(r.assist||"")} / ${escapeHtml(r.stairs||"")} / ${escapeHtml(r.equipment||"")} / ${escapeHtml(r.roundTrip||"")}</div><div>${escapeHtml(r.estimate||"")}</div><div class="actions"><button class="secondary-btn" onclick="updateStatus('${r.id}','done')">完了</button><button class="secondary-btn" onclick="updateStatus('${r.id}','active')">未対応</button><button class="danger-btn" onclick="cancelReservation('${r.id}')">キャンセル</button></div></div>`).join("")||"予約なし"}
+async function updateStatus(id,status){await apiPost(ENDPOINTS.updateReservation,{id,status});loadReservations()}
+async function cancelReservation(id){if(!confirm("キャンセルしますか？"))return;await apiPost(ENDPOINTS.cancelReservation,{id});loadAll()}
+function renderMenu(){document.getElementById("menuEditor").innerHTML=st.menu.map((m,i)=>`<div class="menu-row"><label>名称<input data-name="${i}" value="${escapeHtml(m.name||"")}"></label><label>価格<input data-price="${i}" type="number" value="${Number(m.price||0)}"></label><label>区分<select data-group="${i}"><option value="move_type"${m.group==="move_type"?" selected":""}>移動方法</option><option value="assist"${m.group==="assist"?" selected":""}>介助</option><option value="stairs"${m.group==="stairs"?" selected":""}>階段</option><option value="equipment"${m.group==="equipment"?" selected":""}>機材</option><option value="round"${m.group==="round"?" selected":""}>往復待機</option></select></label><button class="danger-btn" onclick="delMenu(${i})">削除</button></div>`).join("")}
+function delMenu(i){st.menu.splice(i,1);renderMenu()}function addMenu(){st.menu.push({name:"新規項目",price:0,group:"move_type"});renderMenu()}
+function collectMenu(){return st.menu.map((_,i)=>({name:document.querySelector(`[data-name="${i}"]`).value,price:Number(document.querySelector(`[data-price="${i}"]`).value||0),group:document.querySelector(`[data-group="${i}"]`).value}))}
+async function saveMenu(){await apiPost(ENDPOINTS.saveMenu,{items:collectMenu()});toast("メニュー保存完了");loadMenu()}
+async function saveBase(){await apiPost(ENDPOINTS.saveBaseFees,{items:[{id:"base",label:"基本運賃",price:Number(document.getElementById("baseFee").value||0),visible:true},{id:"dispatch",label:"予約配車料",price:Number(document.getElementById("dispatchFee").value||0),visible:true},{id:"special",label:"特殊車両料",price:Number(document.getElementById("specialFee").value||0),visible:true}]});toast("基本料金保存完了")}
+async function saveSettings(){await apiPost(ENDPOINTS.saveSettings,{notify_webhook_url:document.getElementById("webhookUrl").value.trim(),new_password:document.getElementById("newPassword").value.trim()});document.getElementById("newPassword").value="";toast("設定保存完了")}
+function csv(){location.href=apiUrl(ENDPOINTS.getCsv)}
+document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll(".accordion-btn").forEach(b=>b.onclick=()=>document.getElementById("acc-"+b.dataset.acc).classList.toggle("open"));document.getElementById("loginBtn").onclick=login;document.getElementById("adminPassword").addEventListener("keydown",e=>{if(e.key==="Enter")login()});document.getElementById("adminPrev").onclick=()=>{st.page=Math.max(0,st.page-1);loadBlocks()};document.getElementById("adminNext").onclick=()=>{st.page++;loadBlocks()};document.getElementById("refreshBtn").onclick=loadAll;document.getElementById("csvBtn").onclick=csv;document.getElementById("addMenuBtn").onclick=addMenu;document.getElementById("saveMenuBtn").onclick=saveMenu;document.getElementById("saveBaseBtn").onclick=saveBase;document.getElementById("saveSettingsBtn").onclick=saveSettings;if(sessionStorage.getItem("admin_auth")==="1"){document.getElementById("loginArea").classList.add("hidden");document.getElementById("adminView").classList.remove("hidden");loadAll()}})
