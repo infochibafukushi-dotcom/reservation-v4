@@ -3,93 +3,146 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+
 <title>介護タクシー予約</title>
-<link rel="stylesheet" href="style.css">
+
+<!-- 🔥 キャッシュ完全無効 -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
+<link rel="stylesheet" href="style.css?v=20260426">
+
 </head>
 <body>
+
 <main class="page">
+
+  <!-- ヘッダー -->
   <header class="header">
-    <button id="logoAdminTrigger" class="logo-btn" type="button" aria-label="管理画面"><img src="logo.png" class="logo" alt="介護タクシー予約"></button>
-    <div><h1>介護タクシー予約</h1><p>丁寧・安全な送迎をご提供します</p></div>
+    <button id="logoAdminTrigger" class="logo-btn">
+      <img src="logo.png?v=20260426" class="logo">
+    </button>
+    <div>
+      <h1>介護タクシー予約</h1>
+      <p>丁寧・安全な送迎をご提供します</p>
+    </div>
   </header>
 
+  <!-- カレンダー -->
   <section class="card">
-    <div id="loading" class="loading hidden"><div class="loading-box">空き枠を読み込み中...</div></div>
+
+    <!-- 読み込み -->
+    <div id="loading" class="loading hidden">
+      <div class="loading-box">空き枠を読み込み中...</div>
+    </div>
+
+    <!-- 上部 -->
     <div class="top-row">
       <div class="legend">
-        <span class="mark"><span class="dot dot-ok"></span>◎ 予約可能</span>
-        <span class="mark"><span class="dot dot-ng"></span>× 予約不可</span>
+        <span><span class="dot dot-ok"></span>◎ 予約可能</span>
+        <span><span class="dot dot-ng"></span>× 予約不可</span>
       </div>
-      <button id="modeToggle" class="btn btn-green" type="button">他時間予約</button>
+
+      <button id="modeToggle" class="btn btn-green">
+        他時間予約
+      </button>
     </div>
 
+    <!-- ナビ -->
     <div class="calendar-nav">
-      <button id="prevWeek" class="nav-btn" type="button">← 前へ</button>
+      <button id="prevWeek" class="nav-btn">← 前へ</button>
       <div id="dateRange" class="date-range"></div>
-      <button id="nextWeek" class="nav-btn" type="button">次へ →</button>
+      <button id="nextWeek" class="nav-btn">次へ →</button>
     </div>
-    <p class="note">上下・左右にスクロールして、他の日付や時間を確認できます。</p>
-    <div class="calendar-wrap"><div id="calendarGrid" class="calendar-grid"></div></div>
+
+    <p class="note">
+      上下・左右にスクロールして、他の日付や時間を確認できます。
+    </p>
+
+    <!-- グリッド -->
+    <div class="calendar-wrap">
+      <div id="calendarGrid" class="calendar-grid"></div>
+    </div>
+
   </section>
+
 </main>
 
+<!-- モーダル -->
 <div id="bookingModal" class="modal hidden">
   <div class="modal-panel">
-    <button id="closeModal" class="close" type="button">×</button>
+
+    <button id="closeModal" class="close">×</button>
 
     <section id="bookingForm">
       <h2>ご予約</h2>
       <p id="selectedSlot" class="note"></p>
 
-      <div class="info-box">
-        <label class="check"><input id="agree" type="checkbox">ご入力いただいた個人情報は、ご予約の受付およびサービス提供に用います。同意の上チェックをお願いいたします。</label>
-      </div>
+      <label>
+        <input type="checkbox" id="agree">
+        個人情報の利用に同意する
+      </label>
 
-      <div class="form-title">基本情報 <span class="badge required-badge">必須</span></div>
-      <label>ご利用区分<select id="usageType"><option value="">選択してください</option><option value="初めて">初めて</option><option value="2回目以上">2回目以上</option></select></label>
-      <label>お名前（カタカナ）<input id="customerKana" placeholder="ヤマダ タロウ"></label>
-      <label>連絡先（電話番号）<input id="customerPhone" inputmode="numeric" placeholder="09012345678"></label>
-      <label>お伺い場所または施設名<input id="pickupLocation" placeholder="千葉市中央区〇〇 / 〇〇病院"></label>
+      <label>お名前（カタカナ）
+        <input id="customerKana">
+      </label>
 
-      <div class="form-title">追加情報 <span class="badge optional-badge">任意</span></div>
-      <label>送迎先住所または施設名<input id="destination" placeholder="自宅 / 病院 / 施設名"></label>
-      <label>ご要望・備考<textarea id="notes" rows="3" placeholder="車いすの種類、付き添い人数、注意事項など"></textarea></label>
+      <label>電話番号
+        <input id="customerPhone">
+      </label>
 
-      <div class="form-title">サービス選択 <span class="badge required-badge">必須</span></div>
-      <label>移動方法<select id="moveType"></select></label>
-      <label>介助内容<select id="assistanceType"></select></label>
-      <label>階段介助<select id="stairAssistance"></select></label>
-      <div id="stairWarning" class="warning hidden">階段介助ご利用の場合、身体介助がセットになります。</div>
-      <label>機材レンタル<select id="equipmentRental"></select></label>
-      <div id="wheelchairWarning" class="warning hidden">車いす固定による傷、すり傷などは保証対象外になります。</div>
-      <div id="stretcherWarning" class="warning hidden">ストレッチャー利用時は身体介助が必須となります。</div>
-      <label>往復送迎<select id="roundTrip"></select></label>
+      <label>乗車場所
+        <input id="pickupLocation">
+      </label>
 
-      <div class="form-title">料金概算</div>
-      <div id="baseFeeList" class="info-box"></div>
-      <p class="estimate">概算合計 <strong id="estimateTotal">0円</strong></p>
-      <p class="note">上記料金に加え、距離運賃や時間制運賃が加算される場合があります。</p>
-      <div class="actions"><button id="submitBooking" class="primary-btn" type="button">予約する</button></div>
+      <label>移動方法
+        <select id="moveType"></select>
+      </label>
+
+      <label>介助
+        <select id="assistanceType"></select>
+      </label>
+
+      <label>階段
+        <select id="stairAssistance"></select>
+      </label>
+
+      <label>機材
+        <select id="equipmentRental"></select>
+      </label>
+
+      <label>往復
+        <select id="roundTrip"></select>
+      </label>
+
+      <div id="baseFeeList"></div>
+
+      <p>合計：<strong id="estimateTotal">0円</strong></p>
+
+      <button id="submitBooking" class="primary-btn">
+        予約する
+      </button>
+
     </section>
 
     <section id="thanksView" class="hidden">
-      <div class="info-box" style="text-align:center">
-        <div style="font-size:46px;color:#13b98b;font-weight:900">✓</div>
-        <h2>ご予約ありがとうございます</h2>
-        <p>予約ID <strong id="thanksId"></strong></p>
-        <p>内容確認のため、お電話をさせていただきます。確認が取れたら正式な予約完了です。</p>
-        <button id="closeThanks" class="primary-btn" type="button">閉じる</button>
-      </div>
+      <h2>予約完了</h2>
+      <p>ID: <span id="thanksId"></span></p>
+      <button id="closeThanks">閉じる</button>
     </section>
+
   </div>
 </div>
 
 <div id="toast" class="toast"></div>
 
-<script src="config.js"></script>
-<script src="index.api.js"></script>
-<script src="index.booking.js"></script>
-<script src="index.calendar.js"></script>
-<script src="index.ui.js"></script>
+<!-- 🔥 JS全部にキャッシュ回避 -->
+<script src="config.js?v=20260426"></script>
+<script src="index.api.js?v=20260426"></script>
+<script src="index.booking.js?v=20260426"></script>
+<script src="index.calendar.js?v=20260426"></script>
+<script src="index.ui.js?v=20260426"></script>
+
 </body>
 </html>
