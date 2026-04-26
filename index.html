@@ -6,7 +6,7 @@
 
 <title>介護タクシー予約</title>
 
-<!-- 🔥 キャッシュ完全無効 -->
+<!-- キャッシュ完全無効 -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -18,58 +18,51 @@
 
 <main class="page">
 
-  <!-- ヘッダー -->
-  <header class="header">
-    <button id="logoAdminTrigger" class="logo-btn">
-      <img src="logo.png?v=20260426" class="logo">
-    </button>
-    <div>
-      <h1>介護タクシー予約</h1>
-      <p>丁寧・安全な送迎をご提供します</p>
-    </div>
-  </header>
+<header class="header">
+  <button id="logoAdminTrigger" class="logo-btn">
+    <img src="logo.png?v=20260426" class="logo">
+  </button>
+  <div>
+    <h1>介護タクシー予約</h1>
+    <p>丁寧・安全な送迎をご提供します</p>
+  </div>
+</header>
 
-  <!-- カレンダー -->
-  <section class="card">
+<section class="card">
 
-    <!-- 読み込み -->
-    <div id="loading" class="loading hidden">
-      <div class="loading-box">空き枠を読み込み中...</div>
-    </div>
+<div id="loading" class="loading hidden">
+  <div class="loading-box">空き枠を読み込み中...</div>
+</div>
 
-    <!-- 上部 -->
-    <div class="top-row">
-      <div class="legend">
-        <span><span class="dot dot-ok"></span>◎ 予約可能</span>
-        <span><span class="dot dot-ng"></span>× 予約不可</span>
-      </div>
+<div class="top-row">
+  <div class="legend">
+    <span><span class="dot dot-ok"></span>◎ 予約可能</span>
+    <span><span class="dot dot-ng"></span>× 予約不可</span>
+  </div>
 
-      <button id="modeToggle" class="btn btn-green">
-        他時間予約
-      </button>
-    </div>
+  <button id="modeToggle" class="btn btn-green">
+    他時間予約
+  </button>
+</div>
 
-    <!-- ナビ -->
-    <div class="calendar-nav">
-      <button id="prevWeek" class="nav-btn">← 前へ</button>
-      <div id="dateRange" class="date-range"></div>
-      <button id="nextWeek" class="nav-btn">次へ →</button>
-    </div>
+<div class="calendar-nav">
+  <button id="prevWeek" class="nav-btn">← 前へ</button>
+  <div id="dateRange" class="date-range"></div>
+  <button id="nextWeek" class="nav-btn">次へ →</button>
+</div>
 
-    <p class="note">
-      上下・左右にスクロールして、他の日付や時間を確認できます。
-    </p>
+<p class="note">
+上下・左右にスクロールして、他の日付や時間を確認できます。
+</p>
 
-    <!-- グリッド -->
-    <div class="calendar-wrap">
-      <div id="calendarGrid" class="calendar-grid"></div>
-    </div>
+<div class="calendar-wrap">
+  <div id="calendarGrid" class="calendar-grid"></div>
+</div>
 
-  </section>
+</section>
 
 </main>
 
-<!-- モーダル -->
 <div id="bookingModal" class="modal hidden">
   <div class="modal-panel">
 
@@ -79,8 +72,8 @@
       <h2>ご予約</h2>
       <p id="selectedSlot" class="note"></p>
 
-      <label>
-        <input type="checkbox" id="agree">
+      <label class="check">
+        <input id="agree" type="checkbox">
         個人情報の利用に同意する
       </label>
 
@@ -118,12 +111,13 @@
 
       <div id="baseFeeList"></div>
 
-      <p>合計：<strong id="estimateTotal">0円</strong></p>
+      <p class="estimate">
+        合計 <strong id="estimateTotal">0円</strong>
+      </p>
 
       <button id="submitBooking" class="primary-btn">
         予約する
       </button>
-
     </section>
 
     <section id="thanksView" class="hidden">
@@ -137,7 +131,7 @@
 
 <div id="toast" class="toast"></div>
 
-<!-- 🔥 JS全部にキャッシュ回避 -->
+<!-- JS 強制更新 -->
 <script src="config.js?v=20260426"></script>
 <script src="index.api.js?v=20260426"></script>
 <script src="index.booking.js?v=20260426"></script>
