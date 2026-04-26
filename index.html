@@ -9,42 +9,15 @@
 <body>
 
 <main class="page">
-<header class="hero">
-<button id="logoAdminTrigger" class="logo-btn">
-<img src="logo.png" class="hero-logo">
-</button>
-<div>
+
 <h1>介護タクシー予約</h1>
-<p>丁寧・安全な送迎をご提供します</p>
-</div>
-</header>
 
-<section class="card card-zero">
-
-<div class="calendar-card-inner">
-
-<div class="top-line">
-<div class="legend">
-<span>◎ 予約可能</span>
-<span>× 予約不可</span>
-</div>
-<button id="modeToggleBtn" class="pill-btn">他時間予約</button>
+<div class="calendar-wrap">
+<div id="calendar"></div>
 </div>
 
-<div class="calendar-toolbar">
-<button id="prevWeek" class="nav-btn">← 前へ</button>
-<div id="dateRange" class="date-range"></div>
-<button id="nextWeek" class="nav-btn">次へ →</button>
-</div>
-
-<div class="scroll-container calendar-scroll">
-<div id="calendarGrid" class="calendar-grid"></div>
-</div>
-
-</div>
-</section>
 </main>
 
-<script src="index.calendar.js"></script>
+<script src="calendar.js"></script>
 </body>
 </html>
