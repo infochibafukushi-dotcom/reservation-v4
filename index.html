@@ -65,36 +65,22 @@
       </div>
 
       <section id="menuStep">
+        <div class="base-fees">
+          <div id="baseFeeList"></div>
+          <small id="baseFeeNote">※ 走行距離・待機時間・追加介助により最終金額は変動する場合があります。</small>
+        </div>
+
         <label>移動方法
-          <select id="moveType">
-            <option value="車いす">車いす</option>
-            <option value="ストレッチャー">ストレッチャー</option>
-            <option value="ご自身の車いす">ご自身の車いす</option>
-          </select>
+          <select id="moveType"></select>
         </label>
         <label>介助内容
-          <select id="assistanceType">
-            <option value="乗降介助">乗降介助</option>
-            <option value="身体介助">身体介助</option>
-            <option value="介助不要">介助不要</option>
-          </select>
+          <select id="assistanceType"></select>
         </label>
         <label>階段介助
-          <select id="stairAssistance">
-            <option value="不要">不要</option>
-            <option value="見守り介助">見守り介助</option>
-            <option value="2階移動">2階移動</option>
-            <option value="3階移動">3階移動</option>
-            <option value="4階移動">4階移動</option>
-          </select>
+          <select id="stairAssistance"></select>
         </label>
         <label>往復・待機
-          <select id="roundTrip">
-            <option value="片道">片道</option>
-            <option value="往復">往復</option>
-            <option value="待機">待機</option>
-            <option value="病院付き添い">病院付き添い</option>
-          </select>
+          <select id="roundTrip"></select>
         </label>
         <p class="estimate">概算金額：<strong id="estimateTotal">0円</strong></p>
         <button id="toInfoBtn" class="primary-btn" type="button">次へ</button>
@@ -103,7 +89,7 @@
       <section id="infoStep" class="hidden">
         <div class="privacy-note">
           <strong>個人情報ご提供のお願い</strong>
-          <p>配車手配・予約確認のご連絡・安全な送迎対応のため、連絡先や乗降場所などの情報が必要です。</p>
+          <p id="privacyReason">配車手配・予約確認のご連絡・安全な送迎対応のため、連絡先や乗降場所などの情報が必要です。</p>
           <label class="check"><input type="checkbox" id="agree"> 個人情報の取扱いに同意する</label>
         </div>
 

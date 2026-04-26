@@ -1,142 +1,178 @@
-const adminState = {
-  authed: false,
-  page: 0,
-  blocks: [],
-  blockSet: new Set()
-};
+const adminState={authed:false,page:0,blocks:[],blockSet:new Set(),reservations:[],menu:[]};
 
-function adminDates(){
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  return Array.from({length:7}, (_, i) => addDays(today, adminState.page * 7 + i));
-}
-function adminTimes(){
-  const out = [];
-  for (let h=6; h<=21; h++){
-    for (let m=0; m<60; m+=30){
-      if (h === 21 && m > 0) continue;
-      out.push(`${pad(h)}:${pad(m)}`);
-    }
-  }
-  return out;
-}
+function yenAdmin(n){return `${Number(n||0).toLocaleString("ja-JP")}円`}
+function adminDates(){const today=new Date();today.setHours(0,0,0,0);return Array.from({length:7},(_,i)=>addDays(today,adminState.page*7+i))}
+function adminTimes(){const out=[];for(let h=6;h<=21;h++){for(let m=0;m<60;m+=30){if(h===21&&m>0)continue;out.push(`${pad(h)}:${pad(m)}`)}}return out}
 
 async function adminLogin(){
-  const password = document.getElementById("adminPassword").value.trim();
+  const password=document.getElementById("adminPassword").value.trim();
   try{
-    const res = await apiPost(ENDPOINTS.login, { password });
-    if (!res.success) return toast("パスワードが違います");
-    adminState.authed = true;
-    sessionStorage.setItem("admin_auth", "1");
+    const res=await apiPost(ENDPOINTS.login,{password});
+    if(!res.success)return toast("パスワードが違います");
+    adminState.authed=true;
+    sessionStorage.setItem("admin_auth","1");
     document.getElementById("loginArea").classList.add("hidden");
     document.getElementById("adminView").classList.remove("hidden");
     await adminLoadAll();
-  }catch(e){
-    toast(e.message || "ログイン失敗");
-  }
+  }catch(e){toast(e.message||"ログイン失敗")}
 }
 
-async function adminLoadAll(){
-  await adminLoadBlocks();
-  await adminLoadReservations();
-}
+async function adminLoadAll(){await Promise.all([adminLoadBlocks(),adminLoadReservations(),adminLoadSettings(),adminLoadMenu()])}
 
 async function adminLoadBlocks(){
-  const data = await apiGet(ENDPOINTS.getBlocks);
-  adminState.blocks = data.blocks || [];
-  adminState.blockSet = new Set(adminState.blocks.map(b => slotKey(b.date, b.time)));
+  const data=await apiGet(ENDPOINTS.getBlocks);
+  adminState.blocks=data.blocks||[];
+  adminState.blockSet=new Set(adminState.blocks.map(b=>slotKey(b.date,b.time)));
   adminRenderCalendar();
 }
 
+async function adminLoadReservations(){
+  const data=await apiGet(ENDPOINTS.getReservations);
+  adminState.reservations=data||[];
+  renderReservationTable();
+  renderStats();
+}
+
+async function adminLoadSettings(){
+  try{
+    const data=await apiGet(ENDPOINTS.getSettings);
+    document.getElementById("notifyWebhook").value=data.settings?.notify_webhook_url||"";
+  }catch{}
+}
+
+async function adminLoadMenu(){
+  try{
+    const m=await apiGet(ENDPOINTS.getMenu);
+    adminState.menu=[
+      ...(m.vehicle||[]).map(x=>({...x,group:"vehicle"})),
+      ...(m.assist||[]).map(x=>({...x,group:"assist"})),
+      ...(m.stairs||[]).map(x=>({...x,group:"stairs"})),
+      ...(m.round||[]).map(x=>({...x,group:"round"}))
+    ];
+  }catch{adminState.menu=[]}
+  renderMenuEditor();
+}
+
 function adminRenderCalendar(){
-  const grid = document.getElementById("adminCalendarGrid");
-  const range = document.getElementById("adminDateRange");
-  const dates = adminDates();
-  const times = adminTimes();
+  const grid=document.getElementById("adminCalendarGrid");
+  const range=document.getElementById("adminDateRange");
+  const dates=adminDates();
+  const times=adminTimes();
+  applyGridColumns(grid,dates.length);
+  grid.innerHTML="";
+  range.textContent=`${formatDate(dates[0]).replaceAll("-","/")} - ${formatDate(dates[6]).slice(5).replace("-","/")}`;
 
-  applyGridColumns(grid, dates.length);
-  grid.innerHTML = "";
-  range.textContent = `${formatDate(dates[0]).replaceAll("-","/")} - ${formatDate(dates[6]).slice(5).replace("-","/")}`;
-
-  const corner = document.createElement("div");
-  corner.className = "time-label";
-  corner.textContent = "時間";
+  const corner=document.createElement("div");
+  corner.className="time-label";
+  corner.textContent="時間";
   grid.appendChild(corner);
 
-  dates.forEach(d => {
-    const date = formatDate(d);
-    const h = document.createElement("button");
-    h.className = `date-header ${[0,6].includes(d.getDay()) ? "weekend" : ""}`;
-    h.innerHTML = `<span>${d.getMonth()+1}/${d.getDate()}</span><small>${jaDay(d)}</small>`;
-    h.addEventListener("click", () => toggleDay(date));
+  dates.forEach(d=>{
+    const date=formatDate(d);
+    const h=document.createElement("button");
+    h.className=`date-header ${[0,6].includes(d.getDay())?"weekend":""}`;
+    h.innerHTML=`<span>${d.getMonth()+1}/${d.getDate()}</span><small>${jaDay(d)}</small>`;
+    h.addEventListener("click",()=>toggleDay(date));
     grid.appendChild(h);
   });
 
-  times.forEach(time => {
-    const t = document.createElement("div");
-    t.className = "time-label";
-    t.textContent = time;
+  times.forEach(time=>{
+    const t=document.createElement("div");
+    t.className="time-label";
+    t.textContent=time;
     grid.appendChild(t);
-
-    dates.forEach(d => {
-      const date = formatDate(d);
-      const blocked = adminState.blockSet.has(slotKey(date, time));
-      const cell = document.createElement("button");
-      cell.type = "button";
-      cell.className = `slot-cell ${blocked ? "slot-ng" : "slot-ok"}`;
-      cell.textContent = blocked ? "×" : "◎";
-      cell.addEventListener("click", () => toggleSlot(date, time, blocked));
+    dates.forEach(d=>{
+      const date=formatDate(d);
+      const blocked=adminState.blockSet.has(slotKey(date,time));
+      const cell=document.createElement("button");
+      cell.type="button";
+      cell.className=`slot-cell ${blocked?"slot-ng":"slot-ok"}`;
+      cell.textContent=blocked?"×":"◎";
+      cell.addEventListener("click",()=>toggleSlot(date,time,blocked));
       grid.appendChild(cell);
     });
   });
-
-  document.getElementById("adminPrevWeek").disabled = adminState.page <= 0;
+  document.getElementById("adminPrevWeek").disabled=adminState.page<=0;
 }
 
-async function toggleSlot(date, time, blocked){
-  await apiPost(ENDPOINTS.blockSlot, { date, time, mode: blocked ? "unblock" : "block" });
+async function toggleSlot(date,time,blocked){
+  await apiPost(ENDPOINTS.blockSlot,{date,time,mode:blocked?"unblock":"block"});
   await adminLoadBlocks();
 }
 
 async function toggleDay(date){
-  await apiPost(ENDPOINTS.blockDay, { date, mode: "toggle" });
+  await apiPost(ENDPOINTS.blockDay,{date,mode:"toggle"});
   await adminLoadBlocks();
 }
 
-async function adminLoadReservations(){
-  const data = await apiGet(ENDPOINTS.getReservations);
-  const list = document.getElementById("reservationList");
-  list.innerHTML = (data || []).map(r => `
+function renderStats(){
+  const list=adminState.reservations||[];
+  const active=list.filter(r=>String(r.status||"active")==="active").length;
+  const done=list.filter(r=>String(r.status||"")==="done").length;
+  const sales=list.reduce((sum,r)=>sum+Number(String(r.estimate||"0").replace(/[^\d]/g,"")||0),0);
+  document.getElementById("statCount").textContent=list.length;
+  document.getElementById("statActive").textContent=active;
+  document.getElementById("statDone").textContent=done;
+  document.getElementById("statSales").textContent=yenAdmin(sales);
+}
+
+function renderReservationTable(){
+  const list=document.getElementById("reservationList");
+  list.innerHTML=(adminState.reservations||[]).map(r=>`
     <div class="res-row">
-      <strong>${escapeHtml(r.name || r.customer_name || "")}</strong>
-      <div>${escapeHtml(r.phone || r.phone_number || "")}</div>
-      <div>${escapeHtml(r.date || "")} ${escapeHtml(r.time || "")}</div>
-      <div>${escapeHtml(r.pickup || r.pickup_location || "")} → ${escapeHtml(r.destination || "")}</div>
-      <div>${escapeHtml(r.vehicle || "")} / ${escapeHtml(r.assist || "")} / ${escapeHtml(r.stairs || "")} / ${escapeHtml(r.roundTrip || r.round_trip || "")}</div>
-      <button class="secondary-btn" onclick="cancelReservation('${escapeHtml(r.id)}')">キャンセル</button>
-    </div>
-  `).join("") || "予約なし";
+      <strong>${escapeHtml(r.name||"")}</strong> <span class="status-pill">${escapeHtml(r.status||"active")}</span>
+      <div>${escapeHtml(r.phone||"")}</div>
+      <div>${escapeHtml(r.date||"")} ${escapeHtml(r.time||"")}</div>
+      <div>${escapeHtml(r.pickup||"")} → ${escapeHtml(r.destination||"")}</div>
+      <div>${escapeHtml(r.vehicle||"")} / ${escapeHtml(r.assist||"")} / ${escapeHtml(r.stairs||"")} / ${escapeHtml(r.roundTrip||"")}</div>
+      <div>${escapeHtml(r.estimate||"")}</div>
+      <div class="admin-actions">
+        <button class="secondary-btn" onclick="updateStatus('${escapeHtml(r.id)}','done')">完了</button>
+        <button class="secondary-btn" onclick="updateStatus('${escapeHtml(r.id)}','active')">未対応</button>
+        <button class="danger-btn" onclick="cancelReservation('${escapeHtml(r.id)}')">キャンセル</button>
+      </div>
+    </div>`).join("")||"予約なし";
 }
 
-async function cancelReservation(id){
-  if (!confirm("キャンセルしますか？")) return;
-  await apiPost(ENDPOINTS.cancelReservation, { id });
-  await adminLoadAll();
+async function updateStatus(id,status){await apiPost(ENDPOINTS.updateReservation,{id,status});await adminLoadReservations()}
+async function cancelReservation(id){if(!confirm("キャンセルしますか？"))return;await apiPost(ENDPOINTS.cancelReservation,{id});await adminLoadAll()}
+
+function renderMenuEditor(){
+  const wrap=document.getElementById("menuEditor");
+  wrap.innerHTML=(adminState.menu||[]).map((m,i)=>`
+    <div class="menu-row">
+      <label>名称<input data-menu-name="${i}" value="${escapeHtml(m.name||"")}"></label>
+      <label>価格<input data-menu-price="${i}" value="${Number(m.price||0)}"></label>
+      <label>区分<select data-menu-group="${i}">
+        <option value="vehicle"${m.group==="vehicle"?" selected":""}>移動方法</option>
+        <option value="assist"${m.group==="assist"?" selected":""}>介助</option>
+        <option value="stairs"${m.group==="stairs"?" selected":""}>階段</option>
+        <option value="round"${m.group==="round"?" selected":""}>往復待機</option>
+      </select></label>
+      <button class="danger-btn" onclick="deleteMenuItem(${i})">削除</button>
+    </div>`).join("");
 }
 
-function escapeHtml(v){
-  return String(v ?? "").replace(/[&<>"']/g, s => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[s]));
-}
+function deleteMenuItem(i){adminState.menu.splice(i,1);renderMenuEditor()}
+function addMenuItem(){adminState.menu.push({name:"新規項目",price:0,group:"vehicle"});renderMenuEditor()}
+function collectMenu(){return adminState.menu.map((m,i)=>({name:document.querySelector(`[data-menu-name="${i}"]`).value,price:Number(document.querySelector(`[data-menu-price="${i}"]`).value||0),group:document.querySelector(`[data-menu-group="${i}"]`).value}))}
+async function saveMenu(){await apiPost(ENDPOINTS.saveMenu,{items:collectMenu()});toast("メニュー保存完了");await adminLoadMenu()}
+async function saveSettings(){const payload={notify_webhook_url:document.getElementById("notifyWebhook").value.trim(),new_password:document.getElementById("newPassword").value.trim()};await apiPost(ENDPOINTS.saveSettings,payload);document.getElementById("newPassword").value="";toast("設定保存完了")}
+function downloadCsv(){location.href=apiUrl(ENDPOINTS.getCsv)}
+function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[s]))}
 
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("loginBtn").addEventListener("click", adminLogin);
-  document.getElementById("adminPassword").addEventListener("keydown", e => { if(e.key === "Enter") adminLogin(); });
-  document.getElementById("refreshAdminBtn").addEventListener("click", adminLoadAll);
-  document.getElementById("adminPrevWeek").addEventListener("click", () => { adminState.page = Math.max(0, adminState.page - 1); adminLoadBlocks(); });
-  document.getElementById("adminNextWeek").addEventListener("click", () => { adminState.page += 1; adminLoadBlocks(); });
-
-  if (sessionStorage.getItem("admin_auth") === "1") {
-    adminState.authed = true;
+document.addEventListener("DOMContentLoaded",()=>{
+  document.getElementById("loginBtn").addEventListener("click",adminLogin);
+  document.getElementById("adminPassword").addEventListener("keydown",e=>{if(e.key==="Enter")adminLogin()});
+  document.getElementById("refreshAdminBtn").addEventListener("click",adminLoadAll);
+  document.getElementById("downloadCsvBtn").addEventListener("click",downloadCsv);
+  document.getElementById("saveSettingsBtn").addEventListener("click",saveSettings);
+  document.getElementById("addMenuBtn").addEventListener("click",addMenuItem);
+  document.getElementById("saveMenuBtn").addEventListener("click",saveMenu);
+  document.getElementById("adminPrevWeek").addEventListener("click",()=>{adminState.page=Math.max(0,adminState.page-1);adminLoadBlocks()});
+  document.getElementById("adminNextWeek").addEventListener("click",()=>{adminState.page+=1;adminLoadBlocks()});
+  if(sessionStorage.getItem("admin_auth")==="1"){
+    adminState.authed=true;
     document.getElementById("loginArea").classList.add("hidden");
     document.getElementById("adminView").classList.remove("hidden");
     adminLoadAll();

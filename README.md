@@ -1,67 +1,42 @@
-# 介護タクシー予約システム Cloudflare Workers + D1 完全版
+# reservation-v4 完全上書き版
 
-GASを使わず、Cloudflare Workers + D1で動く予約カレンダー一式です。
+GASなし、Cloudflare Workers + D1対応。
 
-## 入っているファイル
+## 実装済み
 
-- index.html
-- style.css
-- config.js
-- index.api.js
-- index.calendar.js
-- index.booking.js
-- index.ui.js
-- admin.html
-- admin.js
-- thanks.html
-- worker.js
-- logo.png
+### 公開画面
+- v2系に寄せた7日カレンダー
+- ◎/×表示
+- 30分単位
+- 深夜早朝表示切替
+- 予約フォーム
+- 概算料金
+- 予約時の自動ブロック
+- 片道2枠、往復/待機/病院付き添い4枠
 
-## 設置手順
+### 管理画面
+- ログイン
+- 予約一覧
+- ステータス変更
+- キャンセル
+- 枠単位ブロック
+- 日単位ブロック
+- 週送り
+- 売上集計
+- CSVダウンロード
+- 管理パスワード変更
+- 通知Webhook URL設定
+- メニュー/料金編集
 
-### 1. Cloudflare Worker
-Cloudflare Workers の worker.js を、このZIP内の worker.js でフル差し替えしてください。
+## 設置
 
-### 2. D1 Binding
-Worker の Bindings に D1 database を追加してください。
+1. Cloudflare Worker の worker.js を上書き
+2. D1 Binding
+   - Variable name: DB
+   - Database: reservation-db
+3. GitHub Pages に残りファイルを上書き
+4. config.js の API_BASE を必要に応じて変更
 
-- Variable name: `DB`
-- Database: `reservation-db`
+## 初期管理パスワード
 
-### 3. config.js
-必要に応じて `config.js` のURLを変更してください。
-
-```js
-API_BASE: "https://throbbing-bush-8f59.info-chibafukushi.workers.dev"
-```
-
-### 4. GitHub Pages
-以下を reservation-v4 にアップロードしてください。
-
-- index.html
-- style.css
-- config.js
-- index.api.js
-- index.calendar.js
-- index.booking.js
-- index.ui.js
-- admin.html
-- admin.js
-- thanks.html
-- logo.png
-
-## 動作
-
-- 公開画面: index.html
-- 管理画面: admin.html
-- 管理パスワード初期値: 1234
-
-## API
-
-- GET /api/getBlocks
-- GET /api/getReservations
-- POST /api/createReservation
-- POST /api/cancelReservation
-- POST /api/admin/login
-- POST /api/admin/blocks/slot
-- POST /api/admin/blocks/day
+1234

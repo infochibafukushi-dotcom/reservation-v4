@@ -11,9 +11,7 @@ function toast(message, ms = 2200){
   window.__toastTimer = setTimeout(() => el.style.display = "none", ms);
 }
 
-function apiUrl(path){
-  return API_BASE + path;
-}
+function apiUrl(path){ return API_BASE + path; }
 
 async function apiGet(path){
   const res = await fetch(apiUrl(path), { cache: "no-store" });

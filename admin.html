@@ -12,19 +12,49 @@
       <img src="logo.png" class="hero-logo" alt="">
       <div class="hero-text">
         <h1>管理画面</h1>
-        <p>予約確認・ブロック管理</p>
+        <p>予約確認・ブロック管理・売上管理</p>
       </div>
     </header>
 
     <section id="loginArea" class="admin-card">
       <h2>ログイン</h2>
-      <label>パスワード
-        <input id="adminPassword" type="password" placeholder="1234">
-      </label>
+      <label>パスワード<input id="adminPassword" type="password" placeholder="1234"></label>
       <button id="loginBtn" class="primary-btn" type="button">ログイン</button>
     </section>
 
     <section id="adminView" class="hidden admin-grid">
+      <div class="admin-card">
+        <h2>集計</h2>
+        <div class="stats">
+          <div class="stat"><span>予約件数</span><strong id="statCount">0</strong></div>
+          <div class="stat"><span>未対応</span><strong id="statActive">0</strong></div>
+          <div class="stat"><span>完了</span><strong id="statDone">0</strong></div>
+          <div class="stat"><span>概算売上</span><strong id="statSales">0円</strong></div>
+        </div>
+        <div class="admin-actions">
+          <button id="downloadCsvBtn" class="secondary-btn" type="button">CSVダウンロード</button>
+          <button id="refreshAdminBtn" class="secondary-btn" type="button">更新</button>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <h2>通知・設定</h2>
+        <label>LINE/外部通知Webhook URL<input id="notifyWebhook" placeholder="https://..."></label>
+        <label>管理パスワード変更<input id="newPassword" placeholder="新しいパスワード"></label>
+        <div class="admin-actions">
+          <button id="saveSettingsBtn" class="primary-btn" type="button">設定保存</button>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <h2>メニュー・料金</h2>
+        <div id="menuEditor"></div>
+        <div class="admin-actions">
+          <button id="addMenuBtn" class="secondary-btn" type="button">項目追加</button>
+          <button id="saveMenuBtn" class="primary-btn" type="button">メニュー保存</button>
+        </div>
+      </div>
+
       <div class="admin-card">
         <h2>カレンダーブロック</h2>
         <div class="calendar-toolbar">
@@ -33,14 +63,11 @@
           <button id="adminNextWeek" class="nav-btn" type="button">→</button>
         </div>
         <p class="calendar-note">◎/×を押すと1枠ずつブロック切替。日付ヘッダーを押すと1日まとめて切替。</p>
-        <div class="scroll-container">
-          <div id="adminCalendarGrid" class="calendar-grid"></div>
-        </div>
+        <div class="scroll-container"><div id="adminCalendarGrid" class="calendar-grid"></div></div>
       </div>
 
       <div class="admin-card">
         <h2>予約一覧</h2>
-        <button id="refreshAdminBtn" class="secondary-btn" type="button">更新</button>
         <div id="reservationList"></div>
       </div>
     </section>
