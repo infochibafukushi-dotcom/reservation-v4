@@ -1,8 +1,50 @@
 <!doctype html>
 <html lang="ja">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>介護タクシー予約</title><link rel="stylesheet" href="style.css"><link rel="preload" as="image" href="logo.png"></head>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>介護タクシー予約</title>
+<link rel="stylesheet" href="style.css">
+</head>
 <body>
-<main class="page"><header class="hero"><button id="logoAdminTrigger" class="logo-btn" type="button" aria-label="管理画面"><img src="logo.png" class="hero-logo" alt="介護タクシー予約"></button><div class="hero-text"><h1 id="indexTitle">介護タクシー予約</h1><p id="indexSubtitle">丁寧・安全な送迎をご提供します</p></div></header>
-<section class="card card-zero"><div id="loadingOverlay" class="loading-overlay hidden"><div class="loading-box"><div class="spinner"></div><p id="loadingText">空き枠を読み込み中...</p></div></div><div class="calendar-card-inner"><div class="top-line"><div class="legend"><span><i class="dot dot-ok"></i>◎ 予約可能</span><span><i class="dot dot-ng"></i>× 予約不可</span><span>◎ 読み込み中（確定前）</span></div><button id="modeToggleBtn" class="pill-btn" type="button">他時間予約</button></div><div class="calendar-toolbar"><button id="prevWeek" class="nav-btn" type="button">← 前へ</button><div id="dateRange" class="date-range">読み込み中</div><button id="nextWeek" class="nav-btn" type="button">次へ →</button></div><p id="calendarNote" class="calendar-note">上下・左右にスクロールして、他の日付や時間を確認できます。</p><div class="scroll-container calendar-scroll"><div id="calendarGrid" class="calendar-grid"></div></div></div></section></main>
-<div id="bookingModal" class="modal hidden" role="dialog" aria-modal="true"><div class="modal-panel"><button id="closeBookingBtn" class="modal-close" type="button">×</button><section id="bookingFormView"><h2>ご予約</h2><p id="selectedSlotInfo" class="selected-slot"></p><div class="privacy-note"><label class="check required"><input type="checkbox" id="agree">ご入力いただいた個人情報は、ご予約の受付およびサービス提供に用いたします。同意の上チェックをお願いいたします。</label></div><h3 class="form-section-title">基本情報 <span class="badge-required">必須項目</span></h3><label class="required">ご利用区分<select id="usageType"><option value="">選択してください</option><option value="初めて">初めて</option><option value="2回目以上">2回目以上</option></select></label><label class="required">お名前(カタカナ)<input id="customerKana" placeholder="ヤマダ タロウ"></label><label class="required">連絡先(電話番号)<input id="customerPhone" inputmode="numeric" placeholder="09012345678"></label><label class="required">お伺い場所または施設名<input id="pickupLocation" placeholder="千葉市中央区〇〇 / 〇〇病院"></label><h3 class="form-section-title">追加情報 <span class="badge-optional">任意項目</span></h3><label>送迎先住所または施設名<input id="destination" placeholder="自宅 / 病院 / 施設名"></label><label>ご要望・備考<textarea id="notes" rows="3" placeholder="車いすの種類、付き添い人数、注意事項など"></textarea></label><h3 class="form-section-title">サービス選択 <span class="badge-required">必須項目</span></h3><label class="required">移動方法<select id="moveType"></select></label><p id="moveTypeHelp" class="calendar-note">最初に移動方法をお選びください</p><label class="required">介助内容<select id="assistanceType"></select></label><label class="required">階段介助<select id="stairAssistance"></select></label><div id="stairWarning" class="warning-box hidden">警告: 階段介助ご利用の場合、身体介助がセットになります</div><label class="required">機材レンタル<select id="equipmentRental"></select></label><div id="wheelchairWarning" class="warning-box hidden">警告: 車いす固定による傷、すり傷などは保証対象外になります</div><div id="stretcherWarning" class="warning-box hidden">警告: ストレッチャー利用時に2名体制介助料5,000円と身体介助が必須となります</div><label class="required">往復送迎<select id="roundTrip"></select></label><h3 class="form-section-title">料金概算</h3><div class="base-fees"><div id="baseFeeList"></div></div><p class="estimate">概算合計 <strong id="estimateTotal">0円</strong></p><p class="calendar-note">上記料金に加え、距離運賃(2km以上200mごと/90円)が加算されます。また、時速10km以下の移行時は時間制運賃(1分30秒毎/90円)に切り替わります。</p><div class="modal-actions"><button id="submitBookingBtn" class="primary-btn" type="button">予約する</button></div></section><section id="bookingThanksView" class="hidden"><div class="thanks-box" style="text-align:center"><div style="font-size:48px;color:#10b981;font-weight:900">✓</div><h2>ご予約ありがとうございます</h2><p>予約ID <strong id="thanksReservationId"></strong></p><p>内容確認のため、以下の番号<br><strong>090-6331-4289</strong><br>よりお電話をさせていただきます。</p><p>確認が取れたら、正式な予約完了と致します。</p><p>お電話がつながらない場合、申し訳ございませんが自動キャンセルとさせていただく場合がございます。あらかじめご了承ください。</p><button id="closeThanksBtn" class="primary-btn" type="button">閉じる</button></div></section></div></div>
-<div id="toast" class="toast"></div><script src="config.js"></script><script src="index.api.js"></script><script src="index.booking.js"></script><script src="index.calendar.js"></script><script src="index.ui.js"></script></body></html>
+
+<main class="page">
+<header class="hero">
+<button id="logoAdminTrigger" class="logo-btn">
+<img src="logo.png" class="hero-logo">
+</button>
+<div>
+<h1>介護タクシー予約</h1>
+<p>丁寧・安全な送迎をご提供します</p>
+</div>
+</header>
+
+<section class="card card-zero">
+
+<div class="calendar-card-inner">
+
+<div class="top-line">
+<div class="legend">
+<span>◎ 予約可能</span>
+<span>× 予約不可</span>
+</div>
+<button id="modeToggleBtn" class="pill-btn">他時間予約</button>
+</div>
+
+<div class="calendar-toolbar">
+<button id="prevWeek" class="nav-btn">← 前へ</button>
+<div id="dateRange" class="date-range"></div>
+<button id="nextWeek" class="nav-btn">次へ →</button>
+</div>
+
+<div class="scroll-container calendar-scroll">
+<div id="calendarGrid" class="calendar-grid"></div>
+</div>
+
+</div>
+</section>
+</main>
+
+<script src="index.calendar.js"></script>
+</body>
+</html>

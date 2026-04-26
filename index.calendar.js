@@ -1,1 +1,26 @@
-const calendarState={page:0,fullDay:false,blocks:[],blockSet:new Set()};const DAYS_PER_PAGE=7,MAX_DAYS=30,NORMAL_START=6,NORMAL_END=21,FULL_START=0,FULL_END=23,SAME_DAY_BLOCK_HOURS=3;function pad(v){return String(v).padStart(2,"0")}function formatDate(d){const x=new Date(d);return`${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`}function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}function jaDay(d){return["日","月","火","水","木","金","土"][d.getDay()]}function slotKey(date,time){return`${date}_${time}`}function showLoading(show,text="空き枠を読み込み中..."){const ov=document.getElementById("loadingOverlay"),tx=document.getElementById("loadingText");if(tx)tx.textContent=text;if(ov)ov.classList.toggle("hidden",!show)}function makeDates(){const today=new Date();today.setHours(0,0,0,0);const startIndex=calendarState.page*DAYS_PER_PAGE;const count=Math.min(DAYS_PER_PAGE,Math.max(0,MAX_DAYS-startIndex));return Array.from({length:count},(_,i)=>addDays(today,startIndex+i))}function makeTimes(){const out=[];const s=calendarState.fullDay?FULL_START:NORMAL_START,e=calendarState.fullDay?FULL_END:NORMAL_END;for(let h=s;h<=e;h++){for(let m=0;m<60;m+=30){if(!calendarState.fullDay&&h===e&&m>0)continue;out.push(`${pad(h)}:${pad(m)}`)}}return out}function isPastOrTooSoon(date,time){const slot=new Date(`${date}T${time}:00`),now=new Date();if(slot<now)return true;const limit=new Date(now.getTime()+SAME_DAY_BLOCK_HOURS*60*60*1000);return slot<limit}function isBlocked(date,time){return calendarState.blockSet.has(slotKey(date,time))||isPastOrTooSoon(date,time)}function applyGridColumns(grid,daysCount){const isMobile=window.matchMedia("(max-width:640px)").matches;const timeCol=isMobile?44:60;grid.style.gridTemplateColumns=isMobile?`${timeCol}px repeat(${daysCount}, minmax(62px, 1fr))`:`${timeCol}px repeat(${daysCount}, minmax(112px, 1fr))`}function renderCalendar(){const grid=document.getElementById("calendarGrid"),range=document.getElementById("dateRange");if(!grid||!range)return;const dates=makeDates(),times=makeTimes();applyGridColumns(grid,dates.length);grid.innerHTML="";if(!dates.length){range.textContent="";return}range.textContent=`${formatDate(dates[0]).replaceAll("-","/")} - ${formatDate(dates[dates.length-1]).slice(5).replace("-","/")}`;const corner=document.createElement("div");corner.className="time-label sticky-corner";corner.textContent="時間";grid.appendChild(corner);dates.forEach(d=>{const h=document.createElement("div");h.className=`date-header ${[0,6].includes(d.getDay())?"weekend":""}`;h.innerHTML=`<span>${d.getMonth()+1}/${d.getDate()}</span><small>${jaDay(d)}</small>`;grid.appendChild(h)});times.forEach(time=>{const t=document.createElement("div");t.className="time-label";t.textContent=time;grid.appendChild(t);dates.forEach((d,idx)=>{const dateStr=formatDate(d),blocked=isBlocked(dateStr,time);const cell=document.createElement("button");cell.type="button";cell.className=`slot-cell ${blocked?"slot-ng":(idx%2?"slot-alt":"slot-ok")}`;cell.textContent=blocked?"×":"◎";cell.disabled=blocked;if(!blocked)cell.addEventListener("click",()=>openBookingForm(dateStr,time));grid.appendChild(cell)})});const totalPages=Math.ceil(MAX_DAYS/DAYS_PER_PAGE);document.getElementById("prevWeek").disabled=calendarState.page<=0;document.getElementById("nextWeek").disabled=calendarState.page>=totalPages-1;document.getElementById("modeToggleBtn").textContent=calendarState.fullDay?"通常時間表示":"他時間予約"}async function loadCalendarData(){showLoading(true);try{const data=await apiGet(ENDPOINTS.getBlocks);calendarState.blocks=data.blocks||[];calendarState.blockSet=new Set(calendarState.blocks.map(b=>slotKey(b.date,b.time)))}catch(e){calendarState.blocks=[];calendarState.blockSet=new Set();toast("空き枠取得に失敗しました")}finally{renderCalendar();showLoading(false)}}document.addEventListener("DOMContentLoaded",()=>{document.getElementById("prevWeek").addEventListener("click",()=>{calendarState.page=Math.max(0,calendarState.page-1);loadCalendarData()});document.getElementById("nextWeek").addEventListener("click",()=>{calendarState.page+=1;loadCalendarData()});document.getElementById("modeToggleBtn").addEventListener("click",()=>{calendarState.fullDay=!calendarState.fullDay;renderCalendar()});loadCalendarData()});
+
+const grid=document.getElementById("calendarGrid")
+
+function pad(n){return String(n).padStart(2,"0")}
+
+function render(){
+let html=""
+
+html+="<div class='time-label'>時間</div>"
+for(let d=0;d<7;d++){
+html+="<div class='date-header'>"+(d+1)+"日</div>"
+}
+
+for(let h=6;h<=21;h++){
+let time=pad(h)+":00"
+html+="<div class='time-label'>"+time+"</div>"
+
+for(let d=0;d<7;d++){
+html+="<div class='slot-cell'>◎</div>"
+}
+}
+
+grid.innerHTML=html
+}
+
+render()
