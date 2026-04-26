@@ -19,36 +19,16 @@
       </div>
     </header>
 
-    <section class="card">
-      <div id="loadingOverlay" class="loading-overlay hidden">
-        <div class="loading-box">
-          <div class="spinner"></div>
-          <p id="loadingText">空き枠を読み込み中...</p>
+    <section class="card card-zero">
+      <div id="loadingOverlay" class="loading-overlay hidden"><div class="loading-box"><div class="spinner"></div><p id="loadingText">空き枠を読み込み中...</p></div></div>
+      <div class="calendar-card-inner">
+        <div class="top-line">
+          <div class="legend"><span><i class="dot dot-ok"></i>予約可能</span><span><i class="dot dot-ng"></i>予約不可</span></div>
+          <button id="modeToggleBtn" class="pill-btn" type="button">深夜早朝予約</button>
         </div>
-      </div>
-
-      <div class="top-line">
-        <div class="legend">
-          <span><i class="dot dot-ok"></i>予約可能</span>
-          <span><i class="dot dot-ng"></i>予約不可</span>
-        </div>
-        <button id="modeToggleBtn" class="pill-btn" type="button">深夜早朝予約</button>
-      </div>
-
-      <div class="calendar-toolbar">
-        <button id="prevWeek" class="nav-btn" type="button">←</button>
-        <div id="dateRange" class="date-range">読み込み中</div>
-        <button id="nextWeek" class="nav-btn" type="button">→</button>
-      </div>
-
-      <p id="calendarNote" class="calendar-note">◎を押すと予約フォームが開きます。過去時間・満席枠は自動で予約不可になります。</p>
-
-      <div class="scroll-container">
-        <div id="calendarGrid" class="calendar-grid"></div>
-      </div>
-
-      <div class="admin-link-row">
-        <button id="openAdminBtn" class="text-link" type="button">管理画面</button>
+        <div class="calendar-toolbar"><button id="prevWeek" class="nav-btn" type="button">← 前へ</button><div id="dateRange" class="date-range">読み込み中</div><button id="nextWeek" class="nav-btn" type="button">次へ →</button></div>
+        <p id="calendarNote" class="calendar-note">◎を押すと予約フォームが開きます。過去時間・満席枠は自動で予約不可になります。</p>
+        <div class="scroll-container calendar-scroll"><div id="calendarGrid" class="calendar-grid"></div></div>
       </div>
     </section>
   </main>
@@ -58,71 +38,31 @@
       <button id="closeBookingBtn" class="modal-close" type="button">×</button>
       <h2>予約情報入力</h2>
       <p id="selectedSlotInfo" class="selected-slot"></p>
-
-      <div class="steps">
-        <span id="stepMenuBadge" class="step-badge active">1. 内容選択</span>
-        <span id="stepInfoBadge" class="step-badge">2. お客様情報</span>
-      </div>
+      <div class="steps"><span id="stepMenuBadge" class="step-badge active">1. 内容選択</span><span id="stepInfoBadge" class="step-badge">2. お客様情報</span></div>
 
       <section id="menuStep">
-        <div class="base-fees">
-          <div id="baseFeeList"></div>
-          <small id="baseFeeNote">※ 走行距離・待機時間・追加介助により最終金額は変動する場合があります。</small>
-        </div>
-
-        <label>移動方法
-          <select id="moveType"></select>
-        </label>
-        <label>介助内容
-          <select id="assistanceType"></select>
-        </label>
-        <label>階段介助
-          <select id="stairAssistance"></select>
-        </label>
-        <label>往復・待機
-          <select id="roundTrip"></select>
-        </label>
+        <div class="base-fees"><div id="baseFeeList"></div><small id="baseFeeNote">※ 走行距離・待機時間・追加介助により最終金額は変動する場合があります。</small></div>
+        <label>移動方法<select id="moveType"></select></label>
+        <label>介助内容<select id="assistanceType"></select></label>
+        <label>階段介助<select id="stairAssistance"></select></label>
+        <label>往復・待機<select id="roundTrip"></select></label>
         <p class="estimate">概算金額：<strong id="estimateTotal">0円</strong></p>
         <button id="toInfoBtn" class="primary-btn" type="button">次へ</button>
       </section>
 
       <section id="infoStep" class="hidden">
-        <div class="privacy-note">
-          <strong>個人情報ご提供のお願い</strong>
-          <p id="privacyReason">配車手配・予約確認のご連絡・安全な送迎対応のため、連絡先や乗降場所などの情報が必要です。</p>
-          <label class="check"><input type="checkbox" id="agree"> 個人情報の取扱いに同意する</label>
-        </div>
-
-        <label>お名前
-          <input id="customerName" placeholder="例）山田 太郎">
-        </label>
-        <label>電話番号
-          <input id="customerPhone" inputmode="numeric" placeholder="09012345678">
-        </label>
-        <label>出発地
-          <input id="pickupLocation" placeholder="例）千葉市中央区〇〇">
-        </label>
-        <label>行き先
-          <input id="destination" placeholder="例）〇〇病院">
-        </label>
-        <label>備考
-          <textarea id="notes" rows="3" placeholder="任意"></textarea>
-        </label>
-
-        <div class="modal-actions">
-          <button id="backToMenuBtn" class="secondary-btn" type="button">戻る</button>
-          <button id="submitBookingBtn" class="primary-btn" type="button">予約を確定する</button>
-        </div>
+        <div class="privacy-note"><strong>個人情報ご提供のお願い</strong><p id="privacyReason">配車手配・予約確認のご連絡・安全な送迎対応のため、連絡先や乗降場所などの情報が必要です。</p><label class="check"><input type="checkbox" id="agree"> 個人情報の取扱いに同意する</label></div>
+        <label>お名前<input id="customerName" placeholder="例）山田 太郎"></label>
+        <label>電話番号<input id="customerPhone" inputmode="numeric" placeholder="09012345678"></label>
+        <label>出発地<input id="pickupLocation" placeholder="例）千葉市中央区〇〇"></label>
+        <label>行き先<input id="destination" placeholder="例）〇〇病院"></label>
+        <label>備考<textarea id="notes" rows="3" placeholder="任意"></textarea></label>
+        <div class="modal-actions"><button id="backToMenuBtn" class="secondary-btn" type="button">戻る</button><button id="submitBookingBtn" class="primary-btn" type="button">予約を確定する</button></div>
       </section>
     </div>
   </div>
 
   <div id="toast" class="toast"></div>
-
-  <script src="config.js"></script>
-  <script src="index.api.js"></script>
-  <script src="index.booking.js"></script>
-  <script src="index.calendar.js"></script>
-  <script src="index.ui.js"></script>
+  <script src="config.js"></script><script src="index.api.js"></script><script src="index.booking.js"></script><script src="index.calendar.js"></script><script src="index.ui.js"></script>
 </body>
 </html>
