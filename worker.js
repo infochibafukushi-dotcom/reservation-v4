@@ -45,7 +45,21 @@ async function getSettingsObject(db){const keys=["notify_webhook_url","logo_text
 function defaultBaseFees(){return{items:[{id:"base",label:"基本運賃",price:2000,visible:true},{id:"dispatch",label:"予約配車料",price:500,visible:true},{id:"special",label:"特殊車両料",price:1000,visible:true}]}}async function getBaseFees(db){const saved=await getSetting(db,"base_fees","");if(saved){try{return{items:JSON.parse(saved)}}catch{}}return defaultBaseFees()}
 async function getUiTexts(db){const saved=await getSetting(db,"ui_texts","");if(saved){try{return JSON.parse(saved)}catch{}}return{}}
 function normalizeDate(v){const s=String(v||"").trim();return/^\d{4}-\d{2}-\d{2}$/.test(s)?s:""}function normalizeTime(v){const s=String(v||"").trim();if(/^\d{2}:\d{2}$/.test(s))return s;if(/^\d{1,2}:\d{2}$/.test(s)){const[h,m]=s.split(":");return`${String(h).padStart(2,"0")}:${m}`}return""}
-function getBlockCount(roundTrip){const v=String(roundTrip||"");if(["往復","待機","付き添い","病院付き添い"].some(x=>v.includes(x)))return 4;return 2}function makeSlots(date,time,count){const base=new Date(`${date}T${time}:00+09:00`);const slots=[];for(let i=0;i<count;i++){const d=new Date(base.getTime()+i*30*60*1000);slots.push({date:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`,time:`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`})}return slots}
+function getBlockCount(roundTrip){const v=String(roundTrip||"");if(["往復","待機","付き添い","病院付き添い"].some(x=>v.includes(x)))return 4;return 2}
+function makeSlots(date,time,count){
+  const [y,m,d]=String(date).split("-").map(Number),[h,min]=String(time).split(":").map(Number);
+  if(!y||!m||!d||Number.isNaN(h)||Number.isNaN(min))return[];
+  const start=h*60+min,slots=[];
+  for(let i=0;i<count;i++){
+    const total=start+i*30,dayOffset=Math.floor(total/1440),minuteOfDay=((total%1440)+1440)%1440;
+    const slotDate=new Date(y,m-1,d);slotDate.setDate(slotDate.getDate()+dayOffset);
+    slots.push({
+      date:`${slotDate.getFullYear()}-${String(slotDate.getMonth()+1).padStart(2,"0")}-${String(slotDate.getDate()).padStart(2,"0")}`,
+      time:`${String(Math.floor(minuteOfDay/60)).padStart(2,"0")}:${String(minuteOfDay%60).padStart(2,"0")}`
+    });
+  }
+  return slots;
+}
 function buildNormalTimes(){const out=[];for(let h=6;h<=21;h++){for(let m=0;m<60;m+=30){if(h===21&&m>0)continue;out.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`)}}return out}function buildRangeTimes(start,end){const out=[];let [sh,sm]=start.split(":").map(Number),[eh,em]=end.split(":").map(Number);let s=sh*60+sm,e=eh*60+em;for(let t=s;t<e;t+=30)out.push(`${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`);return out}
 async function getMenu(db){const saved=await getSetting(db,"menu_items","");const groupSaved=await getSetting(db,"menu_groups","");let groups=[];try{groups=groupSaved?JSON.parse(groupSaved):[]}catch{}if(saved){try{const items=JSON.parse(saved),grouped={move_type:[],assist:[],stairs:[],equipment:[],round:[],custom:[],groups};items.forEach(i=>{const g=i.group||"custom";if(grouped[g])grouped[g].push(i);else grouped.custom.push(i)});return grouped}catch{}}return{groups,move_type:[{name:"車いす",price:0,visible:true},{name:"ストレッチャー",price:4000,visible:true},{name:"リクライニング車いす",price:2000,visible:true}],assist:[{name:"乗降介助",price:1500,visible:true},{name:"身体介助",price:3000,visible:true},{name:"介助不要",price:0,visible:true}],stairs:[{name:"階段介助なし",price:0,visible:true},{name:"見守り介助",price:0,visible:true},{name:"2階移動",price:3000,visible:true},{name:"3階移動",price:5000,visible:true}],equipment:[{name:"レンタルなし",price:0,visible:true},{name:"車いすレンタル",price:500,visible:true},{name:"ストレッチャー",price:4000,visible:true}],round:[{name:"片道",price:0,multiplier:1,visible:true},{name:"往復",price:0,multiplier:2,visible:true},{name:"待機",price:1000,multiplier:1,visible:true},{name:"病院付き添い",price:1500,multiplier:1,visible:true}]}}
 function toCsv(rows){const cols=["id","usageType","name","kana","phone","date","time","pickup","destination","vehicle","assist","stairs","equipment","roundTrip","estimate","baseFeeTotal","serviceFeeTotal","status","is_visible","created_at"];const esc=v=>`"${String(v??"").replace(/"/g,'""')}"`;return"\ufeff"+[cols.join(","),...rows.map(r=>cols.map(c=>esc(r[c])).join(","))].join("\n")}
