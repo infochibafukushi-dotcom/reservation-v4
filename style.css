@@ -1,193 +1,146 @@
-/* =========================
-   共通リセット
-========================= */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* ===== 安定版（崩れ防止）===== */
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:#f5f7fb;
+  color:#333;
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: #ffffff;
-  color: #333;
+/* ヘッダー */
+.header{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:16px;
 }
 
-/* =========================
-   ヘッダー
-========================= */
-.header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 16px;
+.logo{
+  width:50px;
 }
 
-.header img {
-  width: 48px;
-  height: 48px;
+.header h1{
+  font-size:20px;
+  font-weight:700;
 }
 
-.header-title {
-  font-size: 20px;
-  font-weight: bold;
+.header p{
+  font-size:12px;
+  color:#666;
 }
 
-.header-sub {
-  font-size: 12px;
-  color: #666;
+/* カード */
+.card{
+  background:#fff;
+  margin:10px;
+  padding:12px;
+  border-radius:16px;
+  box-shadow:0 4px 12px rgba(0,0,0,.08);
 }
 
-/* =========================
-   コンテナ
-========================= */
-.container {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 12px;
+/* ナビ */
+.calendar-nav{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:10px;
+  flex-wrap:nowrap;
+  margin:10px 0;
 }
 
-/* =========================
-   ステータス表示
-========================= */
-.status {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 12px;
-  margin-bottom: 10px;
+.date-range{
+  background:#0bb783;
+  color:#fff;
+  padding:8px 14px;
+  border-radius:20px;
+  font-weight:700;
+  white-space:nowrap;
 }
 
-.status span {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.nav-btn{
+  background:#fff;
+  border:1px solid #ddd;
+  border-radius:20px;
+  padding:6px 10px;
 }
 
-.dot-ok {
-  width: 8px;
-  height: 8px;
-  background: #00a870;
-  border-radius: 50%;
+/* カレンダー */
+.calendar-wrap{
+  overflow:auto;
 }
 
-.dot-ng {
-  width: 8px;
-  height: 8px;
-  background: #ff4d4f;
-  border-radius: 50%;
+.calendar-grid{
+  display:grid;
+  grid-template-columns:60px repeat(7,1fr);
+  gap:6px;
 }
 
-/* =========================
-   週ナビ（ここが今回の本体）
-========================= */
-.week-nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin: 12px 0;
+.time-label{
+  background:#eee;
+  font-size:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:8px;
 }
 
-.week-nav button {
-  flex: 0 0 auto;
-  white-space: nowrap;
-  padding: 8px 10px;
-  border-radius: 20px;
-  border: 1px solid #ddd;
-  background: #fff;
-  font-size: 13px;
+.day-head{
+  background:#ddd;
+  font-size:12px;
+  text-align:center;
+  border-radius:8px;
 }
 
-.week-nav .range {
-  flex: 1;
-  text-align: center;
-  font-size: 14px;
-  font-weight: bold;
-  white-space: nowrap;
-  background: #00a870;
-  color: #fff;
-  padding: 8px;
-  border-radius: 20px;
+.slot-cell{
+  height:40px;
+  border-radius:8px;
+  border:1px solid #ccc;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 
-/* =========================
-   カレンダー
-========================= */
-.calendar {
-  overflow-x: auto;
+/* ◎ */
+.slot-cell{
+  background:#cceeff;
 }
 
-.row {
-  display: flex;
+/* × */
+.slot-cell.ng{
+  background:#ffd6d6;
 }
 
-.time-col {
-  width: 60px;
-  font-size: 12px;
+/* ボタン */
+.btn{
+  background:#0bb783;
+  color:#fff;
+  border:none;
+  padding:10px;
+  border-radius:20px;
 }
 
-.cell {
-  flex: 1;
-  min-width: 80px;
-  height: 40px;
-  border: 1px solid #eee;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* モーダル */
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.4);
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 
-/* 予約可能 */
-.ok {
-  background: #ccefff;
+.modal-panel{
+  background:#fff;
+  padding:20px;
+  border-radius:16px;
+  width:90%;
+  max-width:500px;
 }
 
-/* 予約不可 */
-.ng {
-  background: #ffd6d6;
-}
-
-/* =========================
-   ボタン
-========================= */
-.btn-main {
-  background: #00a870;
-  color: #fff;
-  border: none;
-  padding: 10px;
-  border-radius: 20px;
-}
-
-/* =========================
-   スマホ最適化
-========================= */
-@media (max-width: 480px) {
-
-  .week-nav {
-    gap: 6px;
+/* スマホ */
+@media(max-width:480px){
+  .calendar-grid{
+    grid-template-columns:50px repeat(7,80px);
   }
-
-  .week-nav button {
-    font-size: 12px;
-    padding: 6px 8px;
-  }
-
-  .week-nav .range {
-    font-size: 13px;
-    padding: 6px;
-  }
-
-  .header {
-    padding: 10px;
-  }
-
-  .header img {
-    width: 40px;
-    height: 40px;
-  }
-
-  .header-title {
-    font-size: 16px;
-  }
-
 }
