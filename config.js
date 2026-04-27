@@ -1,20 +1,29 @@
 window.APP_CONFIG = {
   API_BASE: "https://throbbing-bush-8f59.info-chibafukushi.workers.dev",
   ENDPOINTS: {
+    bootstrap: "/api/bootstrap",
+    rangeData: "/api/rangeData",
     getBlocks: "/api/getBlocks",
     getReservations: "/api/getReservations",
     createReservation: "/api/createReservation",
     cancelReservation: "/api/cancelReservation",
     updateReservation: "/api/admin/reservations/update",
+    hideReservation: "/api/admin/reservations/hide",
     blockSlot: "/api/admin/blocks/slot",
     blockDay: "/api/admin/blocks/day",
+    blockTimeRange: "/api/admin/blocks/timeRange",
     getCsv: "/api/admin/reservations/csv",
     login: "/api/admin/login",
+    logout: "/api/admin/logout",
     getSettings: "/api/admin/settings",
     saveSettings: "/api/admin/settings/save",
+    changePassword: "/api/admin/password/change",
     getMenu: "/api/menu",
     saveMenu: "/api/admin/menu/save",
     baseFees: "/api/baseFees",
-    saveBaseFees: "/api/admin/baseFees/save"
+    saveBaseFees: "/api/admin/baseFees/save",
+    uploadLogo: "/api/admin/logo/upload",
+    uiTexts: "/api/uiTexts",
+    saveUiTexts: "/api/admin/uiTexts/save"
   }
 };
