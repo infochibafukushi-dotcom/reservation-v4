@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="ja">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>介護タクシー予約</title><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><link rel="stylesheet" href="style.css?v=20260428B"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>介護タクシー予約</title><meta name="description" content="介護タクシーのWeb予約ページです。空き枠確認から送迎予約まで24時間受付。車いす・ストレッチャー・階段介助などの条件に応じて予約できます。"><link rel="preconnect" href="https://throbbing-bush-8f59.info-chibafukushi.workers.dev" crossorigin><link rel="dns-prefetch" href="//throbbing-bush-8f59.info-chibafukushi.workers.dev"><link rel="stylesheet" href="style.css?v=20260428B"></head>
 <body>
 <main class="page">
-<header class="header"><button id="logoAdminTrigger" class="logo-btn" type="button" aria-label="管理画面"><img id="siteLogo" src="logo.png?v=20260428B" class="logo" alt="介護タクシー予約"></button><div><h1 id="brandTitle">介護タクシー予約</h1><p id="brandSubtitle">丁寧・安全な送迎をご提供します</p></div></header>
+<header class="header"><button id="logoAdminTrigger" class="logo-btn" type="button" aria-label="管理画面"><img id="siteLogo" src="logo.png?v=20260428B" class="logo" alt="介護タクシー予約"></button><div class="brand-block"><h1 id="brandTitle">介護タクシー予約</h1><p id="brandSubtitle">丁寧・安全な送迎をご提供します</p></div><a id="phoneReservationLink" class="phone-link" href="tel:" aria-label="電話予約"><span class="phone-icon">☎</span><span class="phone-label">電話予約</span></a></header>
 <section class="card">
 <div id="loading" class="loading hidden"><div class="loading-box">空き枠を読み込み中...</div></div>
 <div class="top-row"><div class="legend"><span class="mark"><span class="dot dot-ok"></span>◎ 予約可能</span><span class="mark"><span class="dot dot-ng"></span>× 予約不可</span></div><button id="modeToggle" class="btn btn-green" type="button">他時間予約</button></div>
@@ -24,11 +24,11 @@
 <label id="destinationLabel">送迎先住所または施設名<input id="destination" placeholder="自宅 / 病院 / 施設名"></label>
 <label id="notesLabel">ご要望・備考<textarea id="notes" rows="3" placeholder="車いすの種類、付き添い人数、注意事項など"></textarea></label>
 <div class="form-title"><span id="serviceHeading">サービス選択</span> <span class="badge required-badge">必須</span></div>
-<label>移動方法<select id="moveType"></select></label><label>介助内容<select id="assistanceType"></select></label><label>階段介助<select id="stairAssistance"></select></label><div id="stairWarning" class="warning hidden">階段介助ご利用の場合、身体介助がセットになります。</div><label>機材レンタル<select id="equipmentRental"></select></label><div id="wheelchairWarning" class="warning hidden">車いす固定による傷、すり傷などは保証対象外になります。</div><div id="stretcherWarning" class="warning hidden">ストレッチャー利用時は身体介助が必須となります。</div><label>往復送迎<select id="roundTrip"></select></label>
-<div class="form-title" id="feeHeading">料金概算</div><div id="baseFeeList" class="info-box"></div><div class="estimate"><div class="fee-row"><span>サービス加算</span><span id="serviceFeeTotal">0円</span></div><div class="total-row"><span>概算合計</span><strong id="estimateTotal">0円</strong></div></div><p id="feeNote" class="note">上記料金に加え、距離運賃や時間制運賃が加算される場合があります。</p>
+<label data-group-key="move_type">移動方法<select id="moveType"></select></label><div id="wheelchairWarning" class="warning hidden">車いす固定による傷、すり傷などは保証対象外になります。</div><div id="stretcherWarning" class="warning hidden">ストレッチャー利用時は身体介助が必須となります。</div><label data-group-key="assist">介助内容<select id="assistanceType"></select></label><label data-group-key="stairs">階段介助<select id="stairAssistance"></select></label><div id="stairWarning" class="warning hidden">階段介助ご利用の場合、身体介助がセットになります。</div><label data-group-key="equipment">機材レンタル<select id="equipmentRental"></select></label><label data-group-key="round">往復送迎<select id="roundTrip"></select></label>
+<div class="form-title" id="feeHeading">料金概算</div><div id="baseFeeList" class="info-box"></div><div id="selectedMenuList" class="info-box hidden"></div><div class="estimate"><div class="total-row"><span>概算合計</span><strong id="estimateTotal">0円～</strong></div></div><p id="feeNote" class="note">上記料金に加え、距離運賃や時間制運賃が加算される場合があります。</p>
 <div class="actions"><button id="submitBooking" class="primary-btn" type="button">予約する</button></div></section>
 <section id="thanksView" class="hidden"><div class="info-box" style="text-align:center"><div style="font-size:46px;color:#13b98b;font-weight:900">✓</div><h2 id="thanksTitle">ご予約ありがとうございます</h2><p>予約ID <strong id="thanksId"></strong></p><p id="thanksMessage">内容確認のため、お電話をさせていただきます。確認が取れたら正式な予約完了です。</p><button id="closeThanks" class="primary-btn" type="button">閉じる</button></div></section>
 </div></div>
 <div id="toast" class="toast"></div>
-<script src="config.js?v=20260428B"></script><script src="index.api.js?v=20260428B"></script><script src="index.booking.js?v=20260428B"></script><script src="index.calendar.js?v=20260428B"></script><script src="index.ui.js?v=20260428B"></script>
+<script defer src="config.js?v=20260428B"></script><script defer src="index.api.js?v=20260428B"></script><script defer src="index.booking.js?v=20260428B"></script><script defer src="index.calendar.js?v=20260428B"></script><script defer src="index.ui.js?v=20260428B"></script>
 </body></html>
