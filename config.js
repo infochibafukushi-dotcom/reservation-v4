@@ -9,6 +9,7 @@ window.APP_CONFIG = {
     cancelReservation: "/api/cancelReservation",
     updateReservation: "/api/admin/reservations/update",
     hideReservation: "/api/admin/reservations/hide",
+    deleteReservation: "/api/admin/reservations/delete",
     blockSlot: "/api/admin/blocks/slot",
     blockDay: "/api/admin/blocks/day",
     blockTimeRange: "/api/admin/blocks/timeRange",
