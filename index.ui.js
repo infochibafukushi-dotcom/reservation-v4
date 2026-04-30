@@ -2,9 +2,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let tapCount = 0;
   let tapTimer = null;
 
-  // 公開ページと同一オリジン上の管理画面へ遷移させる
-  // (/admin は環境によって 404 / API Not Found になり得るため、着地点を admin.html に統一)
-  const ADMIN_URL = new URL("/admin.html", window.location.origin).toString();
+  // 配信先がサブパスでも動くよう、絶対パス(/admin.html)ではなく相対遷移にする
+  // 例: https://example.com/reservation-v4/ なら https://example.com/reservation-v4/admin.html へ遷移
+  const ADMIN_URL = new URL("admin.html", window.location.href).toString();
   const logoButton = document.getElementById("logoAdminTrigger");
 
   if (!logoButton) return;
