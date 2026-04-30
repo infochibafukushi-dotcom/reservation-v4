@@ -8,6 +8,21 @@ export default {
       await cleanupStaleAutoBlocks(env.DB);
       const url=new URL(request.url),path=url.pathname;
       if(path==="/")return new Response("OK");
+      if(path==="/admin"||path==="/admin/"){
+        const fromQuery=url.searchParams.get("next")||"";
+        const fromSetting=await getSetting(env.DB,"admin_ui_url","");
+        const ref=request.headers.get("Referer")||"";
+        let target=fromQuery||fromSetting;
+        if(!target&&ref){
+          try{
+            const ru=new URL(ref);
+            const base=ru.pathname.endsWith("/")?ru.pathname:ru.pathname.replace(/[^/]*$/,"");
+            target=`${ru.origin}${base}admin.html`;
+          }catch{}
+        }
+        if(!target)target="https://infochibafukushi-dotcom.github.io/reservation-v4/admin.html";
+        return Response.redirect(target,302);
+      }
       if(path==="/api/bootstrap"){return json({success:true,settings:await getSettingsObject(env.DB),uiTexts:await getUiTexts(env.DB),menu:await getMenu(env.DB),baseFees:await getBaseFees(env.DB)},200,headers)}
       if(path==="/api/rangeData"){const start=url.searchParams.get("start")||"",end=url.searchParams.get("end")||"";const blocks=await env.DB.prepare(`SELECT id,date,time,type,reservation_id FROM blocks WHERE date>=? AND date<=? ORDER BY date,time`).bind(start,end).all();return json({success:true,blocks:blocks.results||[],settings:await getSameDaySettings(env.DB)},200,headers)}
       if(path==="/api/getBlocks"){const blocks=await env.DB.prepare(`SELECT id,date,time,type,reservation_id FROM blocks ORDER BY date,time`).all();return json({success:true,blocks:blocks.results||[]},200,headers)}
