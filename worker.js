@@ -9,19 +9,20 @@ export default {
       const url=new URL(request.url),path=url.pathname;
       if(path==="/")return new Response("OK");
       if(path==="/admin"||path==="/admin/"){
-        const fromQuery=url.searchParams.get("next")||"";
         const fromSetting=await getSetting(env.DB,"admin_ui_url","");
-        const ref=request.headers.get("Referer")||"";
-        let target=fromQuery||fromSetting;
-        if(!target&&ref){
-          try{
-            const ru=new URL(ref);
-            const base=ru.pathname.endsWith("/")?ru.pathname:ru.pathname.replace(/[^/]*$/,"");
-            target=`${ru.origin}${base}admin.html`;
-          }catch{}
-        }
+        let target=normalizeAdminUiUrl(fromSetting);
         if(!target)target="https://infochibafukushi-dotcom.github.io/reservation-v4/admin.html";
-        return Response.redirect(target,302);
+        const tu=new URL(target);
+        const gate=await createAccessGateToken(env);
+        tu.searchParams.set("ag",gate.token);
+        tu.searchParams.set("ag_sig",gate.sig);
+        return Response.redirect(tu.toString(),302);
+      }
+      if(path==="/api/admin/access/verify"){
+        const token=url.searchParams.get("ag")||"";
+        const sig=url.searchParams.get("ag_sig")||"";
+        const ok=await verifyAccessGateToken(env,token,sig);
+        return json({success:ok},ok?200:403,headers);
       }
       if(path==="/api/bootstrap"){return json({success:true,settings:await getSettingsObject(env.DB),uiTexts:await getUiTexts(env.DB),menu:await getMenu(env.DB),baseFees:await getBaseFees(env.DB)},200,headers)}
       if(path==="/api/rangeData"){const start=url.searchParams.get("start")||"",end=url.searchParams.get("end")||"";const blocks=await env.DB.prepare(`SELECT id,date,time,type,reservation_id FROM blocks WHERE date>=? AND date<=? ORDER BY date,time`).bind(start,end).all();return json({success:true,blocks:blocks.results||[],settings:await getSameDaySettings(env.DB)},200,headers)}
@@ -87,3 +88,36 @@ function inferLegacyGroup(name){const n=String(name||"");if(["車いす","スト
 async function getMenu(db){const saved=await getSetting(db,"menu_items","");const groupSaved=await getSetting(db,"menu_groups","");let groups=[];try{groups=groupSaved?JSON.parse(groupSaved):[]}catch{}if(saved){try{const items=JSON.parse(saved),grouped={move_type:[],assist:[],stairs:[],equipment:[],round:[],custom:[],groups};items.forEach(i=>{const raw=i.group||"custom";const g=(raw==="custom"||!raw)?inferLegacyGroup(i.name):raw;if(grouped[g])grouped[g].push({...i,group:g});else grouped.custom.push({...i,group:g})});return grouped}catch{}}return{groups,move_type:[{name:"車いす",price:0,visible:true,assist_allowed_items:"移乗介助,身体介助"},{name:"ストレッチャー",price:4000,visible:true,assist_allowed_items:"身体介助"},{name:"リクライニング車いす",price:2000,visible:true,assist_allowed_items:"移乗介助,身体介助"}],assist:[{name:"乗降介助",price:1500,visible:true},{name:"身体介助",price:3000,visible:true},{name:"介助不要",price:0,visible:true}],stairs:[{name:"階段介助なし",price:0,visible:true,force_body_assist:"false"},{name:"見守り介助",price:0,visible:true,force_body_assist:"false"},{name:"2階移動",price:3000,visible:true,force_body_assist:"true"},{name:"3階移動",price:5000,visible:true,force_body_assist:"true"}],equipment:[{name:"レンタルなし",price:0,visible:true},{name:"車いすレンタル",price:500,visible:true},{name:"ストレッチャー",price:4000,visible:true}],round:[{name:"片道",price:0,multiplier:1,visible:true},{name:"往復",price:0,multiplier:2,visible:true},{name:"待機",price:1000,multiplier:1,visible:true},{name:"病院付き添い",price:1500,multiplier:1,visible:true}]}}
 function toCsv(rows){const cols=["id","usageType","name","kana","phone","date","time","pickup","destination","vehicle","transfer","assist","stairs","equipment","roundTrip","estimate","baseFeeTotal","serviceFeeTotal","status","is_visible","created_at"];const esc=v=>`"${String(v??"").replace(/"/g,'""')}"`;return"\ufeff"+[cols.join(","),...rows.map(r=>cols.map(c=>esc(r[c])).join(","))].join("\n")}
 async function notify(db,body,id){const url=await getSetting(db,"notify_webhook_url","");if(!url)return;try{await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"reservation_created",id,body})})}catch{}}
+function normalizeAdminUiUrl(raw){
+  const fallback="https://infochibafukushi-dotcom.github.io/reservation-v4/admin.html";
+  if(!raw)return "";
+  try{
+    const u=new URL(raw);
+    if(u.origin!=="https://infochibafukushi-dotcom.github.io")return "";
+    if(u.pathname==="/admin"||u.pathname==="/admin/"||u.pathname==="/admin.html")u.pathname="/reservation-v4/admin.html";
+    if(u.pathname!=="/reservation-v4/admin.html")return "";
+    return u.toString();
+  }catch{
+    if(raw==="/admin"||raw==="/admin/"||raw==="/admin.html"||raw==="/reservation-v4/admin.html")return fallback;
+    return "";
+  }
+}
+function getGateSecret(env){return String(env.ADMIN_GATE_SECRET||"reservation-v4-admin-gate")}
+function b64url(input){return btoa(input).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}
+function fromB64url(input){const pad=input.length%4===0?"":"=".repeat(4-input.length%4);return atob(input.replace(/-/g,"+").replace(/_/g,"/")+pad)}
+async function sha256Hex(s){const data=new TextEncoder().encode(s);const hash=await crypto.subtle.digest("SHA-256",data);return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,"0")).join("")}
+async function createAccessGateToken(env){
+  const payload={exp:Date.now()+5*60*1000};
+  const token=b64url(JSON.stringify(payload));
+  const sig=await sha256Hex(`${token}.${getGateSecret(env)}`);
+  return {token,sig};
+}
+async function verifyAccessGateToken(env,token,sig){
+  if(!token||!sig)return false;
+  const expected=await sha256Hex(`${token}.${getGateSecret(env)}`);
+  if(expected!==sig)return false;
+  try{
+    const payload=JSON.parse(fromB64url(token));
+    return Number(payload.exp||0)>Date.now();
+  }catch{return false}
+}
