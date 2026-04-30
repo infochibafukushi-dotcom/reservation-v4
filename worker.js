@@ -12,17 +12,7 @@ export default {
         const fromSetting=await getSetting(env.DB,"admin_ui_url","");
         let target=normalizeAdminUiUrl(fromSetting);
         if(!target)target="https://infochibafukushi-dotcom.github.io/reservation-v4/admin.html";
-        const tu=new URL(target);
-        const gate=await createAccessGateToken(env);
-        tu.searchParams.set("ag",gate.token);
-        tu.searchParams.set("ag_sig",gate.sig);
-        return Response.redirect(tu.toString(),302);
-      }
-      if(path==="/api/admin/access/verify"){
-        const token=url.searchParams.get("ag")||"";
-        const sig=url.searchParams.get("ag_sig")||"";
-        const ok=await verifyAccessGateToken(env,token,sig);
-        return json({success:ok},ok?200:403,headers);
+        return Response.redirect(target,302);
       }
       if(path==="/api/bootstrap"){return json({success:true,settings:await getSettingsObject(env.DB),uiTexts:await getUiTexts(env.DB),menu:await getMenu(env.DB),baseFees:await getBaseFees(env.DB)},200,headers)}
       if(path==="/api/rangeData"){const start=url.searchParams.get("start")||"",end=url.searchParams.get("end")||"";const blocks=await env.DB.prepare(`SELECT id,date,time,type,reservation_id FROM blocks WHERE date>=? AND date<=? ORDER BY date,time`).bind(start,end).all();return json({success:true,blocks:blocks.results||[],settings:await getSameDaySettings(env.DB)},200,headers)}
@@ -101,23 +91,4 @@ function normalizeAdminUiUrl(raw){
     if(raw==="/admin"||raw==="/admin/"||raw==="/admin.html"||raw==="/reservation-v4/admin.html")return fallback;
     return "";
   }
-}
-function getGateSecret(env){return String(env.ADMIN_GATE_SECRET||"reservation-v4-admin-gate")}
-function b64url(input){return btoa(input).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}
-function fromB64url(input){const pad=input.length%4===0?"":"=".repeat(4-input.length%4);return atob(input.replace(/-/g,"+").replace(/_/g,"/")+pad)}
-async function sha256Hex(s){const data=new TextEncoder().encode(s);const hash=await crypto.subtle.digest("SHA-256",data);return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,"0")).join("")}
-async function createAccessGateToken(env){
-  const payload={exp:Date.now()+5*60*1000};
-  const token=b64url(JSON.stringify(payload));
-  const sig=await sha256Hex(`${token}.${getGateSecret(env)}`);
-  return {token,sig};
-}
-async function verifyAccessGateToken(env,token,sig){
-  if(!token||!sig)return false;
-  const expected=await sha256Hex(`${token}.${getGateSecret(env)}`);
-  if(expected!==sig)return false;
-  try{
-    const payload=JSON.parse(fromB64url(token));
-    return Number(payload.exp||0)>Date.now();
-  }catch{return false}
 }
