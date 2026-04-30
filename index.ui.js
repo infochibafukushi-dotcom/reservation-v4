@@ -2,7 +2,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let tapCount = 0;
   let tapTimer = null;
 
-  const ADMIN_URL = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev/admin";
+  // 公開ページと同一オリジン上の管理画面へ遷移させる
+  // (/admin は環境によって 404 / API Not Found になり得るため、着地点を admin.html に統一)
+  const ADMIN_URL = new URL("/admin.html", window.location.origin).toString();
   const logoButton = document.getElementById("logoAdminTrigger");
 
   if (!logoButton) return;
