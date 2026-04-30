@@ -1,5 +1,6 @@
 window.APP_CONFIG = {
   API_BASE: "https://throbbing-bush-8f59.info-chibafukushi.workers.dev",
+  ADMIN_ENTRY_URL: "https://throbbing-bush-8f59.info-chibafukushi.workers.dev/admin",
   ENDPOINTS: {
     bootstrap: "/api/bootstrap",
     rangeData: "/api/rangeData",
