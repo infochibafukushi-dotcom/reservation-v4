@@ -20,7 +20,7 @@ export default {
             target=`${ru.origin}${base}admin.html`;
           }catch{}
         }
-        if(!target)target="/admin.html";
+        if(!target)target="https://infochibafukushi-dotcom.github.io/reservation-v4/admin.html";
         return Response.redirect(target,302);
       }
       if(path==="/api/bootstrap"){return json({success:true,settings:await getSettingsObject(env.DB),uiTexts:await getUiTexts(env.DB),menu:await getMenu(env.DB),baseFees:await getBaseFees(env.DB)},200,headers)}
