@@ -24,16 +24,12 @@ const el = {
   nextWeek: document.getElementById("nextWeek"),
   loading: document.getElementById("calendarLoading"),
   modeToggleBtn: document.getElementById("modeToggleBtn"),
-  logoAdminTrigger: document.getElementById("logoAdminTrigger"),
   indexTitle: document.getElementById("indexTitle"),
   indexSubtitle: document.getElementById("indexSubtitle"),
   loadingText: document.getElementById("loadingText"),
-  calendarNote: document.getElementById("calendarNote"),
-  openAdminBtn: document.getElementById("openAdminBtn")
+  calendarNote: document.getElementById("calendarNote")
 };
 
-let logoTapCount = 0;
-let logoTapTimer = null;
 
 async function applyUITexts() {
   try {
@@ -234,21 +230,6 @@ async function fetchLatestBlocks() {
   cacheBlocks(blocks);
 }
 
-function openAdminPage() {
-  window.location.href = "./admin.html";
-}
-
-function handleLogoTap() {
-  logoTapCount += 1;
-  if (logoTapTimer) clearTimeout(logoTapTimer);
-  logoTapTimer = setTimeout(() => {
-    logoTapCount = 0;
-  }, 5000);
-  if (logoTapCount >= 5) {
-    logoTapCount = 0;
-    openAdminPage();
-  }
-}
 
 async function init() {
   await applyUITexts();
@@ -285,7 +266,5 @@ el.nextWeek.addEventListener("click", () => {
 });
 
 if (el.modeToggleBtn) el.modeToggleBtn.addEventListener("click", toggleViewMode);
-if (el.logoAdminTrigger) el.logoAdminTrigger.addEventListener("click", handleLogoTap);
-if (el.openAdminBtn) el.openAdminBtn.addEventListener("click", openAdminPage);
 
 init();

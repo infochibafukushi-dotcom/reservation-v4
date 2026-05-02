@@ -1,1 +1,0 @@
-document.addEventListener("DOMContentLoaded",()=>{let taps=0,timer=null;document.getElementById("logoAdminTrigger").addEventListener("click",()=>{taps++;clearTimeout(timer);timer=setTimeout(()=>taps=0,4000);if(taps>=5){location.href="admin.html"}})})
