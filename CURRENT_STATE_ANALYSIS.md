@@ -13,7 +13,7 @@
 ### 1-1. 公開フロント
 - `index.html` がエントリ。
 - `index.api.js` が API 呼び出し共通化。
-- `index.calendar.js` が空き枠表示、`index.booking.js` が予約送信、`index.ui.js` が UI 補助（ロゴ連打で管理導線）を担当。
+- `index.calendar.js` が空き枠表示、`index.booking.js` が予約送信を担当（公開画面から管理画面への隠し導線は廃止済み）。
 
 ### 1-2. 管理フロント
 - `admin.html` + `admin.js` で構成。
