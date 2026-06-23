@@ -25,6 +25,8 @@ window.APP_CONFIG = {
     saveBaseFees: "/api/admin/baseFees/save",
     uploadLogo: "/api/admin/logo/upload",
     uiTexts: "/api/uiTexts",
-    saveUiTexts: "/api/admin/uiTexts/save"
+    saveUiTexts: "/api/admin/uiTexts/save",
+    emailLogs: "/api/admin/email/logs",
+    emailTest: "/api/admin/email/test"
   }
 };
