@@ -5,6 +5,7 @@
 <main class="page">
 <header class="header"><div class="logo-btn" aria-hidden="true"><img id="siteLogo" src="logo.png?v=20260428B" class="logo" alt="介護タクシー予約"></div><div class="brand-block"><h1 id="brandTitle">介護タクシー予約</h1><p id="brandSubtitle">丁寧・安全な送迎をご提供します</p></div><a id="phoneReservationLink" class="phone-link" href="tel:" aria-label="電話予約"><span class="phone-icon">☎</span><span class="phone-label">電話予約</span></a></header>
 <section class="card">
+<div id="estimateHandoffBanner" class="estimate-handoff-banner hidden" role="status"></div>
 <div id="loading" class="loading hidden"><div class="loading-box">空き枠を読み込み中...</div></div>
 <div class="top-row"><div class="legend"><span class="mark"><span class="dot dot-ok"></span>◎ 予約可能</span><span class="mark"><span class="dot dot-ng"></span>× 予約不可</span></div><button id="modeToggle" class="btn btn-green" type="button">他時間予約</button></div>
 <div class="calendar-nav"><button id="prevWeek" class="nav-btn" type="button">← 前へ</button><div id="dateRange" class="date-range"></div><button id="nextWeek" class="nav-btn" type="button">次へ →</button></div>
@@ -14,6 +15,14 @@
 </main>
 <div id="bookingModal" class="modal hidden"><div class="modal-panel"><button id="closeModal" class="close" type="button">×</button>
 <section id="bookingForm"><h2 id="bookingTitle">ご予約</h2><p id="selectedSlot" class="note"></p>
+<section id="estimateSummarySection" class="estimate-summary-section hidden">
+<div class="form-title">見積内容の確認</div>
+<p id="estimateSummaryNumber" class="note"></p>
+<div id="estimateSummaryList" class="info-box"></div>
+<div id="estimateSummaryFare" class="info-box"></div>
+<div class="estimate estimate-summary-total"><div class="total-row"><span>合計目安</span><strong id="estimateSummaryTotal">0円～</strong></div></div>
+</section>
+<div id="estimateHandoffNotice" class="warning hidden"></div>
 <div class="info-box"><label class="check"><input id="agree" type="checkbox"><span id="agreeText">ご入力いただいた個人情報は、ご予約の受付およびサービス提供に用います。同意の上チェックをお願いいたします。</span></label></div>
 <div class="form-title"><span id="basicHeading">基本情報</span> <span id="requiredBadge" class="badge required-badge">必須</span></div>
 <label id="usageLabel">ご利用区分<select id="usageType"><option value="">選択してください</option><option value="初めて">初めて</option><option value="2回目以上">2回目以上</option></select></label>
@@ -25,10 +34,10 @@
 <label id="notesLabel">ご要望・備考<textarea id="notes" rows="3" placeholder="車いすの種類、付き添い人数、注意事項など"></textarea></label>
 <div class="form-title"><span id="serviceHeading">サービス選択</span> <span class="badge required-badge">必須</span></div>
 <label data-group-key="move_type">移動方法<select id="moveType"></select></label><div id="wheelchairWarning" class="warning hidden">車いす固定による傷、すり傷などは保証対象外になります。</div><div id="stretcherWarning" class="warning hidden">ストレッチャー利用時は身体介助が必須となります。</div><label data-group-key="assist">介助内容<select id="assistanceType"></select></label><label data-group-key="stairs">階段介助<select id="stairAssistance"></select></label><div id="stairWarning" class="warning hidden">階段介助ご利用の場合、身体介助がセットになります。</div><label data-group-key="equipment">機材レンタル<select id="equipmentRental"></select></label><label data-group-key="round">往復送迎<select id="roundTrip"></select></label>
-<div class="form-title" id="feeHeading">料金概算</div><div id="baseFeeList" class="info-box"></div><div id="selectedMenuList" class="info-box hidden"></div><div class="estimate"><div class="total-row"><span>概算合計</span><strong id="estimateTotal">0円～</strong></div></div><p id="feeNote" class="note">上記料金に加え、距離運賃や時間制運賃が加算される場合があります。</p>
+<div class="form-title" id="feeHeading">料金概算</div><div id="baseFeeList" class="info-box"></div><div id="selectedMenuList" class="info-box hidden"></div><div id="normalEstimateSection" class="estimate"><div class="total-row"><span>概算合計</span><strong id="estimateTotal">0円～</strong></div></div><p id="feeNote" class="note">上記料金に加え、距離運賃や時間制運賃が加算される場合があります。</p>
 <div class="actions"><button id="submitBooking" class="primary-btn" type="button">予約する</button></div></section>
 <section id="thanksView" class="hidden"><div class="info-box" style="text-align:center"><div style="font-size:46px;color:#13b98b;font-weight:900">✓</div><h2 id="thanksTitle">ご予約ありがとうございます</h2><p>予約ID <strong id="thanksId"></strong></p><p id="thanksMessage">内容確認のため、お電話をさせていただきます。確認が取れたら正式な予約完了です。</p><button id="closeThanks" class="primary-btn" type="button">閉じる</button></div></section>
 </div></div>
 <div id="toast" class="toast"></div>
-<script defer src="config.js?v=20260428B"></script><script defer src="index.api.js?v=20260428B"></script><script defer src="index.booking.js?v=20260428B"></script><script defer src="index.calendar.js?v=20260428B"></script>
+<script defer src="config.js?v=20260623A"></script><script defer src="estimate-handoff.js?v=20260623A"></script><script defer src="estimate-mapping.js?v=20260623A"></script><script defer src="index.api.js?v=20260623A"></script><script defer src="index.booking.js?v=20260623A"></script><script defer src="index.calendar.js?v=20260623A"></script>
 </body></html>

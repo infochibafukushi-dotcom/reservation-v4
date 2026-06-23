@@ -29,3 +29,9 @@ body.modal-open{overflow:hidden}
 .modal.hidden{display:none!important}
 .modal:not(.hidden){display:flex!important}
 #thanksView.hidden,#bookingForm.hidden{display:none!important}
+.estimate-handoff-banner{background:#e8f8f1;border:1px solid #9edfc8;border-radius:14px;padding:12px 14px;margin-bottom:12px;font-size:13px;font-weight:900;color:#065f46}
+.estimate-handoff-banner--warn{background:#fff8e6;border-color:#f5d78e;color:#8a5b00}
+.estimate-summary-section .estimate-summary-total{margin-top:0}
+.field-readonly input[readonly],.field-readonly select:disabled{background:#f1f5f9;color:#334155;cursor:not-allowed}
+.estimate-summary-row{display:flex;justify-content:space-between;gap:12px;margin:6px 0;font-size:13px}
+.estimate-summary-row strong{font-weight:900;color:#17324d}
