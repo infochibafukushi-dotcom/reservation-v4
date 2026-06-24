@@ -4,7 +4,9 @@
   "description": "GASなし / Cloudflare Workers + D1 / 本番運用前提",
   "main": "admin.js",
   "scripts": {
-    "test:phase0": "node scripts/phase0-test.mjs"
+    "test:phase0": "node scripts/phase0-test.mjs",
+    "test:phase1": "node scripts/phase1-test.mjs",
+    "test": "npm run test:phase0 && npm run test:phase1"
   },
   "repository": {
     "type": "git",

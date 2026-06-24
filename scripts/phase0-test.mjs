@@ -75,7 +75,10 @@ async function main() {
 
   const db = await mf.getD1Database("DB");
   await db.prepare(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`).run();
-  await db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('allowed_origins', '')`).run();
+  await db
+    .prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES ('allowed_origins', ?)`)
+    .bind("https://infochibafukushi-dotcom.github.io")
+    .run();
 
   const results = [];
   const record = (id, pass, detail) => results.push({ id, pass, detail });
