@@ -14,6 +14,7 @@ window.APP_CONFIG = {
     blockDay: "/api/admin/blocks/day",
     blockTimeRange: "/api/admin/blocks/timeRange",
     getCsv: "/api/admin/reservations/csv",
+    adminQuote: "/api/admin/quotes",
     login: "/api/admin/login",
     logout: "/api/admin/logout",
     getSettings: "/api/admin/settings",
