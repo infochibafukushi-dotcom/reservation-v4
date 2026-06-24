@@ -12,6 +12,7 @@ const ESTIMATE_A = "EST-PHASE2-TEST-A01";
 const ESTIMATE_B = "EST-PHASE2-TEST-B01";
 const ESTIMATE_C = "EST-PHASE2-TEST-C01";
 const ESTIMATE_D = "EST-PHASE2-TEST-D01";
+const ESTIMATE_E = "EST-PHASE2-TEST-E01";
 
 const sampleSnapshot = {
   fixedFareTotal: 10000,
@@ -25,6 +26,27 @@ const sampleSnapshot = {
   fareVersion: "v1",
   quoteVersion: 1
 };
+
+/** LP 7700円ケース相当: specialVehicleFee は fixedFareTotal に含まれ serviceFees にも載る */
+const specialVehicleSnapshot = {
+  fixedFareTotal: 6600,
+  fixedFareBreakdown: [
+    { key: "pickupFee", label: "迎車料金", amount: 800 },
+    { key: "specialVehicleFee", label: "特殊車両使用料", amount: 1000 },
+    { key: "distanceFare", label: "距離運賃", amount: 4500 },
+    { key: "timeAdjustment", label: "予定時間加算（概算）", amount: 300 }
+  ],
+  serviceFees: [
+    { key: "specialVehicleFee", label: "特殊車両使用料", amount: 1000 },
+    { key: "assistanceFee", label: "介助料金", amount: 1100 }
+  ],
+  specialVehicleFeeAmount: 1000,
+  fareMode: "distance_time",
+  fareVersion: "v1",
+  quoteVersion: 1
+};
+
+const SPECIAL_VEHICLE_TOTAL = 7700;
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -49,6 +71,21 @@ function buildRegisterBody(estimateNo) {
     usageSummary: [{ label: "移動方法", value: "車いす" }],
     handoffSource: "lp-site-estimate",
     dtoVersion: 2
+  };
+}
+
+function buildSpecialVehicleRegisterBody(estimateNo) {
+  return {
+    estimateNo,
+    total: SPECIAL_VEHICLE_TOTAL,
+    fareType: "fixed",
+    quoteSnapshot: specialVehicleSnapshot,
+    routePlan: { pickup: "千葉駅", destination: "東京駅" },
+    usageSummary: [{ label: "移動方法", value: "車いす" }, { label: "介助内容", value: "乗降介助" }],
+    handoffSource: "lp-site-estimate",
+    dtoVersion: 2,
+    franchiseeId: "default-franchisee",
+    storeId: "default-store"
   };
 }
 
@@ -81,6 +118,23 @@ function buildReservationBody(overrides = {}) {
   };
 }
 
+function buildSpecialVehicleReservationBody(overrides = {}) {
+  return buildReservationBody({
+    estimateNo: ESTIMATE_E,
+    estimate: "7,700円",
+    quoteSnapshot: specialVehicleSnapshot,
+    estimateConsent: {
+      estimateNo: ESTIMATE_E,
+      quotedFare: SPECIAL_VEHICLE_TOTAL,
+      fareMode: "distance_time",
+      fareVersion: "v1",
+      quoteVersion: 1,
+      consentType: "estimate_booking"
+    },
+    ...overrides
+  });
+}
+
 async function registerQuote(mf, estimateNo) {
   const res = await mf.dispatchFetch("http://localhost/api/quotes/register", {
     method: "POST",
@@ -89,6 +143,17 @@ async function registerQuote(mf, estimateNo) {
   });
   const out = await jsonRes(res);
   assert(res.status === 200 && out.data?.success === true, `register failed ${estimateNo}: ${out.text}`);
+}
+
+async function registerSpecialVehicleQuote(mf, estimateNo) {
+  const res = await mf.dispatchFetch("http://localhost/api/quotes/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Origin: LP_ORIGIN },
+    body: JSON.stringify(buildSpecialVehicleRegisterBody(estimateNo))
+  });
+  const out = await jsonRes(res);
+  assert(res.status === 200 && out.data?.success === true, `specialVehicle register failed ${estimateNo}: ${out.text}`);
+  return out;
 }
 
 async function setFixedFareEnabled(db, enabled) {
@@ -295,6 +360,58 @@ async function main() {
     });
     out = await jsonRes(res);
     record("P2-11", res.status === 200 && out.data?.success === true, `rollback legacy path status=${res.status}`);
+
+    // --- specialVehicleFee enabled (LP 7700円ケース) ---
+    await setFixedFareEnabled(db, true);
+    const svRegister = await registerSpecialVehicleQuote(mf, ESTIMATE_E);
+    record(
+      "P2-SV-1",
+      svRegister.status === 200 && svRegister.data?.success === true && svRegister.data?.total === SPECIAL_VEHICLE_TOTAL,
+      `specialVehicle register status=${svRegister.status} total=${svRegister.data?.total}`
+    );
+
+    const svQuoteBefore = await db.prepare(`SELECT status,total_amount FROM quotes WHERE estimate_no=?`).bind(ESTIMATE_E).first();
+    record(
+      "P2-SV-2",
+      String(svQuoteBefore?.status) === "active" && Number(svQuoteBefore?.total_amount) === SPECIAL_VEHICLE_TOTAL,
+      `specialVehicle quote row status=${svQuoteBefore?.status} total=${svQuoteBefore?.total_amount}`
+    );
+
+    res = await mf.dispatchFetch("http://localhost/api/createReservation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        buildSpecialVehicleReservationBody({ date: "2099-08-10", time: "10:00", phone: "09031313131" })
+      )
+    });
+    out = await jsonRes(res);
+    const svReservationId = out.data?.id || "";
+    record(
+      "P2-SV-3",
+      res.status === 200 && out.data?.success === true && out.data?.confirmedFare === SPECIAL_VEHICLE_TOTAL,
+      `specialVehicle reservation status=${res.status} confirmedFare=${out.data?.confirmedFare}`
+    );
+
+    const svQuoteAfter = await db.prepare(`SELECT status,reservation_id FROM quotes WHERE estimate_no=?`).bind(ESTIMATE_E).first();
+    record(
+      "P2-SV-4",
+      String(svQuoteAfter?.status) === "consumed" && String(svQuoteAfter?.reservation_id) === String(svReservationId),
+      `specialVehicle quote consumed status=${svQuoteAfter?.status} reservation_id=${svQuoteAfter?.reservation_id}`
+    );
+
+    res = await mf.dispatchFetch("http://localhost/api/createReservation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        buildSpecialVehicleReservationBody({ date: "2099-08-11", time: "11:00", phone: "09041414141" })
+      )
+    });
+    out = await jsonRes(res);
+    record(
+      "P2-SV-5",
+      res.status === 410 || res.status === 409,
+      `specialVehicle duplicate reservation status=${res.status}`
+    );
 
     const failed = results.filter((r) => !r.pass);
     console.log("\n=== Phase 2 Test Results ===\n");
