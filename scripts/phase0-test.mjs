@@ -65,8 +65,7 @@ async function jsonRes(res) {
 async function main() {
   const mf = new Miniflare({
     modules: [
-      { type: "ESModule", path: path.join(root, "worker.js") },
-      { type: "ESModule", path: path.join(root, "estimate-fare-display.js") }
+      { type: "ESModule", path: path.join(root, "worker.js") }
     ],
     bindings: { LP_REGISTER_TOKEN: LP_TOKEN },
     d1Databases: { DB: "phase0-test-db" },

@@ -66,8 +66,7 @@ function loadLpRegisterModule() {
 async function main() {
   const mf = new Miniflare({
     modules: [
-      { type: "ESModule", path: path.join(root, "worker.js") },
-      { type: "ESModule", path: path.join(root, "estimate-fare-display.js") }
+      { type: "ESModule", path: path.join(root, "worker.js") }
     ],
     bindings: { LP_REGISTER_TOKEN: "" },
     d1Databases: { DB: "phase1-test-db" },
@@ -85,8 +84,13 @@ async function main() {
   const record = (id, pass, detail) => results.push({ id, pass, detail });
 
   try {
+    // S-1 worker startup
+    let res = await mf.dispatchFetch("http://localhost/");
+    const startupText = await res.text();
+    record("S-1", res.status === 200 && startupText === "OK", `GET / status=${res.status} body=${startupText}`);
+
     // P1-1 Origin auth register (Phase 1 primary path, no Bearer)
-    let res = await mf.dispatchFetch("http://localhost/api/quotes/register", {
+    res = await mf.dispatchFetch("http://localhost/api/quotes/register", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
