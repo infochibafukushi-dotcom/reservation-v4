@@ -1,0 +1,24 @@
+{
+  "name": "reservation-v4",
+  "version": "1.0.0",
+  "description": "GASなし / Cloudflare Workers + D1 / 本番運用前提",
+  "main": "admin.js",
+  "scripts": {
+    "test:phase0": "node scripts/phase0-test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/infochibafukushi-dotcom/reservation-v4.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/infochibafukushi-dotcom/reservation-v4/issues"
+  },
+  "homepage": "https://github.com/infochibafukushi-dotcom/reservation-v4#readme",
+  "devDependencies": {
+    "miniflare": "^4.20260623.0"
+  }
+}

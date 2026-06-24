@@ -4,6 +4,7 @@ compatibility_date = "2024-09-23"
 
 # D1: Cloudflare ダッシュボードの既存バインディング名 DB と一致させること。
 # database_id はダッシュボード → D1 → 対象DB → Settings で確認し、下記を実際の値に置き換えてから deploy してください。
+# Phase0: LP 見積登録用 Secret（wrangler secret put LP_REGISTER_TOKEN）
 # [[d1_databases]]
 # binding = "DB"
 # database_name = "YOUR_D1_DATABASE_NAME"
