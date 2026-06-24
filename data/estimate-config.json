@@ -1,0 +1,568 @@
+{
+  "enabled": true,
+  "version": 1,
+  "updatedAt": "2026-06-24T04:15:06.511Z",
+  "page": {
+    "title": "かんたん料金確認",
+    "description": "ご利用内容を選択すると料金の目安をご確認いただけます。\n実際の料金は運行ルートや介助内容等により変動する場合があります。",
+    "disclaimer": "※表示料金は概算です。\n※実際の料金は運行ルート、交通状況、運行時間、迎車場所、介助内容等により変動する場合があります。\n※待機・院内付き添い料金は実際の利用時間により変動します。\n※障害者割引・福祉タクシー券等は概算見積には反映しておりません。",
+    "resultNotes": "※表示料金は概算です。\n※実際の料金は運行距離、交通状況、待機時間、付き添い時間、介助内容等により変動する場合があります。",
+    "preFixedFareNotice": "事前確定運賃は、乗車前に提示した走行予定ルートまたは主要経由地点、運賃額についてお客様の同意を得た場合に適用します。渋滞・交通規制等により運転者がルート変更する場合も、お客様の同意を得たうえで、運賃は事前確定額のままとなります。ただし、お客様都合で目的地・経由地・ルートを変更する場合は、その時点で事前確定運賃による運送を終了し、以後は別途精算します。介助料・機材料・有料道路料金等は、事前確定運賃とは別に区分してご請求します。",
+    "distanceLabel": "片道距離（km）",
+    "distanceNote": "※往復送迎を選択した場合は運賃距離を自動で2倍計算します。",
+    "tollRoadNote": "通行料金は実費負担となります。"
+  },
+  "basicFees": {
+    "baseFare": {
+      "id": "baseFare",
+      "label": "基本運賃",
+      "description": "distance・distance_time 方式では初乗運賃は距離運賃に含まれます（本項目は未使用）。",
+      "amount": 0,
+      "visible": false,
+      "order": 1
+    },
+    "pickupFee": {
+      "id": "pickupFee",
+      "label": "迎車料金",
+      "description": "",
+      "amount": 800,
+      "visible": true,
+      "order": 2
+    },
+    "specialVehicleFee": {
+      "id": "specialVehicleFee",
+      "label": "特殊車両使用料",
+      "description": "特殊車両（リフト車・スロープ車・車いす固定装置搭載車等）の維持管理費として加算する料金です。",
+      "amount": 1000,
+      "visible": true,
+      "order": 3
+    }
+  },
+  "googleMaps": {
+    "enabled": true,
+    "apiKey": "AIzaSyCrwzuWYya6wdzIeMxp9ANpi-mM-lrfDkM",
+    "language": "ja",
+    "region": "JP"
+  },
+  "distancePricing": {
+    "mode": "patternA",
+    "patternA": {
+      "initialDistanceKm": 1.06,
+      "initialFare": 500,
+      "incrementDistanceKm": 0.221,
+      "incrementFare": 100
+    },
+    "patternB": {
+      "perKmRate": 450
+    }
+  },
+  "trafficZones": {
+    "items": [
+      {
+        "id": "keiyo",
+        "label": "京葉交通圏",
+        "coefficient": 1.20,
+        "order": 1,
+        "municipalities": ["千葉市", "船橋市", "市川市", "習志野市", "八千代市", "浦安市", "四街道市", "佐倉市"]
+      },
+      {
+        "id": "togashi",
+        "label": "東葛交通圏",
+        "coefficient": 1.15,
+        "order": 2,
+        "municipalities": ["松戸市", "柏市", "流山市", "野田市", "我孫子市", "鎌ケ谷市", "白井市"]
+      },
+      {
+        "id": "chiba",
+        "label": "千葉交通圏",
+        "coefficient": 1.18,
+        "order": 3,
+        "municipalities": ["成田市", "匝瑳市", "富里市", "芝山町", "多古町", "神崎町", "栄町"]
+      },
+      {
+        "id": "hokuso",
+        "label": "北総交通圏",
+        "coefficient": 1.13,
+        "order": 4,
+        "municipalities": ["印西市", "白井市", "富里市", "成田市", "香取市", "佐原町", "多古町"]
+      },
+      {
+        "id": "toso",
+        "label": "東総交通圏",
+        "coefficient": 1.13,
+        "order": 5,
+        "municipalities": ["旭市", "匝瑳市", "東金市", "山武市", "大網白里市", "九十九里町", "芝山町"]
+      },
+      {
+        "id": "sanmu-togane",
+        "label": "山武東金交通圏",
+        "coefficient": 1.13,
+        "order": 6,
+        "municipalities": ["東金市", "山武市", "大網白里市", "九十九里町", "茂原市", "長生村"]
+      },
+      {
+        "id": "ichihara",
+        "label": "市原交通圏",
+        "coefficient": 1.15,
+        "order": 7,
+        "municipalities": ["市原市", "木更津市", "君津市", "富津市", "袖ケ浦市"]
+      },
+      {
+        "id": "gaihou",
+        "label": "外房交通圏",
+        "coefficient": 1.13,
+        "order": 8,
+        "municipalities": ["銚子市", "旭市", "匝瑳市", "香取市", "茂原市", "東金市"]
+      },
+      {
+        "id": "nanbou",
+        "label": "南房交通圏",
+        "coefficient": 1.13,
+        "order": 9,
+        "municipalities": ["館山市", "鴨川市", "南房総市", "木更津市", "君津市", "富津市"]
+      }
+    ]
+  },
+  "preFixedFare": {
+    "trafficZoneId": "keiyo"
+  },
+  "fareMode": "distance_time",
+  "fareModeOptions": [
+    {
+      "id": "time",
+      "label": "時間制運賃",
+      "enabled": true
+    },
+    {
+      "id": "distance",
+      "label": "距離制運賃",
+      "enabled": true
+    },
+    {
+      "id": "distance_time",
+      "label": "距離＋予定時間加算（概算）",
+      "enabled": true
+    },
+    {
+      "id": "pre_fixed_fare",
+      "label": "事前確定運賃",
+      "enabled": true
+    }
+  ],
+  "fareComponents": {
+    "time": [
+      {
+        "key": "timeBaseFare",
+        "label": "時間制運賃",
+        "calculator": "time_block",
+        "params": {
+          "baseMinutes": 30,
+          "baseAmount": 5000,
+          "perBlockMinutes": 15,
+          "perBlockAmount": 1200
+        }
+      },
+      {
+        "key": "pickupFee",
+        "label": "迎車料金",
+        "calculator": "fixed_fee_ref",
+        "feeRef": "pickupFee"
+      },
+      {
+        "key": "specialVehicleFee",
+        "label": "特殊車両使用料",
+        "calculator": "fixed_fee_ref",
+        "feeRef": "specialVehicleFee"
+      }
+    ],
+    "distance": [
+      {
+        "key": "pickupFee",
+        "label": "迎車料金",
+        "calculator": "fixed_fee_ref",
+        "feeRef": "pickupFee"
+      },
+      {
+        "key": "specialVehicleFee",
+        "label": "特殊車両使用料",
+        "calculator": "fixed_fee_ref",
+        "feeRef": "specialVehicleFee"
+      },
+      {
+        "key": "distanceFare",
+        "label": "距離運賃",
+        "calculator": "distance_pricing_ref",
+        "pricingRef": "distancePricing"
+      }
+    ],
+    "distance_time": [
+      {
+        "key": "pickupFee",
+        "label": "迎車料金",
+        "calculator": "fixed_fee_ref",
+        "feeRef": "pickupFee"
+      },
+      {
+        "key": "specialVehicleFee",
+        "label": "特殊車両使用料",
+        "calculator": "fixed_fee_ref",
+        "feeRef": "specialVehicleFee"
+      },
+      {
+        "key": "distanceFare",
+        "label": "距離運賃",
+        "calculator": "distance_pricing_ref",
+        "pricingRef": "distancePricing"
+      },
+      {
+        "key": "timeAdjustment",
+        "label": "予定時間加算（概算）",
+        "calculator": "time_block",
+        "params": {
+          "baseMinutes": 20,
+          "baseAmount": 0,
+          "perBlockMinutes": 10,
+          "perBlockAmount": 300
+        }
+      }
+    ],
+    "pre_fixed_fare": [
+      {
+        "key": "pickupFee",
+        "label": "迎車料金",
+        "calculator": "fixed_fee_ref",
+        "feeRef": "pickupFee"
+      },
+      {
+        "key": "specialVehicleFee",
+        "label": "特殊車両使用料",
+        "calculator": "fixed_fee_ref",
+        "feeRef": "specialVehicleFee"
+      },
+      {
+        "key": "distanceFare",
+        "label": "距離運賃",
+        "calculator": "distance_pricing_ref",
+        "pricingRef": "distancePricing"
+      },
+      {
+        "key": "timeAdjustment",
+        "label": "予定時間加算（概算）",
+        "calculator": "time_block",
+        "params": {
+          "baseMinutes": 20,
+          "baseAmount": 0,
+          "perBlockMinutes": 10,
+          "perBlockAmount": 300
+        }
+      }
+    ]
+  },
+  "categories": {
+    "mobility": {
+      "label": "移動方法",
+      "items": [
+        {
+          "id": "free-wheelchair",
+          "label": "無料車いす",
+          "description": "当社の標準車いすを無料でご利用いただけます。",
+          "amount": 0,
+          "visible": true,
+          "order": 1
+        },
+        {
+          "id": "own-wheelchair",
+          "label": "ご自身の車いす",
+          "description": "普段ご利用されている車いすのままご乗車いただけます。",
+          "amount": 0,
+          "visible": true,
+          "order": 2
+        },
+        {
+          "id": "reclining-wheelchair",
+          "label": "リクライニング車いす",
+          "description": "長時間の移動や座位保持が難しい方向けのリクライニング式車いすです。",
+          "amount": 2500,
+          "visible": true,
+          "order": 3
+        },
+        {
+          "id": "stretcher",
+          "label": "ストレッチャー",
+          "description": "寝たままの状態で搬送できる設備です。座ることが難しい方に対応します。",
+          "amount": 4000,
+          "visible": true,
+          "order": 4
+        },
+        {
+          "id": "cane-walk",
+          "label": "杖・歩行器",
+          "description": "杖や歩行器での移動に対応します。",
+          "amount": 0,
+          "visible": true,
+          "order": 5
+        }
+      ]
+    },
+    "assistance": {
+      "label": "介助内容",
+      "items": [
+        {
+          "id": "watch-assist",
+          "label": "見守り介助",
+          "description": "転倒防止のため付き添いながら移動を見守ります。",
+          "amount": 0,
+          "visible": true,
+          "order": 1
+        },
+        {
+          "id": "boarding-assist",
+          "label": "乗降介助",
+          "description": "車いす固定やリフト操作、\n車への乗り降りをお手伝いします。",
+          "amount": 1100,
+          "visible": true,
+          "order": 2
+        },
+        {
+          "id": "body-assist",
+          "label": "身体介助",
+          "description": "お部屋から車いすへの移乗介助、\n車両への乗降介助、\n車いす固定などを行います。",
+          "amount": 1600,
+          "visible": true,
+          "order": 3
+        }
+      ]
+    },
+    "stairAssist": {
+      "label": "階段介助",
+      "items": [
+        {
+          "id": "stair-none",
+          "label": "階段介助なし",
+          "description": "",
+          "amount": 0,
+          "visible": true,
+          "order": 1
+        },
+        {
+          "id": "stair-watch",
+          "label": "見守り介助",
+          "description": "階段や移動時に転倒防止のため付き添い、安全確認を行います。\n身体を支える介助は含みません。",
+          "amount": 0,
+          "visible": true,
+          "order": 2
+        },
+        {
+          "id": "stair-floor2",
+          "label": "2階移動",
+          "description": "エレベーターのない建物などで、階段を利用して移動する際の介助です。\n階数や介助人数により料金が異なります。",
+          "amount": 3000,
+          "visible": true,
+          "order": 3
+        },
+        {
+          "id": "stair-floor3",
+          "label": "3階移動",
+          "description": "エレベーターのない建物などで、階段を利用して移動する際の介助です。\n階数や介助人数により料金が異なります。",
+          "amount": 5000,
+          "visible": true,
+          "order": 4
+        },
+        {
+          "id": "stair-floor4",
+          "label": "4階移動",
+          "description": "エレベーターのない建物などで、階段を利用して移動する際の介助です。\n階数や介助人数により料金が異なります。",
+          "amount": 7000,
+          "visible": true,
+          "order": 5
+        },
+        {
+          "id": "stair-floor5",
+          "label": "5階移動",
+          "description": "エレベーターのない建物などで、階段を利用して移動する際の介助です。\n階数や介助人数により料金が異なります。",
+          "amount": 10000,
+          "visible": true,
+          "order": 6
+        }
+      ]
+    },
+    "tripType": {
+      "label": "送迎方法",
+      "items": [
+        {
+          "id": "one-way",
+          "label": "片道",
+          "description": "片道の送迎です。",
+          "amount": 0,
+          "visible": true,
+          "order": 1,
+          "distanceMultiplier": 1,
+          "waitingFeeRef": "",
+          "escortFeeRef": "",
+          "showInSelector": true
+        },
+        {
+          "id": "round-trip",
+          "label": "往復",
+          "description": "往復の送迎です。距離運賃は2倍で計算します。",
+          "amount": 0,
+          "visible": true,
+          "order": 2,
+          "distanceMultiplier": 2,
+          "waitingFeeRef": "",
+          "escortFeeRef": "",
+          "showInSelector": true
+        },
+        {
+          "id": "waiting",
+          "label": "待機（旧）",
+          "description": "旧設定項目です。",
+          "amount": 0,
+          "visible": true,
+          "order": 3,
+          "distanceMultiplier": 2,
+          "waitingFeeRef": "waiting30min",
+          "escortFeeRef": "",
+          "showInSelector": false
+        },
+        {
+          "id": "hospital-escort",
+          "label": "病院付き添い（旧）",
+          "description": "旧設定項目です。",
+          "amount": 0,
+          "visible": true,
+          "order": 4,
+          "distanceMultiplier": 2,
+          "waitingFeeRef": "",
+          "escortFeeRef": "escort30min",
+          "showInSelector": false
+        }
+      ]
+    },
+    "roundTripAddon": {
+      "label": "待機・付き添い",
+      "items": [
+        {
+          "id": "addon-waiting",
+          "label": "待機（30分）",
+          "description": "目的地での待機中、車両と乗務員が待機するサービスです。\n表示料金は30分を基準とした概算です。",
+          "amount": 0,
+          "visible": true,
+          "order": 1,
+          "waitingFeeRef": "waiting30min",
+          "escortFeeRef": "",
+          "distanceMultiplier": 1
+        },
+        {
+          "id": "addon-escort",
+          "label": "付き添い（30分）",
+          "description": "受付、施設内移動、会計などをお手伝いします。\n表示料金は30分を基準とした概算です。",
+          "amount": 0,
+          "visible": true,
+          "order": 2,
+          "waitingFeeRef": "",
+          "escortFeeRef": "escort30min",
+          "distanceMultiplier": 1
+        }
+      ]
+    }
+  },
+  "waitingFees": {
+    "waiting30min": {
+      "id": "waiting30min",
+      "label": "待機（30分）",
+      "description": "通院やお買い物などの間、車両と乗務員が待機するサービスです。\n表示料金は30分を基準とした概算です。",
+      "amount": 800,
+      "visible": true,
+      "order": 1
+    },
+    "escort30min": {
+      "id": "escort30min",
+      "label": "付き添い（30分）",
+      "description": "受付、施設内移動、会計、薬の受け取りなどをお手伝いします。\n表示料金は30分を基準とした概算です。",
+      "amount": 1600,
+      "visible": true,
+      "order": 2
+    }
+  },
+  "mappings": {
+    "mobilityAssistance": {
+      "cane-walk": {
+        "mode": "select",
+        "assistanceIds": [
+          "watch-assist",
+          "boarding-assist",
+          "body-assist"
+        ],
+        "assistanceId": "watch-assist"
+      },
+      "own-wheelchair": {
+        "mode": "required",
+        "assistanceIds": [
+          "boarding-assist",
+          "body-assist"
+        ],
+        "assistanceId": "watch-assist"
+      },
+      "free-wheelchair": {
+        "mode": "required",
+        "assistanceIds": [
+          "boarding-assist",
+          "body-assist"
+        ],
+        "assistanceId": "watch-assist"
+      },
+      "reclining-wheelchair": {
+        "mode": "required",
+        "assistanceIds": [
+          "boarding-assist",
+          "body-assist"
+        ],
+        "assistanceId": "watch-assist"
+      },
+      "stretcher": {
+        "mode": "fixed",
+        "assistanceIds": [],
+        "assistanceId": "body-assist"
+      }
+    }
+  },
+  "resultLabels": {
+    "baseFare": "基本運賃",
+    "pickupFee": "迎車料金",
+    "specialVehicleFee": "特殊車両使用料",
+    "distanceFare": "距離運賃",
+    "wheelchairFee": "車いす料金",
+    "assistanceFee": "介助料金",
+    "stairFee": "階段介助料金",
+    "waitingFee": "待機料金",
+    "escortFee": "付き添い料金",
+    "fixedFareSection": "事前確定運賃",
+    "estimatedFareSection": "概算料金内訳",
+    "calcBasisToggleOpen": "料金の計算方法を見る",
+    "calcBasisToggleClose": "料金の計算方法を閉じる",
+    "calcBasisTitle": "料金の計算方法",
+    "careServiceSection": "介助・サービス料金",
+    "expenseSection": "実費・別途費用",
+    "tollRoadExpense": "有料道路・高速道路通行料金",
+    "fareModeTime": "時間定額運賃",
+    "fareModeDistance": "距離定額運賃",
+    "fareModeDistanceTime": "距離＋予定時間加算（概算）",
+    "fareModePreFixed": "事前確定運賃",
+    "fareBasisSection": "運賃計算根拠",
+    "usageSummary": "ご利用内容",
+    "total": "概算料金",
+    "totalEstimateSection": "合計目安"
+  },
+  "pdfFooter": {
+    "enabled": true,
+    "businessName": "ちばケアタクシー",
+    "phone": "090-6331-4289",
+    "homepageUrl": "https://infochibafukushi-dotcom.github.io/lp-site/#",
+    "homepageQrLabel": "ホームページはこちら",
+    "lineUrl": "https://lin.ee/XA05KN5",
+    "lineQrLabel": "LINEで相談",
+    "message": "ご予約・ご相談はお気軽にお問い合わせください"
+  },
+  "options": {}
+}
