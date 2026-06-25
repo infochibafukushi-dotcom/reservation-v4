@@ -126,7 +126,7 @@
     const extra = String(addon || "").trim();
     if (trip === "片道") return "片道";
     if (trip !== "往復") return trip || "片道";
-    if (!extra || extra === "なし") return "往復";
+    if (!extra || extra === "なし" || extra === "選択してください") return "往復";
     if (extra.includes("付き添い") && !extra.includes("病院")) return "病院付き添い";
     return extra;
   }

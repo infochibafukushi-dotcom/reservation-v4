@@ -60,7 +60,7 @@ function mapId(map, id, handoff, labelKeys) {
 
 function mapAddonLabel(rawLabel) {
   const label = String(rawLabel || "").trim();
-  if (!label || label === "なし") return "なし";
+  if (!label || label === "なし" || label === "選択してください") return "";
   if (label.includes("待機")) return "待機";
   if (label.includes("付き添い")) return label.includes("病院") ? "病院付き添い" : "付き添い";
   return label;
@@ -71,7 +71,7 @@ function resolveRoundTripValue(tripType, roundTripAddon) {
   const addon = String(roundTripAddon || "").trim();
   if (trip === "片道") return "片道";
   if (trip !== "往復") return trip || "片道";
-  if (!addon || addon === "なし") return "往復";
+  if (!addon || addon === "なし" || addon === "選択してください") return "往復";
   if (addon.includes("付き添い") && !addon.includes("病院")) return "病院付き添い";
   return addon;
 }
@@ -85,7 +85,7 @@ function mapHandoffToFormValues(handoff) {
   const assist = mapId(ASSIST_MAP, selections.assistanceId, handoff, [USAGE_LABELS.assist, USAGE_LABELS.assistance, "介助内容"]);
   const stairs = mapId(STAIR_MAP, selections.stairId, handoff, [USAGE_LABELS.stair, "階段介助"]);
   const tripType = mapId(TRIP_MAP, selections.tripTypeId, handoff, [USAGE_LABELS.trip, "送迎方法"]);
-  let roundTripAddon = "なし";
+  let roundTripAddon = "";
   if (selections.tripTypeId === "round-trip") {
     const addonRaw = mapId(ROUND_ADDON_MAP, selections.roundTripAddonId, handoff, [USAGE_LABELS.roundTripAddon, "待機・付き添い"]);
     roundTripAddon = mapAddonLabel(addonRaw);
