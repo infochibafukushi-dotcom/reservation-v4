@@ -118,6 +118,45 @@ async function assertAddonOptions(page) {
   if (hasNone) throw new Error(`「なし」が表示されています: ${options.join(", ")}`);
 }
 
+async function assertEstimateTotal(page, expectedYen) {
+  await page.locator("#feeHeading").scrollIntoViewIfNeeded();
+  await page.waitForFunction(
+    (expected) => {
+      const text = document.getElementById("estimateTotal")?.textContent || "";
+      return text.replace(/\s/g, "").includes(`${expected.toLocaleString("ja-JP")}円`);
+    },
+    expectedYen,
+    { timeout: 5000 }
+  );
+  const total = await page.locator("#estimateTotal").textContent();
+  if (!total?.includes(`${expectedYen.toLocaleString("ja-JP")}`)) {
+    throw new Error(`概算合計が不正: expected ${expectedYen}円, got ${total}`);
+  }
+}
+
+async function setupBasicFareExample(page) {
+  await page.evaluate(() => {
+    document.getElementById("moveType").value = "無料車いす";
+    document.getElementById("moveType").dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await page.waitForTimeout(200);
+  await page.evaluate(() => {
+    const assist = document.getElementById("assistanceType");
+    for (let i = 0; i < assist.options.length; i++) {
+      if (assist.options[i].value === "乗降介助") {
+        assist.selectedIndex = i;
+        break;
+      }
+    }
+    assist.dispatchEvent(new Event("change", { bubbles: true }));
+    document.getElementById("stairAssistance").value = "階段介助なし";
+    document.getElementById("equipmentRental").value = "レンタルなし";
+    document.getElementById("tripType").value = "片道";
+    document.getElementById("tripType").dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await page.waitForTimeout(300);
+}
+
 async function main() {
   mkdirSync(outDir, { recursive: true });
   const { server, baseUrl } = await startStaticServer();
@@ -181,6 +220,14 @@ async function main() {
       throw new Error(`基本運賃表示が不正: ${baseFare}`);
     }
     await pcPage.screenshot({ path: path.join(outDir, "pc-fare-section.png"), fullPage: false });
+
+    await setupBasicFareExample(pcPage);
+    await assertEstimateTotal(pcPage, 3400);
+    const baseFeeRows = await pcPage.locator("#baseFeeList .fee-row").allTextContents();
+    const hasBasicAmount = baseFeeRows.some((t) => t.includes("基本運賃") && t.includes("500"));
+    if (!hasBasicAmount) throw new Error(`基本運賃500円行が見つかりません: ${baseFeeRows.join(" | ")}`);
+    await pcPage.locator("#estimateTotal").scrollIntoViewIfNeeded();
+    await pcPage.screenshot({ path: path.join(outDir, "pc-basic-fare-total-3400.png"), fullPage: false });
     await pc.close();
 
     const iPhone = devices["iPhone 13"];
@@ -189,6 +236,10 @@ async function main() {
     await setupApiMocks(mobilePage);
     await mobilePage.goto(`${baseUrl}/index.html`, { waitUntil: "networkidle" });
     await openBookingModal(mobilePage);
+    await setupBasicFareExample(mobilePage);
+    await assertEstimateTotal(mobilePage, 3400);
+    await mobilePage.locator("#estimateTotal").scrollIntoViewIfNeeded();
+    await mobilePage.screenshot({ path: path.join(outDir, "mobile-basic-fare-total-3400.png"), fullPage: true });
     await mobilePage.selectOption("#tripType", "往復");
     await mobilePage.waitForSelector("#roundTripAddonLabel:not(.hidden)");
     await assertAddonOptions(mobilePage);

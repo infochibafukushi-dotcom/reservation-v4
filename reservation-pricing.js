@@ -157,6 +157,18 @@
     return res.json();
   }
 
+  function getDisplayBasicFareAmount(config) {
+    const pattern = config?.distancePricing?.patternA || {};
+    return Number(pattern.initialFare) || 500;
+  }
+
+  function getBookingDisplayTotal(config, result, form) {
+    const total = Number(result?.total) || 0;
+    const distanceKm = Number(form?.distanceKm) || 0;
+    if (distanceKm > 0) return total;
+    return total + getDisplayBasicFareAmount(config);
+  }
+
   function computeBookingEstimate(config, form) {
     if (!global.EstimateCalc?.computeEstimate || !config) return null;
     const state = mapFormToEstimateState(form);
@@ -183,6 +195,8 @@
     mapFormToEstimateState,
     loadEstimateConfig,
     computeBookingEstimate,
+    getDisplayBasicFareAmount,
+    getBookingDisplayTotal,
     getAddonNoneOption
   };
 })(typeof window !== "undefined" ? window : globalThis);
