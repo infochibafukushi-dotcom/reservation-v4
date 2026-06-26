@@ -30,16 +30,18 @@ async function main() {
   const fixedFare = String(boot.data?.settings?.fixed_fare_enabled || "");
   record("BOOT", boot.status === 200, `fixed_fare_enabled=${fixedFare}`);
 
+  const smokeTs = Date.now();
+  const legacySlotMin = String((smokeTs % 50) + 10).padStart(2, "0");
   const legacy = await jsonFetch("/api/createReservation", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       usageType: "初めて",
       name: "スモークタロウ",
-      phone: "09099998888",
-      email: "smoke-test@example.com",
+      phone: `0909999${String(smokeTs).slice(-4)}`,
+      email: `smoke-test-${smokeTs}@example.com`,
       date: "2099-12-01",
-      time: "10:00",
+      time: `10:${legacySlotMin}`,
       pickup: "千葉駅",
       destination: "東京駅",
       vehicle: "車いす",
@@ -52,7 +54,7 @@ async function main() {
     `status=${legacy.status} id=${legacy.data?.id || ""}`
   );
 
-  const estimateNo = `EST-PROD-SMOKE-${Date.now().toString().slice(-4)}`;
+  const estimateNo = `EST-PROD-SMOKE-${smokeTs.toString().slice(-6)}`;
   const snapshot = {
     fixedFareTotal: 10000,
     serviceFees: [{ key: "assistanceFee", label: "介助料金", amount: 2000 }],
@@ -84,19 +86,17 @@ async function main() {
 
   if (fixedFare === "true" && snapshotHash) {
     const consentText = `見積番号 ${estimateNo} の確定運賃 12,000円 および上記見積内容に同意して予約する`;
+    const fixedSlotMin = String(((smokeTs + 17) % 50) + 10).padStart(2, "0");
     const fixed = await jsonFetch("/api/createReservation", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "CF-Connecting-IP": "203.0.113.99"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         usageType: "初めて",
         name: "スモークジロウ",
-        phone: "09088887777",
-        email: "smoke-fixed@example.com",
+        phone: `0908888${String(smokeTs).slice(-4)}`,
+        email: `smoke-fixed-${smokeTs}@example.com`,
         date: "2099-12-02",
-        time: "11:00",
+        time: `11:${fixedSlotMin}`,
         pickup: "千葉駅",
         destination: "東京駅",
         vehicle: "車いす",
@@ -123,10 +123,10 @@ async function main() {
       body: JSON.stringify({
         usageType: "初めて",
         name: "スモークサブロウ",
-        phone: "09077776666",
-        email: "smoke-dup@example.com",
+        phone: `0907777${String(smokeTs).slice(-4)}`,
+        email: `smoke-dup-${smokeTs}@example.com`,
         date: "2099-12-02",
-        time: "11:30",
+        time: `12:${fixedSlotMin}`,
         pickup: "千葉駅",
         destination: "東京駅",
         vehicle: "車いす",
