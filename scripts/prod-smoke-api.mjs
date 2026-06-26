@@ -145,6 +145,47 @@ async function main() {
     record("DUPLICATE-410", true, "skipped");
   }
 
+  const driverToken = String(process.env.METER_DRIVER_TOKEN || "").trim();
+  if (driverToken) {
+    const driverHeaders = { Authorization: `Bearer ${driverToken}` };
+    const driverDate = fixed.data?.id ? "2099-12-02" : "2099-12-01";
+    const driverList = await jsonFetch(
+      `/api/driver/reservations?date=${encodeURIComponent(driverDate)}`,
+      { headers: driverHeaders },
+    );
+    record(
+      "DRIVER-LIST",
+      driverList.status === 200 && driverList.data?.success,
+      `status=${driverList.status} count=${driverList.data?.reservations?.length ?? "?"}`,
+    );
+
+    const driverReservationId = fixed.data?.id || legacy.data?.id || "";
+    if (driverReservationId) {
+      const driverDetail = await jsonFetch(
+        `/api/driver/reservations/${encodeURIComponent(driverReservationId)}`,
+        { headers: driverHeaders },
+      );
+      const integrity = driverDetail.data?.reservation?.integrity;
+      record(
+        "DRIVER-DETAIL",
+        driverDetail.status === 200 &&
+          driverDetail.data?.success &&
+          (integrity?.snapshotHashVerified === true ||
+            Number(driverDetail.data?.reservation?.fixedFare?.confirmedFareYen || 0) === 0),
+        `status=${driverDetail.status} verified=${integrity?.snapshotHashVerified}`,
+      );
+    } else {
+      record("DRIVER-DETAIL", true, "skipped (no reservation id)");
+    }
+
+    const driverUnauthorized = await jsonFetch("/api/driver/reservations?date=2099-12-01");
+    record("DRIVER-UNAUTHORIZED", driverUnauthorized.status === 401, `status=${driverUnauthorized.status}`);
+  } else {
+    record("DRIVER-LIST", true, "skipped (METER_DRIVER_TOKEN unset)");
+    record("DRIVER-DETAIL", true, "skipped (METER_DRIVER_TOKEN unset)");
+    record("DRIVER-UNAUTHORIZED", true, "skipped (METER_DRIVER_TOKEN unset)");
+  }
+
   const failed = results.filter((r) => !r.pass);
   if (failed.length) process.exit(1);
 }

@@ -5,6 +5,7 @@
 import { Miniflare, Log, LogLevel } from "miniflare";
 import { fileURLToPath } from "url";
 import path from "path";
+import { createMiniflareWorkerOptions } from "./worker-modules.mjs";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const LP_TOKEN = "test-lp-token-phase0";
@@ -64,9 +65,7 @@ async function jsonRes(res) {
 
 async function main() {
   const mf = new Miniflare({
-    modules: [
-      { type: "ESModule", path: path.join(root, "worker.js") }
-    ],
+    ...createMiniflareWorkerOptions(root),
     bindings: { LP_REGISTER_TOKEN: LP_TOKEN },
     d1Databases: { DB: "phase0-test-db" },
     log: new Log(LogLevel.ERROR)

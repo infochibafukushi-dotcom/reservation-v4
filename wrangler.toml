@@ -4,6 +4,7 @@ compatibility_date = "2024-09-23"
 
 # D1: Cloudflare ダッシュボードの既存バインディング名 DB と一致させること。
 # Phase0: LP 見積登録用 Secret（wrangler secret put LP_REGISTER_TOKEN）
+# Phase4: メーターアプリ用 Secret（wrangler secret put METER_DRIVER_TOKEN）
 [[d1_databases]]
 binding = "DB"
 database_name = "reservation-db"

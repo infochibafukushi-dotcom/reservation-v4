@@ -5,6 +5,7 @@
 import { Miniflare, Log, LogLevel } from "miniflare";
 import { fileURLToPath } from "url";
 import path from "path";
+import { createMiniflareWorkerOptions } from "./worker-modules.mjs";
 import fs from "fs";
 import vm from "vm";
 
@@ -65,9 +66,7 @@ function loadLpRegisterModule() {
 
 async function main() {
   const mf = new Miniflare({
-    modules: [
-      { type: "ESModule", path: path.join(root, "worker.js") }
-    ],
+    ...createMiniflareWorkerOptions(root),
     bindings: { LP_REGISTER_TOKEN: "" },
     d1Databases: { DB: "phase1-test-db" },
     log: new Log(LogLevel.ERROR)

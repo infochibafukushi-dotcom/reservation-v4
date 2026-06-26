@@ -5,6 +5,7 @@
 import { Miniflare, Log, LogLevel } from "miniflare";
 import { fileURLToPath } from "url";
 import path from "path";
+import { createMiniflareWorkerOptions } from "./worker-modules.mjs";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const LP_ORIGIN = "https://infochibafukushi-dotcom.github.io";
@@ -47,7 +48,7 @@ async function jsonRes(res) {
 
 async function main() {
   const mf = new Miniflare({
-    modules: [{ type: "ESModule", path: path.join(root, "worker.js") }],
+    ...createMiniflareWorkerOptions(root),
     bindings: { LP_REGISTER_TOKEN: "" },
     d1Databases: { DB: "phase3-consent-db" },
     log: new Log(LogLevel.ERROR)
