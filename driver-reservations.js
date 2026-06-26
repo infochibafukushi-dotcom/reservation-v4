@@ -13,6 +13,60 @@ export function parseDriverReservationIdFromPath(pathname) {
   return raw;
 }
 
+export function parseDriverReservationActionPath(pathname) {
+  if (!String(pathname || "").startsWith(DRIVER_RESERVATIONS_PREFIX)) {
+    return { reservationId: "", action: "" };
+  }
+  const raw = decodeURIComponent(pathname.slice(DRIVER_RESERVATIONS_PREFIX.length)).trim();
+  const slashIndex = raw.indexOf("/");
+  if (slashIndex < 0) {
+    return { reservationId: "", action: "" };
+  }
+  const reservationId = raw.slice(0, slashIndex).trim();
+  const action = raw.slice(slashIndex + 1).trim();
+  if (!reservationId || !action || raw.includes("/", slashIndex + 1)) {
+    return { reservationId: "", action: "" };
+  }
+  return { reservationId, action };
+}
+
+function resolveMeterRunStatus(source) {
+  if (!source) {
+    return "not_started";
+  }
+  if ("meter_run_status" in source) {
+    const joinedStatus = String(source.meter_run_status || "").trim();
+    if (joinedStatus === "in_progress") {
+      return "in_progress";
+    }
+    if (joinedStatus === "completed") {
+      return "completed";
+    }
+    return "not_started";
+  }
+  const status = String(source.status || "").trim();
+  if (status === "in_progress") {
+    return "in_progress";
+  }
+  if (status === "completed") {
+    return "completed";
+  }
+  return "not_started";
+}
+
+function buildFixedFareRunResponse(runRow) {
+  const status = String(runRow.status || "").trim();
+  return {
+    reservationId: String(runRow.reservation_id || ""),
+    status,
+    meterRunStatus: resolveMeterRunStatus(runRow),
+    confirmedFareYen: Number(runRow.confirmed_fare_yen) || 0,
+    snapshotHash: String(runRow.snapshot_hash || "").trim() || null,
+    startedAt: String(runRow.started_at || "").trim() || null,
+    completedAt: String(runRow.completed_at || "").trim() || null,
+  };
+}
+
 export function isDriverFixedFareReservation(row) {
   if (!row) {
     return false;
@@ -148,7 +202,7 @@ function buildDriverReservationListItem(row) {
     reservationId: String(row.id || ""),
     estimateNo: String(row.estimate_no || "").trim() || null,
     status: String(row.status || "active"),
-    meterRunStatus: "not_started",
+    meterRunStatus: resolveMeterRunStatus(row),
     scheduledAt: buildScheduledAt(row.date, row.time),
     date: String(row.date || ""),
     time: String(row.time || ""),
@@ -169,7 +223,7 @@ function buildDriverReservationListItem(row) {
   };
 }
 
-function buildDriverReservationDetail(row, consentRow, integrity) {
+function buildDriverReservationDetail(row, consentRow, integrity, runRow) {
   const quoteSnapshot = parseStoredJson(row.quote_snapshot);
   const routePlan = parseStoredJson(row.route_plan);
   const usageSummary = parseStoredJson(row.usage_summary);
@@ -179,7 +233,7 @@ function buildDriverReservationDetail(row, consentRow, integrity) {
     reservationId: String(row.id || ""),
     estimateNo: String(row.estimate_no || "").trim() || null,
     status: String(row.status || "active"),
-    meterRunStatus: "not_started",
+    meterRunStatus: resolveMeterRunStatus(runRow),
     scheduledAt: buildScheduledAt(row.date, row.time),
     customer: {
       name: String(row.name || ""),
@@ -218,19 +272,20 @@ function buildDriverReservationDetail(row, consentRow, integrity) {
 function buildDriverReservationQuery(tenant) {
   const franchiseeId = String(tenant?.franchiseeId || "").trim();
   const storeId = String(tenant?.storeId || "").trim();
-  const sql = `SELECT *
-    FROM reservations
-    WHERE COALESCE(is_visible, 1) != 0
-      AND COALESCE(status, 'active') != 'cancel'
-      AND date = ?
+  const sql = `SELECT r.*, m.status AS meter_run_status
+    FROM reservations r
+    LEFT JOIN meter_fixed_fare_runs m ON m.reservation_id = r.id
+    WHERE COALESCE(r.is_visible, 1) != 0
+      AND COALESCE(r.status, 'active') != 'cancel'
+      AND r.date = ?
       AND (
-        COALESCE(confirmed_fare, 0) > 0
-        OR COALESCE(fare_type, '') = 'fixed'
-        OR COALESCE(quote_snapshot_hash, '') != ''
+        COALESCE(r.confirmed_fare, 0) > 0
+        OR COALESCE(r.fare_type, '') = 'fixed'
+        OR COALESCE(r.quote_snapshot_hash, '') != ''
       )
-      AND (? = '' OR COALESCE(franchisee_id, '') = ?)
-      AND (? = '' OR COALESCE(store_id, '') = ?)
-    ORDER BY time ASC, id ASC`;
+      AND (? = '' OR COALESCE(r.franchisee_id, '') = ?)
+      AND (? = '' OR COALESCE(r.store_id, '') = ?)
+    ORDER BY r.time ASC, r.id ASC`;
   return {
     sql,
     binds: [franchiseeId, franchiseeId, storeId, storeId],
@@ -262,7 +317,14 @@ async function fetchLatestQuoteConsent(db, reservationId) {
     .first();
 }
 
-export async function getDriverReservationDetail(db, reservationId, tenant = {}) {
+async function fetchFixedFareRun(db, reservationId) {
+  return db
+    .prepare(`SELECT * FROM meter_fixed_fare_runs WHERE reservation_id = ? LIMIT 1`)
+    .bind(reservationId)
+    .first();
+}
+
+async function loadDriverFixedFareReservation(db, reservationId, tenant = {}) {
   const row = await db
     .prepare(`SELECT * FROM reservations WHERE id = ? LIMIT 1`)
     .bind(reservationId)
@@ -290,12 +352,105 @@ export async function getDriverReservationDetail(db, reservationId, tenant = {})
     return { ok: false, status: 404, message: "予約が見つかりません" };
   }
 
+  return { ok: true, row };
+}
+
+export async function getDriverReservationDetail(db, reservationId, tenant = {}) {
+  const loaded = await loadDriverFixedFareReservation(db, reservationId, tenant);
+  if (!loaded.ok) {
+    return loaded;
+  }
+
   const consentRow = await fetchLatestQuoteConsent(db, reservationId);
-  const quoteSnapshot = parseStoredJson(row.quote_snapshot);
-  const integrity = await buildReservationIntegrity(row, quoteSnapshot, consentRow);
+  const quoteSnapshot = parseStoredJson(loaded.row.quote_snapshot);
+  const integrity = await buildReservationIntegrity(loaded.row, quoteSnapshot, consentRow);
+  const runRow = await fetchFixedFareRun(db, reservationId);
 
   return {
     ok: true,
-    reservation: buildDriverReservationDetail(row, consentRow, integrity),
+    reservation: buildDriverReservationDetail(loaded.row, consentRow, integrity, runRow),
   };
+}
+
+export async function startFixedFareRun(db, reservationId, tenant = {}, _options = {}) {
+  const loaded = await loadDriverFixedFareReservation(db, reservationId, tenant);
+  if (!loaded.ok) {
+    return loaded;
+  }
+
+  const consentRow = await fetchLatestQuoteConsent(db, reservationId);
+  const quoteSnapshot = parseStoredJson(loaded.row.quote_snapshot);
+  const integrity = await buildReservationIntegrity(loaded.row, quoteSnapshot, consentRow);
+  if (!integrity.snapshotHashVerified || !integrity.confirmedFareMatchesSnapshot) {
+    return { ok: false, status: 422, message: "予約の整合性検証に失敗しました" };
+  }
+
+  const existingRun = await fetchFixedFareRun(db, reservationId);
+  if (existingRun) {
+    const status = String(existingRun.status || "").trim();
+    if (status === "in_progress") {
+      return { ok: false, status: 409, message: "すでに運行中です" };
+    }
+    if (status === "completed") {
+      return { ok: false, status: 409, message: "すでに完了しています" };
+    }
+  }
+
+  const now = new Date().toISOString();
+  const confirmedFareYen = Number(loaded.row.confirmed_fare) || 0;
+  const snapshotHash = String(loaded.row.quote_snapshot_hash || "").trim();
+  const franchiseeId = String(loaded.row.franchisee_id || "").trim() || null;
+  const storeId = String(loaded.row.store_id || "").trim() || null;
+
+  await db
+    .prepare(
+      `INSERT INTO meter_fixed_fare_runs (
+        reservation_id, status, confirmed_fare_yen, snapshot_hash,
+        started_at, completed_at, franchisee_id, store_id, created_at, updated_at
+      ) VALUES (?, 'in_progress', ?, ?, ?, NULL, ?, ?, ?, ?)`,
+    )
+    .bind(reservationId, confirmedFareYen, snapshotHash, now, franchiseeId, storeId, now, now)
+    .run();
+
+  const runRow = await fetchFixedFareRun(db, reservationId);
+  return { ok: true, run: buildFixedFareRunResponse(runRow) };
+}
+
+export async function completeFixedFareRun(db, reservationId, tenant = {}, _options = {}) {
+  const loaded = await loadDriverFixedFareReservation(db, reservationId, tenant);
+  if (!loaded.ok) {
+    return loaded;
+  }
+
+  const existingRun = await fetchFixedFareRun(db, reservationId);
+  if (!existingRun) {
+    return { ok: false, status: 409, message: "運行が開始されていません" };
+  }
+  if (String(existingRun.status || "").trim() === "completed") {
+    return { ok: false, status: 409, message: "すでに完了しています" };
+  }
+
+  const now = new Date().toISOString();
+  const updateResult = await db
+    .prepare(
+      `UPDATE meter_fixed_fare_runs
+       SET status = 'completed', completed_at = ?, updated_at = ?
+       WHERE reservation_id = ? AND status = 'in_progress'`,
+    )
+    .bind(now, now, reservationId)
+    .run();
+
+  if (!updateResult.meta?.changes) {
+    const latestRun = await fetchFixedFareRun(db, reservationId);
+    if (!latestRun) {
+      return { ok: false, status: 409, message: "運行が開始されていません" };
+    }
+    if (String(latestRun.status || "").trim() === "completed") {
+      return { ok: false, status: 409, message: "すでに完了しています" };
+    }
+    return { ok: false, status: 409, message: "運行を完了できません" };
+  }
+
+  const runRow = await fetchFixedFareRun(db, reservationId);
+  return { ok: true, run: buildFixedFareRunResponse(runRow) };
 }
