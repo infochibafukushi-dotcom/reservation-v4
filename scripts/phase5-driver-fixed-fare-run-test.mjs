@@ -284,6 +284,119 @@ async function main() {
     out = await jsonRes(res);
     record("P5-12-complete-before-start", res.status === 409, `status=${res.status}`);
 
+    const passengerChangeReservationId = await createFixedReservation(mf, {
+      estimateNo: "EST-PHASE5-PASSENGER-001",
+      time: "15:00",
+    });
+    const passengerStartUrl = `http://localhost/api/driver/reservations/${passengerChangeReservationId}/start-fixed-fare`;
+    const passengerCompleteUrl = `http://localhost/api/driver/reservations/${passengerChangeReservationId}/complete-fixed-fare`;
+
+    res = await mf.dispatchFetch(passengerStartUrl, {
+      method: "POST",
+      headers: driverHeaders(),
+      body: "{}",
+    });
+    out = await jsonRes(res);
+    record(
+      "P5-13-passenger-change-start",
+      res.status === 200 && out.data?.run?.meterRunStatus === "in_progress",
+      `status=${res.status}`,
+    );
+
+    const passengerChangeBody = {
+      completionStatus: "completed_with_passenger_change",
+      completionReason: "passenger_requested_route_change",
+      preFixedFareException: {
+        type: "passenger_requested_change",
+        reasonLabel: "旅客都合によるルート変更・立ち寄り追加",
+        endedAt: "2026-06-27T09:00:00.000Z",
+        endedLocation: {
+          lat: 35.607,
+          lng: 140.106,
+          accuracy: 20,
+        },
+        originalFixedFareYen: 7700,
+        fareModeBeforeEnd: "pre_fixed_fare",
+        nextOperationRequired: "start_new_meter_trip",
+        note: "旅客都合により当初走行予定ルートから変更。事前確定運賃運送を終了し、以後は別運送として扱う。",
+      },
+      unknownFutureField: "ignored",
+    };
+
+    res = await mf.dispatchFetch(passengerCompleteUrl, {
+      method: "POST",
+      headers: driverHeaders(),
+      body: JSON.stringify(passengerChangeBody),
+    });
+    out = await jsonRes(res);
+    record(
+      "P5-14-passenger-change-complete",
+      res.status === 200 &&
+        out.data?.success &&
+        out.data?.run?.status === "completed" &&
+        out.data?.run?.fixedFareCompletionStatus === "completed_with_passenger_change" &&
+        out.data?.run?.fixedFareCompletionReason === "passenger_requested_route_change" &&
+        out.data?.run?.preFixedFareException?.type === "passenger_requested_change",
+      `status=${res.status} completionStatus=${out.data?.run?.fixedFareCompletionStatus || ""}`,
+    );
+
+    const runRow = await db
+      .prepare(`SELECT * FROM meter_fixed_fare_runs WHERE reservation_id = ? LIMIT 1`)
+      .bind(passengerChangeReservationId)
+      .first();
+    record(
+      "P5-15-passenger-change-d1",
+      runRow?.completion_status === "completed_with_passenger_change" &&
+        runRow?.completion_reason === "passenger_requested_route_change" &&
+        String(runRow?.pre_fixed_fare_exception_json || "").includes("passenger_requested_change"),
+      `completion_status=${runRow?.completion_status || ""}`,
+    );
+
+    res = await mf.dispatchFetch(
+      `http://localhost/api/driver/reservations/${passengerChangeReservationId}`,
+      { headers: driverHeaders() },
+    );
+    out = await jsonRes(res);
+    record(
+      "P5-16-passenger-change-detail",
+      res.status === 200 &&
+        out.data?.reservation?.meterRunStatus === "completed" &&
+        out.data?.reservation?.fixedFareCompletionStatus ===
+          "completed_with_passenger_change" &&
+        out.data?.reservation?.preFixedFareException?.originalFixedFareYen === 7700,
+      `status=${res.status} fixedFareCompletionStatus=${out.data?.reservation?.fixedFareCompletionStatus || ""}`,
+    );
+
+    const normalCompleteReservationId = await createFixedReservation(mf, {
+      estimateNo: "EST-PHASE5-NORMAL-001",
+      time: "16:00",
+    });
+    res = await mf.dispatchFetch(
+      `http://localhost/api/driver/reservations/${normalCompleteReservationId}/start-fixed-fare`,
+      { method: "POST", headers: driverHeaders(), body: "{}" },
+    );
+    out = await jsonRes(res);
+    record(
+      "P5-17-normal-complete-start",
+      res.status === 200 && out.data?.run?.meterRunStatus === "in_progress",
+      `status=${res.status}`,
+    );
+
+    res = await mf.dispatchFetch(
+      `http://localhost/api/driver/reservations/${normalCompleteReservationId}/complete-fixed-fare`,
+      { method: "POST", headers: driverHeaders() },
+    );
+    out = await jsonRes(res);
+    record(
+      "P5-18-normal-complete-empty-body",
+      res.status === 200 &&
+        out.data?.run?.status === "completed" &&
+        out.data?.run?.fixedFareCompletionStatus === "completed" &&
+        out.data?.run?.fixedFareCompletionReason === "normal_completed" &&
+        out.data?.run?.preFixedFareException == null,
+      `status=${res.status} completionStatus=${out.data?.run?.fixedFareCompletionStatus || ""}`,
+    );
+
     const failed = results.filter((row) => !row.pass);
     console.log("\nPhase 5 driver fixed-fare run test report:");
     for (const row of results) {

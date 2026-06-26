@@ -56,6 +56,7 @@ function resolveMeterRunStatus(source) {
 
 function buildFixedFareRunResponse(runRow) {
   const status = String(runRow.status || "").trim();
+  const completionFields = buildFixedFareCompletionFields(runRow);
   return {
     reservationId: String(runRow.reservation_id || ""),
     status,
@@ -64,6 +65,132 @@ function buildFixedFareRunResponse(runRow) {
     snapshotHash: String(runRow.snapshot_hash || "").trim() || null,
     startedAt: String(runRow.started_at || "").trim() || null,
     completedAt: String(runRow.completed_at || "").trim() || null,
+    ...completionFields,
+  };
+}
+
+function normalizeOptionalCoordinate(value) {
+  if (value == null || value === "") {
+    return null;
+  }
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function normalizePreFixedFareException(raw, fallbackConfirmedFareYen = 0) {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  const type = String(raw.type || "").trim();
+  if (type !== "passenger_requested_change") {
+    return null;
+  }
+
+  const endedLocationRaw =
+    raw.endedLocation && typeof raw.endedLocation === "object" ? raw.endedLocation : {};
+
+  return {
+    type: "passenger_requested_change",
+    reasonLabel:
+      String(raw.reasonLabel || "旅客都合によるルート変更・立ち寄り追加").trim() ||
+      "旅客都合によるルート変更・立ち寄り追加",
+    endedAt: String(raw.endedAt || new Date().toISOString()).trim(),
+    endedLocation: {
+      lat: normalizeOptionalCoordinate(endedLocationRaw.lat),
+      lng: normalizeOptionalCoordinate(endedLocationRaw.lng),
+      accuracy: normalizeOptionalCoordinate(endedLocationRaw.accuracy),
+    },
+    originalFixedFareYen: Math.max(
+      Math.round(Number(raw.originalFixedFareYen) || fallbackConfirmedFareYen || 0),
+      0,
+    ),
+    fareModeBeforeEnd: "pre_fixed_fare",
+    nextOperationRequired: "start_new_meter_trip",
+    note: String(raw.note || "").trim(),
+  };
+}
+
+export function parseCompleteFixedFareOptions(body, confirmedFareYen = 0) {
+  if (body == null || typeof body !== "object" || Object.keys(body).length === 0) {
+    return {
+      completionStatus: "completed",
+      completionReason: "normal_completed",
+      preFixedFareException: null,
+      preFixedFareExceptionJson: null,
+    };
+  }
+
+  const completionStatusRaw = String(body.completionStatus || "").trim();
+  const completionReasonRaw = String(body.completionReason || "").trim();
+  const preFixedFareException = normalizePreFixedFareException(
+    body.preFixedFareException,
+    confirmedFareYen,
+  );
+
+  const isPassengerChange =
+    completionStatusRaw === "completed_with_passenger_change" ||
+    completionReasonRaw === "passenger_requested_route_change" ||
+    Boolean(preFixedFareException);
+
+  if (isPassengerChange) {
+    const resolvedException =
+      preFixedFareException ||
+      normalizePreFixedFareException(
+        {
+          type: "passenger_requested_change",
+          originalFixedFareYen: confirmedFareYen,
+        },
+        confirmedFareYen,
+      );
+
+    return {
+      completionStatus: "completed_with_passenger_change",
+      completionReason: "passenger_requested_route_change",
+      preFixedFareException: resolvedException,
+      preFixedFareExceptionJson: JSON.stringify(resolvedException),
+    };
+  }
+
+  return {
+    completionStatus: "completed",
+    completionReason:
+      completionReasonRaw === "normal_completed" ? "normal_completed" : "normal_completed",
+    preFixedFareException: null,
+    preFixedFareExceptionJson: null,
+  };
+}
+
+function buildFixedFareCompletionFields(runRow) {
+  if (!runRow) {
+    return {
+      fixedFareCompletionStatus: null,
+      fixedFareCompletionReason: null,
+      preFixedFareException: null,
+    };
+  }
+
+  const runStatus = String(runRow.status || "").trim();
+  if (runStatus !== "completed") {
+    return {
+      fixedFareCompletionStatus: null,
+      fixedFareCompletionReason: null,
+      preFixedFareException: null,
+    };
+  }
+
+  const fixedFareCompletionStatus =
+    String(runRow.completion_status || "").trim() || "completed";
+  const fixedFareCompletionReason =
+    String(runRow.completion_reason || "").trim() ||
+    (fixedFareCompletionStatus === "completed_with_passenger_change"
+      ? "passenger_requested_route_change"
+      : "normal_completed");
+  const preFixedFareException = parseStoredJson(runRow.pre_fixed_fare_exception_json);
+
+  return {
+    fixedFareCompletionStatus,
+    fixedFareCompletionReason,
+    preFixedFareException,
   };
 }
 
@@ -266,6 +393,7 @@ function buildDriverReservationDetail(row, consentRow, integrity, runRow) {
     integrity,
     franchiseeId: String(row.franchisee_id || "").trim() || null,
     storeId: String(row.store_id || "").trim() || null,
+    ...buildFixedFareCompletionFields(runRow),
   };
 }
 
@@ -416,7 +544,7 @@ export async function startFixedFareRun(db, reservationId, tenant = {}, _options
   return { ok: true, run: buildFixedFareRunResponse(runRow) };
 }
 
-export async function completeFixedFareRun(db, reservationId, tenant = {}, _options = {}) {
+export async function completeFixedFareRun(db, reservationId, tenant = {}, options = {}) {
   const loaded = await loadDriverFixedFareReservation(db, reservationId, tenant);
   if (!loaded.ok) {
     return loaded;
@@ -430,14 +558,28 @@ export async function completeFixedFareRun(db, reservationId, tenant = {}, _opti
     return { ok: false, status: 409, message: "すでに完了しています" };
   }
 
+  const confirmedFareYen = Number(existingRun.confirmed_fare_yen) || 0;
+  const completion = parseCompleteFixedFareOptions(options, confirmedFareYen);
   const now = new Date().toISOString();
   const updateResult = await db
     .prepare(
       `UPDATE meter_fixed_fare_runs
-       SET status = 'completed', completed_at = ?, updated_at = ?
+       SET status = 'completed',
+           completed_at = ?,
+           updated_at = ?,
+           completion_status = ?,
+           completion_reason = ?,
+           pre_fixed_fare_exception_json = ?
        WHERE reservation_id = ? AND status = 'in_progress'`,
     )
-    .bind(now, now, reservationId)
+    .bind(
+      now,
+      now,
+      completion.completionStatus,
+      completion.completionReason,
+      completion.preFixedFareExceptionJson,
+      reservationId,
+    )
     .run();
 
   if (!updateResult.meta?.changes) {
