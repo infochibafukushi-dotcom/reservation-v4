@@ -159,7 +159,7 @@
 
   function getDisplayBasicFareAmount(config) {
     const pattern = config?.distancePricing?.patternA || {};
-    return Number(pattern.initialFare) || 500;
+    return Number(pattern.initialFare) || 520;
   }
 
   function getBookingDisplayTotal(config, result, form) {

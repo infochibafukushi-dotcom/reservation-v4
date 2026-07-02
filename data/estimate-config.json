@@ -48,8 +48,8 @@
     "mode": "patternA",
     "patternA": {
       "initialDistanceKm": 1.06,
-      "initialFare": 500,
-      "incrementDistanceKm": 0.221,
+      "initialFare": 520,
+      "incrementDistanceKm": 0.212,
       "incrementFare": 100
     },
     "patternB": {
@@ -157,9 +157,9 @@
         "calculator": "time_block",
         "params": {
           "baseMinutes": 30,
-          "baseAmount": 5000,
-          "perBlockMinutes": 15,
-          "perBlockAmount": 1200
+          "baseAmount": 4180,
+          "perBlockMinutes": 30,
+          "perBlockAmount": 4180
         }
       },
       {

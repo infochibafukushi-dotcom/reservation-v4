@@ -203,19 +203,28 @@
     return result;
   }
 
+  function getDefaultCharterTimeBlockParams(){
+    const fc = global.FareConstants;
+    if(fc && typeof fc.getCharterTimeBlockParams === "function"){
+      return fc.getCharterTimeBlockParams();
+    }
+    return {
+      baseMinutes: 30,
+      baseAmount: 4180,
+      perBlockMinutes: 30,
+      perBlockAmount: 4180
+    };
+  }
+
   function getDefaultFareComponents(config){
+    const charterTimeParams = getDefaultCharterTimeBlockParams();
     return {
       time: [
         {
           key: "timeBaseFare",
           label: "時間制運賃",
           calculator: "time_block",
-          params: {
-            baseMinutes: 30,
-            baseAmount: 5000,
-            perBlockMinutes: 15,
-            perBlockAmount: 1200
-          }
+          params: charterTimeParams
         },
         pickupFeeComponent(config),
         specialVehicleFeeComponent(config)
