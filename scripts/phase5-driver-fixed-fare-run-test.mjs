@@ -397,6 +397,167 @@ async function main() {
       `status=${res.status} completionStatus=${out.data?.run?.fixedFareCompletionStatus || ""}`,
     );
 
+    // --- reset-fixed-fare (orphan in_progress recovery) ---
+    const resetReservationId = await createFixedReservation(mf, {
+      estimateNo: "EST-PHASE5-RESET-001",
+      time: "17:00",
+    });
+    const resetStartUrl = `http://localhost/api/driver/reservations/${resetReservationId}/start-fixed-fare`;
+    const resetUrl = `http://localhost/api/driver/reservations/${resetReservationId}/reset-fixed-fare`;
+
+    res = await mf.dispatchFetch(resetStartUrl, {
+      method: "POST",
+      headers: driverHeaders(),
+      body: "{}",
+    });
+    out = await jsonRes(res);
+    record(
+      "P5-19-reset-start",
+      res.status === 200 && out.data?.run?.meterRunStatus === "in_progress",
+      `status=${res.status}`,
+    );
+
+    res = await mf.dispatchFetch(resetUrl, {
+      method: "POST",
+      headers: driverHeaders(),
+      body: JSON.stringify({
+        reason: "missing_active_trip_snapshot",
+        confirmReservationId: "wrong-id",
+        resetBy: "meter_driver",
+      }),
+    });
+    out = await jsonRes(res);
+    record(
+      "P5-20-reset-confirm-mismatch",
+      res.status === 400,
+      `status=${res.status} message=${out.data?.message || ""}`,
+    );
+
+    res = await mf.dispatchFetch(resetUrl, {
+      method: "POST",
+      headers: driverHeaders(),
+      body: JSON.stringify({
+        reason: "missing_active_trip_snapshot",
+        confirmReservationId: resetReservationId,
+        resetBy: "meter_driver",
+      }),
+    });
+    out = await jsonRes(res);
+    const resetRun = out.data?.run;
+    record(
+      "P5-21-reset-ok",
+      res.status === 200 &&
+        out.data?.success &&
+        resetRun?.status === "not_started" &&
+        resetRun?.meterRunStatus === "not_started" &&
+        resetRun?.completedAt == null &&
+        resetRun?.fixedFareCompletionStatus == null &&
+        resetRun?.fixedFareCompletionReason == null &&
+        resetRun?.preFixedFareException == null &&
+        resetRun?.meterRunStatusResetAt &&
+        resetRun?.meterRunStatusResetBy === "meter_driver" &&
+        resetRun?.meterRunStatusResetReason === "missing_active_trip_snapshot" &&
+        resetRun?.previousMeterRunStatus === "in_progress",
+      `status=${res.status} meterRunStatus=${resetRun?.meterRunStatus || ""} resetAt=${resetRun?.meterRunStatusResetAt || ""}`,
+    );
+
+    const resetRow = await db
+      .prepare(`SELECT * FROM meter_fixed_fare_runs WHERE reservation_id = ? LIMIT 1`)
+      .bind(resetReservationId)
+      .first();
+    record(
+      "P5-22-reset-d1-not-completed",
+      resetRow?.status === "not_started" &&
+        resetRow?.completed_at == null &&
+        resetRow?.completion_status == null &&
+        resetRow?.completion_reason == null &&
+        resetRow?.pre_fixed_fare_exception_json == null &&
+        resetRow?.previous_meter_run_status === "in_progress" &&
+        resetRow?.meter_run_status_reset_reason === "missing_active_trip_snapshot",
+      `status=${resetRow?.status || ""} completed_at=${resetRow?.completed_at || "null"}`,
+    );
+
+    // caseRecord / 売上テーブルは reservation-v4 に存在しないことを確認（作成されていない）
+    const caseTables = await db
+      .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name IN ('caseRecords', 'case_records', 'sales', 'receipts')`)
+      .all();
+    record(
+      "P5-23-reset-no-sales-tables",
+      (caseTables.results || []).length === 0,
+      `tables=${(caseTables.results || []).map((row) => row.name).join(",") || "(none)"}`,
+    );
+
+    res = await mf.dispatchFetch(resetUrl, {
+      method: "POST",
+      headers: driverHeaders(),
+      body: JSON.stringify({
+        reason: "missing_active_trip_snapshot",
+        confirmReservationId: resetReservationId,
+      }),
+    });
+    out = await jsonRes(res);
+    record(
+      "P5-24-reset-not-started-conflict",
+      res.status === 409,
+      `status=${res.status} message=${out.data?.message || ""}`,
+    );
+
+    res = await mf.dispatchFetch(resetStartUrl, {
+      method: "POST",
+      headers: driverHeaders(),
+      body: "{}",
+    });
+    out = await jsonRes(res);
+    record(
+      "P5-25-restart-after-reset",
+      res.status === 200 &&
+        out.data?.run?.status === "in_progress" &&
+        out.data?.run?.meterRunStatus === "in_progress" &&
+        out.data?.run?.meterRunStatusResetReason === "missing_active_trip_snapshot" &&
+        out.data?.run?.previousMeterRunStatus === "in_progress",
+      `status=${res.status} meterRunStatus=${out.data?.run?.meterRunStatus || ""}`,
+    );
+
+    res = await mf.dispatchFetch(
+      `http://localhost/api/driver/reservations/${normalCompleteReservationId}/reset-fixed-fare`,
+      {
+        method: "POST",
+        headers: driverHeaders(),
+        body: JSON.stringify({
+          reason: "missing_active_trip_snapshot",
+          confirmReservationId: normalCompleteReservationId,
+        }),
+      },
+    );
+    out = await jsonRes(res);
+    record(
+      "P5-26-reset-completed-conflict",
+      res.status === 409,
+      `status=${res.status} message=${out.data?.message || ""}`,
+    );
+
+    const neverStartedReservationId = await createFixedReservation(mf, {
+      estimateNo: "EST-PHASE5-RESET-NEVER-001",
+      time: "18:00",
+    });
+    res = await mf.dispatchFetch(
+      `http://localhost/api/driver/reservations/${neverStartedReservationId}/reset-fixed-fare`,
+      {
+        method: "POST",
+        headers: driverHeaders(),
+        body: JSON.stringify({
+          reason: "missing_active_trip_snapshot",
+          confirmReservationId: neverStartedReservationId,
+        }),
+      },
+    );
+    out = await jsonRes(res);
+    record(
+      "P5-27-reset-no-row-conflict",
+      res.status === 409,
+      `status=${res.status} message=${out.data?.message || ""}`,
+    );
+
     const failed = results.filter((row) => !row.pass);
     console.log("\nPhase 5 driver fixed-fare run test report:");
     for (const row of results) {

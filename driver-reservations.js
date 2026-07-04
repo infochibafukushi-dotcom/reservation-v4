@@ -65,6 +65,10 @@ function buildFixedFareRunResponse(runRow) {
     snapshotHash: String(runRow.snapshot_hash || "").trim() || null,
     startedAt: String(runRow.started_at || "").trim() || null,
     completedAt: String(runRow.completed_at || "").trim() || null,
+    meterRunStatusResetAt: String(runRow.meter_run_status_reset_at || "").trim() || null,
+    meterRunStatusResetBy: String(runRow.meter_run_status_reset_by || "").trim() || null,
+    meterRunStatusResetReason: String(runRow.meter_run_status_reset_reason || "").trim() || null,
+    previousMeterRunStatus: String(runRow.previous_meter_run_status || "").trim() || null,
     ...completionFields,
   };
 }
@@ -514,6 +518,12 @@ export async function startFixedFareRun(db, reservationId, tenant = {}, _options
   }
 
   const existingRun = await fetchFixedFareRun(db, reservationId);
+  const now = new Date().toISOString();
+  const confirmedFareYen = Number(loaded.row.confirmed_fare) || 0;
+  const snapshotHash = String(loaded.row.quote_snapshot_hash || "").trim();
+  const franchiseeId = String(loaded.row.franchisee_id || "").trim() || null;
+  const storeId = String(loaded.row.store_id || "").trim() || null;
+
   if (existingRun) {
     const status = String(existingRun.status || "").trim();
     if (status === "in_progress") {
@@ -522,23 +532,108 @@ export async function startFixedFareRun(db, reservationId, tenant = {}, _options
     if (status === "completed") {
       return { ok: false, status: 409, message: "すでに完了しています" };
     }
+
+    // not_started（リセット後など）: INSERT せず UPDATE で再開始する。
+    // reset 監査カラムは履歴として残す。
+    const updateResult = await db
+      .prepare(
+        `UPDATE meter_fixed_fare_runs
+         SET status = 'in_progress',
+             confirmed_fare_yen = ?,
+             snapshot_hash = ?,
+             started_at = ?,
+             completed_at = NULL,
+             completion_status = NULL,
+             completion_reason = NULL,
+             pre_fixed_fare_exception_json = NULL,
+             franchisee_id = ?,
+             store_id = ?,
+             updated_at = ?
+         WHERE reservation_id = ?
+           AND status != 'in_progress'
+           AND status != 'completed'`,
+      )
+      .bind(confirmedFareYen, snapshotHash, now, franchiseeId, storeId, now, reservationId)
+      .run();
+
+    if (!updateResult.meta?.changes) {
+      return { ok: false, status: 409, message: "運行を開始できません" };
+    }
+  } else {
+    await db
+      .prepare(
+        `INSERT INTO meter_fixed_fare_runs (
+          reservation_id, status, confirmed_fare_yen, snapshot_hash,
+          started_at, completed_at, franchisee_id, store_id, created_at, updated_at
+        ) VALUES (?, 'in_progress', ?, ?, ?, NULL, ?, ?, ?, ?)`,
+      )
+      .bind(reservationId, confirmedFareYen, snapshotHash, now, franchiseeId, storeId, now, now)
+      .run();
+  }
+
+  const runRow = await fetchFixedFareRun(db, reservationId);
+  return { ok: true, run: buildFixedFareRunResponse(runRow) };
+}
+
+export async function resetFixedFareRun(db, reservationId, tenant = {}, options = {}) {
+  const confirmReservationId = String(options.confirmReservationId || "").trim();
+  if (confirmReservationId !== reservationId) {
+    return { ok: false, status: 400, message: "予約IDの確認が一致しません" };
+  }
+
+  const loaded = await loadDriverFixedFareReservation(db, reservationId, tenant);
+  if (!loaded.ok) {
+    return loaded;
+  }
+
+  const existingRun = await fetchFixedFareRun(db, reservationId);
+  if (!existingRun) {
+    return { ok: false, status: 409, message: "運行が開始されていません" };
+  }
+
+  const status = String(existingRun.status || "").trim();
+  if (status === "completed") {
+    return { ok: false, status: 409, message: "すでに完了しています" };
+  }
+  if (status !== "in_progress") {
+    return { ok: false, status: 409, message: "運行中ではないためリセットできません" };
   }
 
   const now = new Date().toISOString();
-  const confirmedFareYen = Number(loaded.row.confirmed_fare) || 0;
-  const snapshotHash = String(loaded.row.quote_snapshot_hash || "").trim();
-  const franchiseeId = String(loaded.row.franchisee_id || "").trim() || null;
-  const storeId = String(loaded.row.store_id || "").trim() || null;
+  const resetBy = String(options.resetBy || "").trim() || "meter_driver";
+  const reason = String(options.reason || "").trim() || "missing_active_trip_snapshot";
 
-  await db
+  const updateResult = await db
     .prepare(
-      `INSERT INTO meter_fixed_fare_runs (
-        reservation_id, status, confirmed_fare_yen, snapshot_hash,
-        started_at, completed_at, franchisee_id, store_id, created_at, updated_at
-      ) VALUES (?, 'in_progress', ?, ?, ?, NULL, ?, ?, ?, ?)`,
+      `UPDATE meter_fixed_fare_runs
+       SET status = 'not_started',
+           completed_at = NULL,
+           completion_status = NULL,
+           completion_reason = NULL,
+           pre_fixed_fare_exception_json = NULL,
+           meter_run_status_reset_at = ?,
+           meter_run_status_reset_by = ?,
+           meter_run_status_reset_reason = ?,
+           previous_meter_run_status = 'in_progress',
+           updated_at = ?
+       WHERE reservation_id = ? AND status = 'in_progress'`,
     )
-    .bind(reservationId, confirmedFareYen, snapshotHash, now, franchiseeId, storeId, now, now)
+    .bind(now, resetBy, reason, now, reservationId)
     .run();
+
+  if (!updateResult.meta?.changes) {
+    const latestRun = await fetchFixedFareRun(db, reservationId);
+    if (!latestRun) {
+      return { ok: false, status: 409, message: "運行が開始されていません" };
+    }
+    if (String(latestRun.status || "").trim() === "completed") {
+      return { ok: false, status: 409, message: "すでに完了しています" };
+    }
+    if (String(latestRun.status || "").trim() !== "in_progress") {
+      return { ok: false, status: 409, message: "運行中ではないためリセットできません" };
+    }
+    return { ok: false, status: 409, message: "運行中状態をリセットできません" };
+  }
 
   const runRow = await fetchFixedFareRun(db, reservationId);
   return { ok: true, run: buildFixedFareRunResponse(runRow) };
