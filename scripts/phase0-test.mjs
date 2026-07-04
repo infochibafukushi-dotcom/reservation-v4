@@ -220,6 +220,136 @@ async function main() {
     out = await jsonRes(res);
     record("R-quotes", res.status === 200 && out.data?.status === "active", `quotes still active after reservation`);
 
+    // N-round: fixedFareTotal は10円未満切捨て、confirmed total は丸め後本体+サービス料金
+    await db
+      .prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES ('fixed_fare_enabled', 'true')`)
+      .run();
+    const oddEstimateNo = "EST-PHASE0-ROUND-001";
+    let oddSnapshotHash = "";
+    const oddSnapshot = {
+      fixedFareTotal: 5844,
+      total: 7744,
+      fixedFareBreakdown: [
+        { key: "pickupFee", label: "迎車料金", amount: 800 },
+        { key: "distanceFare", label: "距離運賃", amount: 5044 },
+      ],
+      serviceFees: [
+        { key: "specialVehicleFee", label: "特殊車両使用料", amount: 1000 },
+        { key: "assistanceFee", label: "介助料金", amount: 1100 },
+        { key: "waitingFee", label: "待機料金", amount: 800 },
+      ],
+      fareMode: "distance",
+      fareVersion: "v1",
+      quoteVersion: 1,
+    };
+    res = await mf.dispatchFetch("http://localhost/api/quotes/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LP_TOKEN}`,
+      },
+      body: JSON.stringify({
+        estimateNo: oddEstimateNo,
+        total: 7744,
+        fareType: "fixed",
+        quoteSnapshot: oddSnapshot,
+        routePlan: { pickup: "A", destination: "B" },
+        usageSummary: [{ label: "移動方法", value: "車いす" }],
+        handoffSource: "lp-site-estimate",
+        dtoVersion: 2,
+      }),
+    });
+    out = await jsonRes(res);
+    oddSnapshotHash = out.data?.snapshotHash || "";
+    record(
+      "N-round-register",
+      res.status === 200 && out.data?.success === true && Boolean(oddSnapshotHash),
+      `status=${res.status} total=${out.data?.total} ${out.text.slice(0, 120)}`,
+    );
+
+    res = await mf.dispatchFetch(`http://localhost/api/quotes/${encodeURIComponent(oddEstimateNo)}`);
+    out = await jsonRes(res);
+    record(
+      "N-round-quote-get",
+      res.status === 200 &&
+        out.data?.total === 7740 &&
+        out.data?.fixedFareTotal === 5840 &&
+        out.data?.quoteSnapshot?.fixedFareTotal === 5840,
+      `status=${res.status} total=${out.data?.total} fixedFareTotal=${out.data?.fixedFareTotal} snapshotFixed=${out.data?.quoteSnapshot?.fixedFareTotal}`,
+    );
+
+    const quoteRow = await db
+      .prepare(`SELECT total_amount, fixed_fare_total, quote_snapshot FROM quotes WHERE estimate_no=?`)
+      .bind(oddEstimateNo)
+      .first();
+    let storedSnapshotFixed = null;
+    try {
+      storedSnapshotFixed = JSON.parse(String(quoteRow?.quote_snapshot || "{}"))?.fixedFareTotal;
+    } catch {
+      storedSnapshotFixed = null;
+    }
+    record(
+      "N-round-quote-d1",
+      Number(quoteRow?.total_amount) === 7740 &&
+        Number(quoteRow?.fixed_fare_total) === 5840 &&
+        Number(storedSnapshotFixed) === 5840,
+      `total_amount=${quoteRow?.total_amount} fixed_fare_total=${quoteRow?.fixed_fare_total} snapshotFixed=${storedSnapshotFixed}`,
+    );
+
+    res = await mf.dispatchFetch("http://localhost/api/createReservation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "User-Agent": "Phase0Round/1.0" },
+      body: JSON.stringify({
+        usageType: "初めて",
+        name: "端数テスト",
+        phone: "09099998888",
+        email: "round@example.com",
+        date: "2099-07-01",
+        time: "10:00",
+        pickup: "千葉駅",
+        destination: "東京駅",
+        vehicle: "車いす",
+        estimate: "7,740円",
+        estimateNo: oddEstimateNo,
+        estimateConsent: {
+          estimateNo: oddEstimateNo,
+          quotedFare: 7740,
+          consentText: `見積番号 ${oddEstimateNo} の確定運賃 7,740円 および上記見積内容に同意して予約する`,
+          consentTextVersion: "2026-06-01-v1",
+          snapshotHash: oddSnapshotHash,
+        },
+      }),
+    });
+    out = await jsonRes(res);
+    const roundedReservationId = out.data?.id || "";
+    record(
+      "N-round-reservation",
+      res.status === 200 && Boolean(roundedReservationId),
+      `status=${res.status} id=${roundedReservationId}`,
+    );
+
+    if (roundedReservationId) {
+      const reservationRow = await db
+        .prepare(`SELECT confirmed_fare, fixed_fare_total, quote_snapshot FROM reservations WHERE id=?`)
+        .bind(roundedReservationId)
+        .first();
+      let reservationSnapshotFixed = null;
+      try {
+        reservationSnapshotFixed = JSON.parse(String(reservationRow?.quote_snapshot || "{}"))?.fixedFareTotal;
+      } catch {
+        reservationSnapshotFixed = null;
+      }
+      record(
+        "N-round-reservation-d1",
+        Number(reservationRow?.confirmed_fare) === 7740 &&
+          Number(reservationRow?.fixed_fare_total) === 5840 &&
+          Number(reservationSnapshotFixed) === 5840,
+        `confirmed_fare=${reservationRow?.confirmed_fare} fixed_fare_total=${reservationRow?.fixed_fare_total} snapshotFixed=${reservationSnapshotFixed}`,
+      );
+    } else {
+      record("N-round-reservation-d1", false, "reservation not created");
+    }
+
     const failed = results.filter((r) => !r.pass);
     console.log("\n=== Phase 0 Test Results ===\n");
     for (const r of results) {

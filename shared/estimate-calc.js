@@ -551,10 +551,12 @@
       }
     });
 
+    const rawFixedFareTotal = rows.reduce(function(sum, row){ return sum + row.amount; }, 0);
     return {
       fareMode: fareMode,
       fixedFareBreakdown: rows,
-      fixedFareTotal: rows.reduce(function(sum, row){ return sum + row.amount; }, 0),
+      // 運賃本体は10円未満切り捨て（サービス料金は丸めない）。registerQuote でも同ルールを適用する。
+      fixedFareTotal: Math.floor(Math.max(rawFixedFareTotal, 0) / 10) * 10,
       preFixedFareMeta: preFixedFareMeta
     };
   }
