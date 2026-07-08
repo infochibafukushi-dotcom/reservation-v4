@@ -5,7 +5,7 @@
 import { Miniflare, Log, LogLevel } from "miniflare";
 import { fileURLToPath } from "url";
 import path from "path";
-import { createMiniflareWorkerOptions } from "./worker-modules.mjs";
+import { createMiniflareWorkerOptions, seedTestPublicReservationSettings } from "./worker-modules.mjs";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const LP_ORIGIN = "https://infochibafukushi-dotcom.github.io";
@@ -179,6 +179,8 @@ async function main() {
     .bind(LP_ORIGIN)
     .run();
   await setFixedFareEnabled(db, false);
+  await mf.dispatchFetch("http://localhost/api/bootstrap");
+  await seedTestPublicReservationSettings(db);
 
   const results = [];
   const record = (id, pass, detail) => results.push({ id, pass, detail });

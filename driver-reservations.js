@@ -202,6 +202,9 @@ export function isDriverFixedFareReservation(row) {
   if (!row) {
     return false;
   }
+  if (Number(row.is_test) === 1) {
+    return true;
+  }
   if (Number(row.confirmed_fare) > 0) {
     return true;
   }
@@ -333,6 +336,8 @@ function buildDriverReservationListItem(row) {
     reservationId: String(row.id || ""),
     estimateNo: String(row.estimate_no || "").trim() || null,
     status: String(row.status || "active"),
+    isTest: Number(row.is_test) === 1,
+    source: String(row.source || "").trim() || null,
     meterRunStatus: resolveMeterRunStatus(row),
     scheduledAt: buildScheduledAt(row.date, row.time),
     date: String(row.date || ""),
@@ -364,6 +369,8 @@ function buildDriverReservationDetail(row, consentRow, integrity, runRow) {
     reservationId: String(row.id || ""),
     estimateNo: String(row.estimate_no || "").trim() || null,
     status: String(row.status || "active"),
+    isTest: Number(row.is_test) === 1,
+    source: String(row.source || "").trim() || null,
     meterRunStatus: resolveMeterRunStatus(runRow),
     scheduledAt: buildScheduledAt(row.date, row.time),
     customer: {
@@ -414,6 +421,7 @@ function buildDriverReservationQuery(tenant) {
         COALESCE(r.confirmed_fare, 0) > 0
         OR COALESCE(r.fare_type, '') = 'fixed'
         OR COALESCE(r.quote_snapshot_hash, '') != ''
+        OR COALESCE(r.is_test, 0) = 1
       )
       AND (? = '' OR COALESCE(r.franchisee_id, '') = ?)
       AND (? = '' OR COALESCE(r.store_id, '') = ?)
@@ -513,7 +521,7 @@ export async function startFixedFareRun(db, reservationId, tenant = {}, _options
   const consentRow = await fetchLatestQuoteConsent(db, reservationId);
   const quoteSnapshot = parseStoredJson(loaded.row.quote_snapshot);
   const integrity = await buildReservationIntegrity(loaded.row, quoteSnapshot, consentRow);
-  if (!integrity.snapshotHashVerified || !integrity.confirmedFareMatchesSnapshot) {
+  if (Number(loaded.row.is_test) !== 1 && (!integrity.snapshotHashVerified || !integrity.confirmedFareMatchesSnapshot)) {
     return { ok: false, status: 422, message: "予約の整合性検証に失敗しました" };
   }
 
@@ -523,6 +531,8 @@ export async function startFixedFareRun(db, reservationId, tenant = {}, _options
   const snapshotHash = String(loaded.row.quote_snapshot_hash || "").trim();
   const franchiseeId = String(loaded.row.franchisee_id || "").trim() || null;
   const storeId = String(loaded.row.store_id || "").trim() || null;
+  const isTest = Number(loaded.row.is_test) === 1 ? 1 : 0;
+  const source = String(loaded.row.source || "").trim() || null;
 
   if (existingRun) {
     const status = String(existingRun.status || "").trim();
@@ -548,12 +558,14 @@ export async function startFixedFareRun(db, reservationId, tenant = {}, _options
              pre_fixed_fare_exception_json = NULL,
              franchisee_id = ?,
              store_id = ?,
+             is_test = ?,
+             source = ?,
              updated_at = ?
          WHERE reservation_id = ?
            AND status != 'in_progress'
            AND status != 'completed'`,
       )
-      .bind(confirmedFareYen, snapshotHash, now, franchiseeId, storeId, now, reservationId)
+      .bind(confirmedFareYen, snapshotHash, now, franchiseeId, storeId, isTest, source, now, reservationId)
       .run();
 
     if (!updateResult.meta?.changes) {
@@ -564,10 +576,10 @@ export async function startFixedFareRun(db, reservationId, tenant = {}, _options
       .prepare(
         `INSERT INTO meter_fixed_fare_runs (
           reservation_id, status, confirmed_fare_yen, snapshot_hash,
-          started_at, completed_at, franchisee_id, store_id, created_at, updated_at
-        ) VALUES (?, 'in_progress', ?, ?, ?, NULL, ?, ?, ?, ?)`,
+          started_at, completed_at, franchisee_id, store_id, is_test, source, created_at, updated_at
+        ) VALUES (?, 'in_progress', ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)`,
       )
-      .bind(reservationId, confirmedFareYen, snapshotHash, now, franchiseeId, storeId, now, now)
+      .bind(reservationId, confirmedFareYen, snapshotHash, now, franchiseeId, storeId, isTest, source, now, now)
       .run();
   }
 

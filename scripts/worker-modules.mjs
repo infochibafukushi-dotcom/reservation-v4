@@ -8,6 +8,7 @@ const WORKER_MODULE_FILES = [
   "snapshot-hash.js",
   "driver-auth.js",
   "driver-reservations.js",
+  "shared/prelaunch-reservation.js",
 ];
 
 export function createMiniflareWorkerOptions(rootDir = defaultRoot) {
@@ -18,4 +19,11 @@ export function createMiniflareWorkerOptions(rootDir = defaultRoot) {
     })),
     modulesRoot: rootDir,
   };
+}
+
+/** Integration tests assume public reservation is allowed unless testing prelaunch itself. */
+export async function seedTestPublicReservationSettings(db) {
+  await db
+    .prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES ('force_public_reservation_enabled', 'true')`)
+    .run();
 }

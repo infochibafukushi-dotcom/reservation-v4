@@ -5,7 +5,7 @@
 import { Miniflare, Log, LogLevel } from "miniflare";
 import { fileURLToPath } from "url";
 import path from "path";
-import { createMiniflareWorkerOptions } from "./worker-modules.mjs";
+import { createMiniflareWorkerOptions, seedTestPublicReservationSettings } from "./worker-modules.mjs";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const LP_TOKEN = "test-lp-token-phase0";
@@ -77,6 +77,8 @@ async function main() {
     .prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES ('allowed_origins', ?)`)
     .bind("https://infochibafukushi-dotcom.github.io")
     .run();
+  await mf.dispatchFetch("http://localhost/api/bootstrap");
+  await seedTestPublicReservationSettings(db);
 
   const results = [];
   const record = (id, pass, detail) => results.push({ id, pass, detail });
@@ -348,6 +350,58 @@ async function main() {
       );
     } else {
       record("N-round-reservation-d1", false, "reservation not created");
+    }
+
+    await db.prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES ('force_public_reservation_enabled', 'false')`).run();
+    await db.prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES ('force_public_reservation_disabled', 'false')`).run();
+    res = await mf.dispatchFetch("http://localhost/api/createReservation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...reservationBody, date: "2099-11-01", time: "11:00" }),
+    });
+    out = await jsonRes(res);
+    record("PL-1", res.status === 403, `blocked public reservation status=${res.status}`);
+
+    res = await mf.dispatchFetch("http://localhost/api/createReservation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        usageType: "初めて",
+        name: "テスト太郎",
+        phone: "09000000000",
+        email: "",
+        date: "2099-11-02",
+        time: "11:00",
+        pickup: "千葉市中央区 テスト出発地",
+        destination: "千葉市若葉区 テスト目的地",
+        vehicle: "無料車いす",
+        assist: "乗降介助",
+        stairs: "階段介助なし",
+        equipment: "レンタルなし",
+        roundTrip: "片道",
+        _testMode: "1",
+        _testKey: "chiba-test",
+      }),
+    });
+    out = await jsonRes(res);
+    const testReservationId = out.data?.id || "";
+    record("PL-2", res.status === 200 && out.data?.isTest === true && Boolean(testReservationId), `test reservation status=${res.status} id=${testReservationId}`);
+
+    if (testReservationId) {
+      const testRow = await db
+        .prepare(`SELECT is_test, status, source, note FROM reservations WHERE id=?`)
+        .bind(testReservationId)
+        .first();
+      record(
+        "PL-3",
+        Number(testRow?.is_test) === 1 &&
+          String(testRow?.status) === "test" &&
+          String(testRow?.source) === "prelaunch-test" &&
+          String(testRow?.note) === "開業前テスト予約",
+        `is_test=${testRow?.is_test} status=${testRow?.status} source=${testRow?.source}`,
+      );
+    } else {
+      record("PL-3", false, "test reservation row missing");
     }
 
     const failed = results.filter((r) => !r.pass);
