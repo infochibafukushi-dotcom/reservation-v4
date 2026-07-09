@@ -8,6 +8,7 @@ const WORKER_MODULE_FILES = [
   "snapshot-hash.js",
   "driver-auth.js",
   "driver-reservations.js",
+  "pre-opening-reset.js",
   "shared/prelaunch-reservation.js",
 ];
 

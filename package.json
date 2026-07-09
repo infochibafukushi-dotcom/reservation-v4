@@ -10,7 +10,8 @@
     "test:phase3": "node scripts/phase3-consent-persistence-test.mjs",
     "test:phase4": "node scripts/phase4-driver-api-test.mjs",
     "test:phase5": "node scripts/phase5-driver-fixed-fare-run-test.mjs",
-    "test": "npm run test:phase0 && npm run test:phase1 && npm run test:phase2 && npm run test:phase3 && npm run test:phase4 && npm run test:phase5"
+    "test:phase6": "node scripts/phase6-pre-opening-reset-test.mjs",
+    "test": "npm run test:phase0 && npm run test:phase1 && npm run test:phase2 && npm run test:phase3 && npm run test:phase4 && npm run test:phase5 && npm run test:phase6"
   },
   "repository": {
     "type": "git",
