@@ -21,6 +21,21 @@ function emptyDashboard() {
     totalReservations: 0,
     unhandledReservations: 0,
     confirmedReservations: 0,
+    doneReservations: 0,
+  };
+}
+
+export function isLegacyAdminScope(franchiseeId, storeId) {
+  return String(franchiseeId ?? "").trim() === "" && String(storeId ?? "").trim() === "";
+}
+
+export function buildPreOpeningResetScopeContext(franchiseeId, storeId) {
+  const franchisee = String(franchiseeId ?? "").trim();
+  const store = String(storeId ?? "").trim();
+  return {
+    franchiseeId: franchisee,
+    storeId: store,
+    legacyAdminScope: isLegacyAdminScope(franchiseeId, storeId),
   };
 }
 
@@ -30,10 +45,13 @@ export function normalizePreOpeningResetScope(input) {
   if (franchiseeRaw == null || storeRaw == null) {
     return { ok: false, status: 400, message: "franchiseeId と storeId は必須です" };
   }
+  const franchiseeId = String(franchiseeRaw).trim();
+  const storeId = String(storeRaw).trim();
   return {
     ok: true,
-    franchiseeId: String(franchiseeRaw).trim(),
-    storeId: String(storeRaw).trim(),
+    franchiseeId,
+    storeId,
+    ...buildPreOpeningResetScopeContext(franchiseeId, storeId),
   };
 }
 
@@ -47,31 +65,68 @@ export function normalizePreOpeningResetMode(input) {
   return { ok: true, mode };
 }
 
-function eligibleReservationSql(publicStartAt) {
-  const startAt = String(publicStartAt || "").trim();
+/** Matches admin.js productionReservations() / renderStats() on visible reservation rows. */
+function adminProductionReservationSql(ctx) {
+  const base = `COALESCE(is_visible, 1) != 0
+    AND COALESCE(is_test, 0) != 1
+    AND LOWER(COALESCE(status, '')) != 'test'`;
+  if (ctx.legacyAdminScope) return base;
+  return `${TENANT_SCOPE_SQL} AND ${base}`;
+}
+
+function adminProductionReservationBinds(ctx) {
+  return ctx.legacyAdminScope ? [] : [ctx.franchiseeId, ctx.storeId];
+}
+
+function preOpeningGuardSql(publicStartAt) {
   const testFlags = `(
     COALESCE(is_test, 0) = 1
     OR LOWER(COALESCE(status, '')) = 'test'
     OR COALESCE(source, '') = 'prelaunch-test'
   )`;
-  if (!startAt) {
-    return `${TENANT_SCOPE_SQL} AND ${testFlags}`;
-  }
-  return `${TENANT_SCOPE_SQL} AND (${testFlags} OR (COALESCE(created_at, '') != '' AND created_at < ?))`;
+  const startAt = String(publicStartAt || "").trim();
+  if (!startAt) return testFlags;
+  return `(${testFlags} OR (COALESCE(created_at, '') != '' AND created_at < ?))`;
 }
 
-function eligibleReservationBinds(franchiseeId, storeId, publicStartAt) {
-  const binds = [franchiseeId, storeId];
+function eligibleReservationSql(ctx, publicStartAt) {
+  const guard = preOpeningGuardSql(publicStartAt);
+  const production = adminProductionReservationSql(ctx);
+  const startAt = String(publicStartAt || "").trim();
+  if (!startAt) return `${production} AND ${guard}`;
+  return `${production} AND ${guard}`;
+}
+
+function eligibleReservationBinds(ctx, publicStartAt) {
+  const binds = [...adminProductionReservationBinds(ctx)];
   const startAt = String(publicStartAt || "").trim();
   if (startAt) binds.push(startAt);
   return binds;
 }
 
-function productionDashboardSql() {
-  return `${TENANT_SCOPE_SQL}
-    AND COALESCE(is_visible, 1) != 0
-    AND COALESCE(is_test, 0) != 1
-    AND LOWER(COALESCE(status, '')) != 'test'`;
+function eligibleReservationSubquery(ctx, publicStartAt) {
+  return `SELECT id FROM reservations WHERE ${eligibleReservationSql(ctx, publicStartAt)}`;
+}
+
+function orphanQuoteScopeSql(ctx) {
+  if (ctx.legacyAdminScope) {
+    return `COALESCE(franchisee_id, '') = '' AND COALESCE(store_id, '') = ''`;
+  }
+  return `COALESCE(franchisee_id, '') = ? AND COALESCE(store_id, '') = ?`;
+}
+
+function orphanQuoteScopeBinds(ctx) {
+  return ctx.legacyAdminScope ? [] : [ctx.franchiseeId, ctx.storeId];
+}
+
+export function arePreOpeningResetCountsAligned(dashboard, targets) {
+  const d = dashboard || emptyDashboard();
+  const t = targets || emptyCounts();
+  return (
+    Number(d.totalReservations || 0) === Number(t.reservations || 0) &&
+    Number(d.unhandledReservations || 0) === Number(t.unhandled_reservations || 0) &&
+    Number(d.confirmedReservations || 0) === Number(t.confirmed_reservations || 0)
+  );
 }
 
 export async function ensurePreOpeningResetSchema(db) {
@@ -104,45 +159,50 @@ async function countScalar(db, sql, ...params) {
   return Number(row?.c || 0);
 }
 
-function eligibleReservationSubquery(publicStartAt) {
-  return `SELECT id FROM reservations WHERE ${eligibleReservationSql(publicStartAt)}`;
-}
-
-async function countDashboardStats(db, franchiseeId, storeId) {
+async function countDashboardStats(db, ctx) {
   const dashboard = emptyDashboard();
-  const baseBinds = [franchiseeId, storeId];
+  const productionSql = adminProductionReservationSql(ctx);
+  const binds = adminProductionReservationBinds(ctx);
   dashboard.totalReservations = await countScalar(
     db,
-    `SELECT COUNT(*) AS c FROM reservations WHERE ${productionDashboardSql()}`,
-    ...baseBinds
+    `SELECT COUNT(*) AS c FROM reservations WHERE ${productionSql}`,
+    ...binds
   );
   dashboard.unhandledReservations = await countScalar(
     db,
     `SELECT COUNT(*) AS c FROM reservations
-     WHERE ${productionDashboardSql()}
+     WHERE ${productionSql}
        AND LOWER(COALESCE(status, 'active')) = 'active'`,
-    ...baseBinds
+    ...binds
   );
   dashboard.confirmedReservations = await countScalar(
     db,
     `SELECT COUNT(*) AS c FROM reservations
-     WHERE ${productionDashboardSql()}
+     WHERE ${productionSql}
        AND LOWER(COALESCE(status, '')) = 'confirmed'`,
-    ...baseBinds
+    ...binds
+  );
+  dashboard.doneReservations = await countScalar(
+    db,
+    `SELECT COUNT(*) AS c FROM reservations
+     WHERE ${productionSql}
+       AND LOWER(COALESCE(status, '')) = 'done'`,
+    ...binds
   );
   return dashboard;
 }
 
 export async function countPreOpeningResetTargets(
   db,
-  franchiseeId,
-  storeId,
+  ctx,
   { publicStartAt = "", resetScope = "reservations" } = {}
 ) {
   const counts = emptyCounts();
-  const eligibleSql = eligibleReservationSql(publicStartAt);
-  const eligibleBinds = eligibleReservationBinds(franchiseeId, storeId, publicStartAt);
-  const eligibleSubquery = eligibleReservationSubquery(publicStartAt);
+  const eligibleSql = eligibleReservationSql(ctx, publicStartAt);
+  const eligibleBinds = eligibleReservationBinds(ctx, publicStartAt);
+  const eligibleSubquery = eligibleReservationSubquery(ctx, publicStartAt);
+  const orphanQuoteSql = orphanQuoteScopeSql(ctx);
+  const orphanQuoteBinds = orphanQuoteScopeBinds(ctx);
 
   counts.reservations = await countScalar(
     db,
@@ -180,9 +240,8 @@ export async function countPreOpeningResetTargets(
     counts.pre_opening_reset_logs = await countScalar(
       db,
       `SELECT COUNT(*) AS c FROM pre_opening_reset_logs
-       WHERE COALESCE(franchisee_id, '') = ? AND COALESCE(store_id, '') = ?`,
-      franchiseeId,
-      storeId
+       WHERE ${orphanQuoteSql}`,
+      ...orphanQuoteBinds
     );
   }
 
@@ -192,7 +251,7 @@ export async function countPreOpeningResetTargets(
      WHERE (
          reservation_id IN (${eligibleSubquery})
          OR (
-           COALESCE(franchisee_id, '') = ? AND COALESCE(store_id, '') = ?
+           ${orphanQuoteSql}
            AND COALESCE(reservation_id, '') = ''
          )
          OR estimate_no IN (
@@ -202,8 +261,7 @@ export async function countPreOpeningResetTargets(
          )
        )`,
     ...eligibleBinds,
-    franchiseeId,
-    storeId,
+    ...orphanQuoteBinds,
     ...eligibleBinds
   );
   counts.quote_consents = await countScalar(
@@ -230,13 +288,14 @@ export async function countPreOpeningResetTargets(
 
 function buildPreOpeningResetDeleteStatements(
   db,
-  franchiseeId,
-  storeId,
+  ctx,
   { publicStartAt = "", resetScope = "reservations" } = {}
 ) {
-  const eligibleSql = eligibleReservationSql(publicStartAt);
-  const eligibleBinds = eligibleReservationBinds(franchiseeId, storeId, publicStartAt);
-  const eligibleSubquery = eligibleReservationSubquery(publicStartAt);
+  const eligibleSql = eligibleReservationSql(ctx, publicStartAt);
+  const eligibleBinds = eligibleReservationBinds(ctx, publicStartAt);
+  const eligibleSubquery = eligibleReservationSubquery(ctx, publicStartAt);
+  const orphanQuoteSql = orphanQuoteScopeSql(ctx);
+  const orphanQuoteBinds = orphanQuoteScopeBinds(ctx);
   const statements = [];
 
   if (resetScope === "full") {
@@ -273,7 +332,7 @@ function buildPreOpeningResetDeleteStatements(
         `DELETE FROM quotes
          WHERE reservation_id IN (${eligibleSubquery})
             OR (
-              COALESCE(franchisee_id, '') = ? AND COALESCE(store_id, '') = ?
+              ${orphanQuoteSql}
               AND COALESCE(reservation_id, '') = ''
             )
             OR estimate_no IN (
@@ -282,7 +341,7 @@ function buildPreOpeningResetDeleteStatements(
                 AND COALESCE(estimate_no, '') != ''
             )`
       )
-      .bind(...eligibleBinds, franchiseeId, storeId, ...eligibleBinds),
+      .bind(...eligibleBinds, ...orphanQuoteBinds, ...eligibleBinds),
     db
       .prepare(
         `DELETE FROM email_logs
@@ -296,16 +355,14 @@ function buildPreOpeningResetDeleteStatements(
       db
         .prepare(
           `DELETE FROM pre_opening_reset_logs
-           WHERE COALESCE(franchisee_id, '') = ? AND COALESCE(store_id, '') = ?`
+           WHERE ${orphanQuoteSql}`
         )
-        .bind(franchiseeId, storeId)
+        .bind(...orphanQuoteBinds)
     );
   }
 
   statements.push(
-    db
-      .prepare(`DELETE FROM reservations WHERE ${eligibleSql}`)
-      .bind(...eligibleBinds)
+    db.prepare(`DELETE FROM reservations WHERE ${eligibleSql}`).bind(...eligibleBinds)
   );
 
   return statements;
@@ -361,24 +418,44 @@ export async function executePreOpeningReset(
   db,
   { franchiseeId, storeId, executedBy, publicStartAt = "", resetScope = "reservations" }
 ) {
-  const targets = await countPreOpeningResetTargets(db, franchiseeId, storeId, {
-    publicStartAt,
-    resetScope,
-  });
+  const ctx = buildPreOpeningResetScopeContext(franchiseeId, storeId);
+  const [targets, dashboard] = await Promise.all([
+    countPreOpeningResetTargets(db, ctx, { publicStartAt, resetScope }),
+    countDashboardStats(db, ctx),
+  ]);
+  const countsAligned = arePreOpeningResetCountsAligned(dashboard, targets);
+  if (!countsAligned) {
+    return {
+      ok: false,
+      status: 409,
+      message:
+        "ダッシュボード件数と削除対象件数が一致しません。本番予約が混在している可能性があります。",
+      franchiseeId: ctx.franchiseeId,
+      storeId: ctx.storeId,
+      legacyAdminScope: ctx.legacyAdminScope,
+      countsAligned,
+      dashboard,
+      targets,
+      deleted: emptyCounts(),
+      failed: targets,
+      logId: null,
+    };
+  }
+
   const executedAt = new Date().toISOString();
   const executedByValue = String(executedBy || "").trim() || "unknown";
 
   try {
     const results = await db.batch(
-      buildPreOpeningResetDeleteStatements(db, franchiseeId, storeId, {
+      buildPreOpeningResetDeleteStatements(db, ctx, {
         publicStartAt,
         resetScope,
       })
     );
     const { deleted, failed } = deletedFromBatchResults(targets, results, resetScope);
     const logId = await insertPreOpeningResetLog(db, {
-      franchiseeId,
-      storeId,
+      franchiseeId: ctx.franchiseeId,
+      storeId: ctx.storeId,
       executedBy: executedByValue,
       executedAt,
       targets,
@@ -388,8 +465,11 @@ export async function executePreOpeningReset(
     });
     return {
       ok: true,
-      franchiseeId,
-      storeId,
+      franchiseeId: ctx.franchiseeId,
+      storeId: ctx.storeId,
+      legacyAdminScope: ctx.legacyAdminScope,
+      countsAligned: true,
+      dashboard,
       executedBy: executedByValue,
       executedAt,
       resetScope,
@@ -403,8 +483,8 @@ export async function executePreOpeningReset(
     const failed = { ...targets };
     const deleted = emptyCounts();
     const logId = await insertPreOpeningResetLog(db, {
-      franchiseeId,
-      storeId,
+      franchiseeId: ctx.franchiseeId,
+      storeId: ctx.storeId,
       executedBy: executedByValue,
       executedAt,
       targets,
@@ -417,8 +497,11 @@ export async function executePreOpeningReset(
       ok: false,
       status: 500,
       message,
-      franchiseeId,
-      storeId,
+      franchiseeId: ctx.franchiseeId,
+      storeId: ctx.storeId,
+      legacyAdminScope: ctx.legacyAdminScope,
+      countsAligned,
+      dashboard,
       executedBy: executedByValue,
       executedAt,
       resetScope,
@@ -440,8 +523,10 @@ export function buildPreOpeningResetCapabilityResponse(
   if (tenantScope?.ok) {
     response.franchiseeId = tenantScope.franchiseeId;
     response.storeId = tenantScope.storeId;
+    response.legacyAdminScope = tenantScope.legacyAdminScope;
     response.targets = targets || emptyCounts();
     response.dashboard = dashboard || emptyDashboard();
+    response.countsAligned = arePreOpeningResetCountsAligned(response.dashboard, response.targets);
   }
   return response;
 }
@@ -454,12 +539,10 @@ export async function buildPreOpeningResetCapability(
   if (!tenantScope?.ok) {
     return buildPreOpeningResetCapabilityResponse(null, emptyCounts(), emptyDashboard(), resetScope);
   }
+  const ctx = buildPreOpeningResetScopeContext(tenantScope.franchiseeId, tenantScope.storeId);
   const [targets, dashboard] = await Promise.all([
-    countPreOpeningResetTargets(db, tenantScope.franchiseeId, tenantScope.storeId, {
-      publicStartAt,
-      resetScope,
-    }),
-    countDashboardStats(db, tenantScope.franchiseeId, tenantScope.storeId),
+    countPreOpeningResetTargets(db, ctx, { publicStartAt, resetScope }),
+    countDashboardStats(db, ctx),
   ]);
   return buildPreOpeningResetCapabilityResponse(tenantScope, targets, dashboard, resetScope);
 }
