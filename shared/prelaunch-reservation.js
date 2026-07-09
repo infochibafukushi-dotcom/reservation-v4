@@ -123,6 +123,12 @@ export function isBrowserTestModeActive(settings, search = "") {
   );
 }
 
+/** Test mode bypasses prelaunch calendar/booking blocks on the public site. */
+export function shouldHidePublicCalendar(settings, search = "") {
+  if (isBrowserTestModeActive(settings, search)) return false;
+  return !canCreatePublicReservation(settings);
+}
+
 const prelaunchApi = {
   PRELAUNCH_SETTING_KEYS,
   DEFAULT_PRELAUNCH_SETTINGS,
@@ -135,6 +141,7 @@ const prelaunchApi = {
   formatPrelaunchStartAtForDisplay,
   parseTestModeFromUrl,
   isBrowserTestModeActive,
+  shouldHidePublicCalendar,
 };
 
 if (typeof globalThis !== "undefined") {
