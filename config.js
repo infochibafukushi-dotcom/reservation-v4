@@ -28,6 +28,8 @@ window.APP_CONFIG = {
     uiTexts: "/api/uiTexts",
     saveUiTexts: "/api/admin/uiTexts/save",
     emailLogs: "/api/admin/email/logs",
-    emailTest: "/api/admin/email/test"
+    emailTest: "/api/admin/email/test",
+    preOpeningResetCapability: "/api/admin/reservations/pre-opening-reset/capability",
+    preOpeningReset: "/api/admin/reservations/pre-opening-reset"
   }
 };

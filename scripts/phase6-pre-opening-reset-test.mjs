@@ -5,7 +5,7 @@
 import { Miniflare, Log, LogLevel } from "miniflare";
 import { fileURLToPath } from "url";
 import path from "path";
-import { createMiniflareWorkerOptions, seedTestPublicReservationSettings } from "./worker-modules.mjs";
+import { createMiniflareWorkerOptions } from "./worker-modules.mjs";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const TARGET_FRANCHISEE = "franchisee-target";
@@ -13,6 +13,7 @@ const TARGET_STORE = "store-target";
 const OTHER_FRANCHISEE = "franchisee-other";
 const OTHER_STORE = "store-other";
 const EXECUTED_BY = "admin-uid-phase6";
+const PUBLIC_START_AT = "2027-04-01T00:00:00+09:00";
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -38,6 +39,13 @@ async function adminLogin(mf) {
   return out.data.token;
 }
 
+async function seedPrelaunchSettings(db) {
+  await db
+    .prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES ('reservation_public_start_at', ?)`)
+    .bind(PUBLIC_START_AT)
+    .run();
+}
+
 async function seedScopedReservationData(db, {
   reservationId,
   estimateNo,
@@ -50,11 +58,11 @@ async function seedScopedReservationData(db, {
   fareType = "",
   date = "2099-01-01",
   time = "10:00",
+  createdAt = "2026-01-15T10:00:00.000Z",
   withBlock = true,
   withConsent = true,
   withMeterRun = true,
 }) {
-  const createdAt = new Date().toISOString();
   await db
     .prepare(
       `INSERT INTO reservations (
@@ -145,7 +153,7 @@ async function main() {
   const db = await mf.getD1Database("DB");
   await db.prepare(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`).run();
   await mf.dispatchFetch("http://localhost/api/bootstrap");
-  await seedTestPublicReservationSettings(db);
+  await seedPrelaunchSettings(db);
 
   const token = await adminLogin(mf);
   const authHeaders = {
@@ -154,11 +162,11 @@ async function main() {
   };
 
   await seedScopedReservationData(db, {
-    reservationId: "RES-TARGET-ACTIVE",
-    estimateNo: "EST-TARGET-ACTIVE",
+    reservationId: "RES-TARGET-PRE-1",
+    estimateNo: "EST-TARGET-PRE-1",
     franchiseeId: TARGET_FRANCHISEE,
     storeId: TARGET_STORE,
-    status: "active",
+    createdAt: "2026-02-01T10:00:00.000Z",
     time: "10:00",
   });
   await seedScopedReservationData(db, {
@@ -170,24 +178,36 @@ async function main() {
     isTest: 1,
     source: "prelaunch-test",
     note: "開業前テスト予約",
+    createdAt: "2026-02-02T10:00:00.000Z",
     time: "10:30",
   });
   await seedScopedReservationData(db, {
-    reservationId: "RES-TARGET-CANCEL",
-    estimateNo: "EST-TARGET-CANCEL",
+    reservationId: "RES-TARGET-PRE-2",
+    estimateNo: "EST-TARGET-PRE-2",
     franchiseeId: TARGET_FRANCHISEE,
     storeId: TARGET_STORE,
     status: "cancel",
+    createdAt: "2026-02-03T10:00:00.000Z",
     time: "11:00",
   });
   await seedScopedReservationData(db, {
-    reservationId: "RES-TARGET-FIXED",
-    estimateNo: "EST-TARGET-FIXED",
+    reservationId: "RES-TARGET-PRE-3",
+    estimateNo: "EST-TARGET-PRE-3",
     franchiseeId: TARGET_FRANCHISEE,
     storeId: TARGET_STORE,
     status: "active",
     fareType: "fixed",
+    createdAt: "2026-02-04T10:00:00.000Z",
     time: "11:30",
+  });
+  await seedScopedReservationData(db, {
+    reservationId: "RES-TARGET-PRODUCTION",
+    estimateNo: "EST-TARGET-PRODUCTION",
+    franchiseeId: TARGET_FRANCHISEE,
+    storeId: TARGET_STORE,
+    status: "active",
+    createdAt: "2028-01-01T10:00:00.000Z",
+    time: "12:00",
   });
   await db
     .prepare(
@@ -196,15 +216,15 @@ async function main() {
         franchisee_id, store_id, created_at
       ) VALUES ('EST-TARGET-ORPHAN', 'active', 8000, 'fixed', '{}', 'hash-orphan', ?, ?, ?)`
     )
-    .bind(TARGET_FRANCHISEE, TARGET_STORE, new Date().toISOString())
+    .bind(TARGET_FRANCHISEE, TARGET_STORE, "2026-02-01T10:00:00.000Z")
     .run();
   await db
     .prepare(
       `INSERT INTO email_logs (
         created_at, kind, reservation_id, to_email, from_email, subject, status, provider_id, error_message
-      ) VALUES (?, 'customer', 'RES-TARGET-ACTIVE', 'test@example.com', 'from@example.com', 'test', 'sent', '', '')`
+      ) VALUES (?, 'customer', 'RES-TARGET-PRE-1', 'test@example.com', 'from@example.com', 'test', 'sent', '', '')`
     )
-    .bind(new Date().toISOString())
+    .bind("2026-02-01T10:00:00.000Z")
     .run();
   await db
     .prepare(
@@ -212,7 +232,7 @@ async function main() {
         franchisee_id, store_id, executed_by, executed_at, targets_json, deleted_json, failed_json, success
       ) VALUES (?, ?, 'seed', ?, '{}', '{}', '{}', 1)`
     )
-    .bind(TARGET_FRANCHISEE, TARGET_STORE, new Date().toISOString())
+    .bind(TARGET_FRANCHISEE, TARGET_STORE, "2026-02-01T10:00:00.000Z")
     .run();
 
   await seedScopedReservationData(db, {
@@ -220,7 +240,7 @@ async function main() {
     estimateNo: "EST-OTHER-KEEP",
     franchiseeId: OTHER_FRANCHISEE,
     storeId: OTHER_STORE,
-    status: "active",
+    createdAt: "2026-02-01T10:00:00.000Z",
   });
 
   const results = [];
@@ -249,7 +269,7 @@ async function main() {
     );
 
     res = await mf.dispatchFetch(
-      `http://localhost/api/admin/reservations/pre-opening-reset/capability?franchiseeId=${TARGET_FRANCHISEE}&storeId=${TARGET_STORE}`,
+      `http://localhost/api/admin/reservations/pre-opening-reset/capability?franchiseeId=${TARGET_FRANCHISEE}&storeId=${TARGET_STORE}&scope=reservations`,
       { headers: authHeaders }
     );
     out = await jsonRes(res);
@@ -257,12 +277,32 @@ async function main() {
       "P6-3-capability-targets",
       res.status === 200 &&
         out.data?.supported === true &&
+        out.data?.scope === "reservations" &&
         out.data?.targets?.reservations === 4 &&
+        out.data?.targets?.unhandled_reservations === 2 &&
+        out.data?.targets?.confirmed_reservations === 0 &&
         out.data?.targets?.quotes === 5 &&
         out.data?.targets?.quote_consents === 4 &&
-        out.data?.targets?.meter_fixed_fare_runs === 4 &&
-        out.data?.targets?.blocks === 3 &&
+        out.data?.targets?.blocks === 0 &&
+        out.data?.targets?.meter_fixed_fare_runs === 0 &&
         out.data?.targets?.email_logs === 1 &&
+        out.data?.targets?.pre_opening_reset_logs === 0 &&
+        out.data?.dashboard?.totalReservations === 4 &&
+        out.data?.dashboard?.unhandledReservations === 3,
+      `status=${res.status} targets=${JSON.stringify(out.data?.targets)} dashboard=${JSON.stringify(out.data?.dashboard)}`
+    );
+
+    res = await mf.dispatchFetch(
+      `http://localhost/api/admin/reservations/pre-opening-reset/capability?franchiseeId=${TARGET_FRANCHISEE}&storeId=${TARGET_STORE}&scope=full`,
+      { headers: authHeaders }
+    );
+    out = await jsonRes(res);
+    record(
+      "P6-3b-full-capability-targets",
+      res.status === 200 &&
+        out.data?.scope === "full" &&
+        out.data?.targets?.blocks === 3 &&
+        out.data?.targets?.meter_fixed_fare_runs === 4 &&
         out.data?.targets?.pre_opening_reset_logs === 1,
       `status=${res.status} targets=${JSON.stringify(out.data?.targets)}`
     );
@@ -275,6 +315,7 @@ async function main() {
         storeId: TARGET_STORE,
         confirmText: "NOPE",
         executedBy: EXECUTED_BY,
+        scope: "reservations",
       }),
     });
     out = await jsonRes(res);
@@ -288,8 +329,8 @@ async function main() {
       method: "POST",
       headers: authHeaders,
       body: JSON.stringify({
-        franchiseeId: "",
-        storeId: TARGET_STORE,
+        franchiseeId: TARGET_FRANCHISEE,
+        scope: "reservations",
         confirmText: "RESET",
         executedBy: EXECUTED_BY,
       }),
@@ -309,6 +350,7 @@ async function main() {
         storeId: TARGET_STORE,
         confirmText: "RESET",
         executedBy: EXECUTED_BY,
+        scope: "reservations",
       }),
     });
     out = await jsonRes(res);
@@ -316,13 +358,13 @@ async function main() {
       "P6-6-reset-success",
       res.status === 200 &&
         out.data?.success === true &&
+        out.data?.scope === "reservations" &&
         out.data?.targets?.reservations === 4 &&
         out.data?.deleted?.reservations === 4 &&
-        out.data?.deleted?.blocks === 3 &&
+        out.data?.deleted?.blocks === 0 &&
         out.data?.deleted?.email_logs === 1 &&
-        out.data?.deleted?.pre_opening_reset_logs === 1 &&
         out.data?.failed?.reservations === 0 &&
-        (out.data?.logId === null || out.data?.logId === 0),
+        Number(out.data?.logId) > 0,
       `status=${res.status} deleted=${JSON.stringify(out.data?.deleted)}`
     );
 
@@ -333,24 +375,26 @@ async function main() {
       )
       .bind(TARGET_FRANCHISEE, TARGET_STORE)
       .first();
+    const productionReservation = await db
+      .prepare(`SELECT id FROM reservations WHERE id = 'RES-TARGET-PRODUCTION'`)
+      .first();
     const otherReservations = await db
       .prepare(`SELECT COUNT(*) AS c FROM reservations WHERE id = 'RES-OTHER-KEEP'`)
       .first();
-    const logCount = await countTable(db, "pre_opening_reset_logs");
+    const blockCount = await db
+      .prepare(`SELECT COUNT(*) AS c FROM blocks WHERE reservation_id LIKE 'RES-TARGET-%'`)
+      .first();
     record(
       "P6-7-scope-preserved",
-      Number(targetReservations?.c || 0) === 0 &&
+      Number(targetReservations?.c || 0) === 1 &&
+        productionReservation?.id === "RES-TARGET-PRODUCTION" &&
         Number(otherReservations?.c || 0) === 1 &&
-        logCount === 0,
-      `target=${targetReservations?.c} other=${otherReservations?.c} logs=${logCount}`
+        Number(blockCount?.c || 0) > 0,
+      `target=${targetReservations?.c} production=${productionReservation?.id || "missing"} other=${otherReservations?.c} blocks=${blockCount?.c}`
     );
 
     const emailLogCount = await countTable(db, "email_logs");
-    record(
-      "P6-9-logs-cleared",
-      emailLogCount === 0,
-      `email_logs=${emailLogCount}`
-    );
+    record("P6-9-logs-cleared", emailLogCount === 0, `email_logs=${emailLogCount}`);
 
     const orphanQuote = await db
       .prepare(`SELECT estimate_no FROM quotes WHERE estimate_no = 'EST-TARGET-ORPHAN'`)
@@ -359,6 +403,46 @@ async function main() {
       "P6-8-orphan-quote-deleted",
       !orphanQuote,
       `orphanQuote=${orphanQuote?.estimate_no || "deleted"}`
+    );
+
+    res = await mf.dispatchFetch(
+      `http://localhost/api/admin/reservations/pre-opening-reset/capability?franchiseeId=${TARGET_FRANCHISEE}&storeId=${TARGET_STORE}&scope=full`,
+      { headers: authHeaders }
+    );
+    out = await jsonRes(res);
+    record(
+      "P6-10-full-scope-after-reservations-reset",
+      res.status === 200 &&
+        out.data?.targets?.reservations === 0 &&
+        out.data?.targets?.blocks === 0 &&
+        out.data?.targets?.pre_opening_reset_logs >= 1,
+      `status=${res.status} targets=${JSON.stringify(out.data?.targets)}`
+    );
+
+    res = await mf.dispatchFetch("http://localhost/api/admin/reservations/pre-opening-reset", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({
+        franchiseeId: TARGET_FRANCHISEE,
+        storeId: TARGET_STORE,
+        confirmText: "RESET",
+        executedBy: EXECUTED_BY,
+        scope: "full",
+      }),
+    });
+    out = await jsonRes(res);
+    const blocksAfterFull = await db
+      .prepare(`SELECT COUNT(*) AS c FROM blocks WHERE reservation_id = 'RES-TARGET-PRODUCTION'`)
+      .first();
+    const resetLogCount = await countTable(db, "pre_opening_reset_logs");
+    record(
+      "P6-11-full-reset-keeps-production-blocks",
+      res.status === 200 &&
+        out.data?.success === true &&
+        Number(blocksAfterFull?.c || 0) === 1 &&
+        out.data?.deleted?.reservations === 0 &&
+        resetLogCount >= 1,
+      `status=${res.status} productionBlocks=${blocksAfterFull?.c} resetLogs=${resetLogCount}`
     );
   } catch (error) {
     record("P6-ERROR", false, String(error?.message || error));
