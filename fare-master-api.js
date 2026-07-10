@@ -2,7 +2,6 @@
  * 料金マスター API — D1 操作・Worker ルートハンドラ
  */
 import { buildHeadquartersV1Record } from "./shared/fare-master-v1.js";
-import baseEstimateConfig from "./data/estimate-config.json" with { type: "json" };
 import {
   parseFareMasterRow,
   resolveActiveFareMaster,
@@ -15,19 +14,14 @@ import {
   diffFareMasterRecords,
   buildScopeCandidates,
   safeParseJson,
+  buildFareMasterEditForm,
+  applyFareMasterEditForm,
+  sumServiceFeesForTotal,
 } from "./shared/fare-master-core.js";
-import { readFileSync } from "fs";
-import { fileURLToPath } from "url";
-import path from "path";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-function loadBaseEstimateConfigForNode(){
-  return JSON.parse(readFileSync(path.join(__dirname, "data/estimate-config.json"), "utf8"));
-}
+import { requireFareMasterPermission, PRICING_PERMISSIONS, listFareMasterPermissions } from "./shared/fare-master-permissions.js";
 
 function getBaseEstimateConfig(){
-  return baseEstimateConfig;
+  return {};
 }
 
 export async function ensureFareMasterSchema(db){
@@ -174,6 +168,49 @@ export async function getFareMasterVersionById(db, id){
   return parseFareMasterRow(row);
 }
 
+export async function saveDraftFareMasterVersion(db, body, adminUser = "admin"){
+  const now = new Date().toISOString();
+  const id = body.id || `fmv-draft-${Date.now()}`;
+  const parent = await resolveFareMaster(db, {
+    tenantId: body.tenantId,
+    franchiseeId: body.franchiseeId,
+    storeId: body.storeId,
+  }, { allowFallback: true });
+  const base = parent?.record || buildHeadquartersV1Record(getBaseEstimateConfig());
+  const edited = body.form ? applyFareMasterEditForm(base, body.form) : base;
+  const record = {
+    id,
+    version: body.version || `draft-${Date.now()}`,
+    tenantId: body.tenantId || null,
+    franchiseeId: body.franchiseeId || null,
+    storeId: body.storeId || null,
+    scopeType: body.scopeType || base.scopeType || "headquarters",
+    parentVersionId: base.id || null,
+    status: "draft",
+    effectiveFrom: body.effectiveFrom || now,
+    effectiveTo: null,
+    fareRules: edited.fareRules,
+    displayRules: edited.displayRules || base.displayRules,
+    calculationRules: edited.calculationRules || base.calculationRules,
+    meterRules: edited.meterRules,
+    createdAt: now,
+    createdBy: adminUser,
+    updatedAt: now,
+    updatedBy: adminUser,
+    publishedAt: null,
+    publishedBy: null,
+    changeReason: String(body.changeReason || "").trim() || "下書き保存",
+  };
+  const existing = await getFareMasterVersionById(db, id);
+  if(existing){
+    await db.prepare(`UPDATE fare_master_versions SET fare_rules=?, display_rules=?, calculation_rules=?, meter_rules=?, updated_at=?, updated_by=?, change_reason=?, status='draft' WHERE id=?`)
+      .bind(JSON.stringify(record.fareRules), JSON.stringify(record.displayRules), JSON.stringify(record.calculationRules), JSON.stringify(record.meterRules), now, adminUser, record.changeReason, id).run();
+  }else{
+    await insertFareMasterVersion(db, record);
+  }
+  return { ok: true, version: record };
+}
+
 export async function publishFareMasterVersion(db, body, adminUser = "admin"){
   const now = new Date().toISOString();
   const effectiveFrom = body.effectiveFrom || now;
@@ -187,7 +224,11 @@ export async function publishFareMasterVersion(db, body, adminUser = "admin"){
   }, { allowFallback: false, atIso: effectiveFrom });
 
   const beforeRecord = parent?.record || null;
-  const baseRules = body.fareRules || beforeRecord?.fareRules || getBaseEstimateConfig();
+  let baseRecord = beforeRecord || buildHeadquartersV1Record(getBaseEstimateConfig());
+  if(body.form){
+    baseRecord = applyFareMasterEditForm(baseRecord, body.form);
+  }
+  const baseRules = body.fareRules || baseRecord.fareRules || getBaseEstimateConfig();
   const id = body.id || `fmv-${scopeType}-${Date.now()}`;
   const record = {
     id,
@@ -201,9 +242,9 @@ export async function publishFareMasterVersion(db, body, adminUser = "admin"){
     effectiveFrom,
     effectiveTo: body.effectiveTo || null,
     fareRules: baseRules,
-    displayRules: body.displayRules || beforeRecord?.displayRules || {},
-    calculationRules: body.calculationRules || beforeRecord?.calculationRules || {},
-    meterRules: body.meterRules || beforeRecord?.meterRules || {},
+    displayRules: body.displayRules || baseRecord.displayRules || beforeRecord?.displayRules || {},
+    calculationRules: body.calculationRules || baseRecord.calculationRules || beforeRecord?.calculationRules || {},
+    meterRules: body.meterRules || baseRecord.meterRules || beforeRecord?.meterRules || {},
     createdAt: now,
     createdBy: adminUser,
     updatedAt: now,
@@ -284,11 +325,12 @@ export async function handleFareMasterRoutes(request, env, path, headers, { isAd
   await ensureFareMasterSchema(db);
 
   if(path === "/api/fare-master/active" && request.method === "GET"){
+    const atIso = url.searchParams.get("at") || new Date().toISOString();
     const resolved = await resolveFareMaster(db, {
       tenantId: url.searchParams.get("tenantId"),
       franchiseeId: url.searchParams.get("franchiseeId"),
       storeId: url.searchParams.get("storeId"),
-    }, { atIso: url.searchParams.get("at") || undefined });
+    }, { atIso });
     return json(buildActiveFareMasterResponse(resolved), 200, headers);
   }
 
@@ -314,8 +356,43 @@ export async function handleFareMasterRoutes(request, env, path, headers, { isAd
     return json(buildActiveFareMasterResponse(resolved), 200, headers);
   }
 
+  if(path === "/api/admin/fare-master/edit-form" && request.method === "GET"){
+    const auth = await requireFareMasterPermission(db, request, isAdminAuthorized, PRICING_PERMISSIONS.READ);
+    if(!auth.ok) return json({ success: false, message: auth.message }, auth.status, headers);
+    const resolved = await resolveFareMaster(db, {
+      franchiseeId: url.searchParams.get("franchiseeId"),
+      storeId: url.searchParams.get("storeId"),
+    });
+    const record = resolved?.record || buildHeadquartersV1Record(getBaseEstimateConfig());
+    return json({ success: true, form: buildFareMasterEditForm(record), active: record, fareSource: resolved?.fareSource }, 200, headers);
+  }
+
+  if(path === "/api/admin/fare-master/draft" && request.method === "POST"){
+    const auth = await requireFareMasterPermission(db, request, isAdminAuthorized, PRICING_PERMISSIONS.UPDATE);
+    if(!auth.ok) return json({ success: false, message: auth.message }, auth.status, headers);
+    const body = await request.json().catch(() => ({}));
+    const result = await saveDraftFareMasterVersion(db, body);
+    return json({ success: true, ...result }, 200, headers);
+  }
+
+  if(path === "/api/admin/fare-master/publish" && request.method === "POST"){
+    const auth = await requireFareMasterPermission(db, request, isAdminAuthorized, PRICING_PERMISSIONS.PUBLISH);
+    if(!auth.ok) return json({ success: false, message: auth.message }, auth.status, headers);
+    const body = await request.json().catch(() => ({}));
+    const result = await publishFareMasterVersion(db, body);
+    return json({ success: true, ...result }, 200, headers);
+  }
+
+  if(path === "/api/admin/fare-master/permissions" && request.method === "GET"){
+    const auth = await requireFareMasterPermission(db, request, isAdminAuthorized, PRICING_PERMISSIONS.MANAGE_PERMISSIONS);
+    if(!auth.ok) return json({ success: false, message: auth.message }, auth.status, headers);
+    const permissions = await listFareMasterPermissions(db, { userId: "admin" });
+    return json({ success: true, permissions, isOwnerDefault: permissions.length === 0 }, 200, headers);
+  }
+
   if(path === "/api/admin/fare-master/versions" && request.method === "GET"){
-    if(!(await isAdminAuthorized(request, db))) return json({ success: false, message: "Unauthorized" }, 401, headers);
+    const auth = await requireFareMasterPermission(db, request, isAdminAuthorized, PRICING_PERMISSIONS.READ);
+    if(!auth.ok) return json({ success: false, message: auth.message }, auth.status, headers);
     const versions = await listFareMasterVersions(db, {
       franchiseeId: url.searchParams.get("franchiseeId"),
       storeId: url.searchParams.get("storeId"),
@@ -324,22 +401,17 @@ export async function handleFareMasterRoutes(request, env, path, headers, { isAd
   }
 
   if(path.startsWith("/api/admin/fare-master/versions/") && request.method === "GET"){
-    if(!(await isAdminAuthorized(request, db))) return json({ success: false, message: "Unauthorized" }, 401, headers);
+    const auth = await requireFareMasterPermission(db, request, isAdminAuthorized, PRICING_PERMISSIONS.VIEW_HISTORY);
+    if(!auth.ok) return json({ success: false, message: auth.message }, auth.status, headers);
     const id = path.replace("/api/admin/fare-master/versions/", "");
     const version = await getFareMasterVersionById(db, id);
     if(!version) return json({ success: false, message: "Not found" }, 404, headers);
     return json({ success: true, version }, 200, headers);
   }
 
-  if(path === "/api/admin/fare-master/publish" && request.method === "POST"){
-    if(!(await isAdminAuthorized(request, db))) return json({ success: false, message: "Unauthorized" }, 401, headers);
-    const body = await request.json().catch(() => ({}));
-    const result = await publishFareMasterVersion(db, body);
-    return json({ success: true, ...result }, 200, headers);
-  }
-
   if(path === "/api/admin/fare-master/changes" && request.method === "GET"){
-    if(!(await isAdminAuthorized(request, db))) return json({ success: false, message: "Unauthorized" }, 401, headers);
+    const auth = await requireFareMasterPermission(db, request, isAdminAuthorized, PRICING_PERMISSIONS.VIEW_HISTORY);
+    if(!auth.ok) return json({ success: false, message: auth.message }, auth.status, headers);
     const changes = await listFareMasterChanges(db);
     return json({ success: true, changes }, 200, headers);
   }
@@ -353,12 +425,4 @@ export async function handleFareMasterRoutes(request, env, path, headers, { isAd
   return null;
 }
 
-export {
-  toEstimateConfig,
-  toMeterSettingsPayload,
-  buildFareSnapshot,
-  fareMasterToMenu,
-  fareMasterToBaseFees,
-  resolveFareMaster,
-  shouldExcludeServiceFeeFromMeterReadd,
-};
+export { fareMasterToMenu, fareMasterToBaseFees } from "./shared/fare-master-core.js";

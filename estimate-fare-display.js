@@ -132,9 +132,23 @@ export function parseEstimateTotalFromBody(body){
   if(parsed > 0) return parsed;
   const snapshot = parseQuoteSnapshotObject(body);
   const fixedTotal = Number(snapshot?.fixedFareTotal) || 0;
-  const serviceTotal = (Array.isArray(snapshot?.serviceFees) ? snapshot.serviceFees : [])
-    .reduce((sum, row) => sum + (Number(row?.amount) || 0), 0);
-  return fixedTotal + serviceTotal;
+  return fixedTotal + sumServiceFeesForTotal(snapshot?.serviceFees, {
+    fixedFareBreakdown: snapshot?.fixedFareBreakdown,
+  });
+}
+
+export function sumServiceFeesForTotal(serviceFees, options = {}){
+  const breakdown = options.fixedFareBreakdown || options.breakdown;
+  const breakdownKeys = new Set(
+    (Array.isArray(breakdown) ? breakdown : []).map((row) => row?.key).filter(Boolean),
+  );
+  const alwaysExclude = new Set(["pickupFee", "specialVehicleFee"]);
+  return (Array.isArray(serviceFees) ? serviceFees : []).reduce((sum, row) => {
+    const key = String(row?.key || "");
+    if(alwaysExclude.has(key)) return sum;
+    if(breakdownKeys.has(key)) return sum;
+    return sum + (Number(row?.amount) || 0);
+  }, 0);
 }
 
 export function buildEstimateFareCalculationEmailSection(body, estimateNo){

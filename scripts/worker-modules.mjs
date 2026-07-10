@@ -9,7 +9,11 @@ const WORKER_MODULE_FILES = [
   "driver-auth.js",
   "driver-reservations.js",
   "pre-opening-reset.js",
+  "fare-master-api.js",
   "shared/prelaunch-reservation.js",
+  "shared/fare-master-v1.js",
+  "shared/fare-master-core.js",
+  "shared/fare-master-permissions.js",
 ];
 
 export function createMiniflareWorkerOptions(rootDir = defaultRoot) {

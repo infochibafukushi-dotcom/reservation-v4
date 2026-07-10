@@ -225,18 +225,23 @@ function parseStoredJson(text) {
   }
 }
 
-function sumServiceFeesForTotal(serviceFees) {
+function sumServiceFeesForTotal(serviceFees, snapshot) {
+  const breakdown = snapshot?.fixedFareBreakdown || snapshot?.breakdown;
+  const breakdownKeys = new Set(
+    (Array.isArray(breakdown) ? breakdown : []).map((row) => row?.key).filter(Boolean),
+  );
+  const alwaysExclude = new Set(["pickupFee", "specialVehicleFee"]);
   return (Array.isArray(serviceFees) ? serviceFees : []).reduce((sum, row) => {
-    if (row?.key === "specialVehicleFee") {
-      return sum;
-    }
+    const key = String(row?.key || "");
+    if (alwaysExclude.has(key)) return sum;
+    if (breakdownKeys.has(key)) return sum;
     return sum + (Number(row?.amount) || 0);
   }, 0);
 }
 
 export function calculateTotalFromSnapshot(snapshot) {
   const fixedTotal = Number(snapshot?.fixedFareTotal) || 0;
-  const derived = fixedTotal + sumServiceFeesForTotal(snapshot?.serviceFees);
+  const derived = fixedTotal + sumServiceFeesForTotal(snapshot?.serviceFees, snapshot);
   const explicit = Number(snapshot?.total) || 0;
   if (derived > 0) {
     return derived;

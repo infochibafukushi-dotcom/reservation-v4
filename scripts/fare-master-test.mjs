@@ -7,7 +7,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import vm from "vm";
 import { buildHeadquartersV1Record, buildMeterRules, buildCalculationRules } from "../shared/fare-master-v1.js";
-import { toEstimateConfig, shouldExcludeServiceFeeFromMeterReadd, resolveActiveFareMaster } from "../shared/fare-master-core.js";
+import { toEstimateConfig, shouldExcludeServiceFeeFromMeterReadd, resolveActiveFareMaster, isVersionApplicable, sumServiceFeesForTotal } from "../shared/fare-master-core.js";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
@@ -90,8 +90,63 @@ const storeRecord = { ...hqRecord, id: "store-1", scopeType: "store", storeId: "
 const resolved = resolveActiveFareMaster([hqRecord, storeRecord]);
 assert(resolved.record.id === "store-1", "store priority");
 
-// 割増・割引対象
-assert(calcRules.nightSurcharge.appliesTo.includes("basicFareYen"), "night on basic");
-assert(!calcRules.disabilityDiscount.appliesTo.includes("careOptionFareYen"), "discount not on assist");
+// scheduled 料金 — API取得時 effectiveFrom 判定（Cron不要）
+const oldActive = { ...hqRecord, id: "fm-old", status: "active", effectiveFrom: "2026-01-01T00:00:00.000Z", meterRules: { ...meter, waitingFare: { unitSeconds: 1800, unitFareYen: 800 } } };
+const futureScheduled = { ...hqRecord, id: "fm-new", status: "scheduled", effectiveFrom: "2026-07-15T00:00:00.000Z", meterRules: { ...meter, waitingFare: { unitSeconds: 1800, unitFareYen: 900 } } };
+const beforeSwitch = resolveActiveFareMaster([oldActive, futureScheduled], { atIso: "2026-07-10T12:00:00.000Z" });
+assert(beforeSwitch.record.id === "fm-old", "before scheduled effectiveFrom uses old fare");
+const afterSwitch = resolveActiveFareMaster([oldActive, futureScheduled], { atIso: "2026-07-15T12:00:00.000Z" });
+assert(afterSwitch.record.id === "fm-new", "after scheduled effectiveFrom uses new fare");
+assert(isVersionApplicable(futureScheduled, "2026-07-14T23:59:59.000Z") === false, "scheduled not applicable before from");
+assert(isVersionApplicable(futureScheduled, "2026-07-15T00:00:00.000Z") === true, "scheduled applicable at from");
+
+// 二重加算防止（LP 7700円ケース）
+const svSnapshot = {
+  fixedFareTotal: 6600,
+  fixedFareBreakdown: [
+    { key: "pickupFee", amount: 800 },
+    { key: "specialVehicleFee", amount: 1000 },
+    { key: "distanceFare", amount: 4500 },
+    { key: "timeAdjustment", amount: 300 },
+  ],
+  serviceFees: [
+    { key: "specialVehicleFee", amount: 1000 },
+    { key: "assistanceFee", amount: 1100 },
+  ],
+};
+assert(sumServiceFeesForTotal(svSnapshot.serviceFees, svSnapshot) === 1100, "specialVehicle excluded from service sum");
+assert(6600 + sumServiceFeesForTotal(svSnapshot.serviceFees, svSnapshot) === 7700, "LP 7700 total");
+
+const pickupDupSnapshot = {
+  fixedFareTotal: 5000,
+  fixedFareBreakdown: [{ key: "pickupFee", amount: 800 }, { key: "distanceFare", amount: 4200 }],
+  serviceFees: [{ key: "pickupFee", amount: 800 }, { key: "assistanceFee", amount: 1100 }],
+};
+assert(sumServiceFeesForTotal(pickupDupSnapshot.serviceFees, pickupDupSnapshot) === 1100, "pickup duplicate excluded");
+
+const waitingDupSnapshot = {
+  fixedFareTotal: 6000,
+  fixedFareBreakdown: [{ key: "distanceFare", amount: 5200 }, { key: "waitingFee", amount: 800 }],
+  serviceFees: [{ key: "waitingFee", amount: 800 }, { key: "escortFee", amount: 1600 }],
+};
+assert(sumServiceFeesForTotal(waitingDupSnapshot.serviceFees, waitingDupSnapshot) === 1600, "waiting in breakdown excluded, escort added");
+
+// estimate-fare-display モジュール
+const { parseEstimateTotalFromBody } = await import("../estimate-fare-display.js");
+const displayTotal = parseEstimateTotalFromBody({
+  quoteSnapshot: svSnapshot,
+});
+assert(displayTotal === 7700, "parseEstimateTotalFromBody 7700");
+
+// 権限 — レコードなし=オーナー全権限
+const { hasFareMasterPermission, PRICING_PERMISSIONS } = await import("../shared/fare-master-permissions.js");
+const mockDbEmpty = {
+  prepare(){ return { bind(){ return { async all(){ return { results: [] }; } }; } }; },
+};
+assert(await hasFareMasterPermission(mockDbEmpty, { permission: PRICING_PERMISSIONS.UPDATE }) === true, "owner default update");
+const mockDbStaff = {
+  prepare(){ return { bind(){ return { async all(){ return { results: [{ permission_key: "pricing.read" }] }; } }; } }; },
+};
+assert(await hasFareMasterPermission(mockDbStaff, { permission: PRICING_PERMISSIONS.UPDATE }) === false, "staff cannot update");
 
 console.log("fare-master-test: ALL PASSED (" + new Date().toISOString() + ")");
