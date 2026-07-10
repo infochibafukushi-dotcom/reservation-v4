@@ -33,6 +33,41 @@ const calcRules = buildCalculationRules();
 assert(EstimateCalc.calcDistanceFare(1.06, config.distancePricing) === 520, "1.06km = 520");
 assert(EstimateCalc.calcDistanceFare(1.272, config.distancePricing) === 620, "1.272km = 620 (212m加算)");
 assert(EstimateCalc.calcDistanceFare(1.06 + 0.212 * 2 + 0.001, config.distancePricing) === 820, "distance ceil");
+assert(EstimateCalc.calcDistanceFare(1.0, config.distancePricing) === 520, "1.00km = 520");
+assert(EstimateCalc.calcDistanceFare(1.061, config.distancePricing) === 620, "1.061km = 620");
+assert(EstimateCalc.calcDistanceFare(1.273, config.distancePricing) === 720, "1.273km = 720");
+assert(EstimateCalc.calcDistanceFare(8.5, config.distancePricing) === 4120, "8.5km = 4120");
+
+const lpParityState = {
+  distanceKm: 8.5,
+  routeCalcResult: { durationMinutes: 25 },
+  mobilityId: "own-wheelchair",
+  assistanceId: "boarding-assist",
+  stairId: "stair-none",
+  tripTypeId: "one-way",
+};
+
+function assertModeParity(label, estimateConfig){
+  const dt = EstimateCalc.computeEstimate(Object.assign({}, estimateConfig, { fareMode: "distance_time" }), lpParityState);
+  const pf = EstimateCalc.computeEstimate(Object.assign({}, estimateConfig, { fareMode: "pre_fixed_fare" }), lpParityState);
+  assert(dt.total === 7320, label + " distance_time total 7320 got " + dt.total);
+  assert(pf.total === 7320, label + " pre_fixed_fare total 7320 got " + pf.total);
+  assert(dt.total === pf.total, label + " mode totals match");
+  assert(dt.quoteSnapshot.fixedFareTotal === pf.quoteSnapshot.fixedFareTotal, label + " fixedFareTotal match");
+  const dtDist = dt.quoteSnapshot.fixedFareBreakdown.find((r) => r.key === "distanceFare")?.amount;
+  const pfDist = pf.quoteSnapshot.fixedFareBreakdown.find((r) => r.key === "distanceFare")?.amount;
+  assert(dtDist === 4120 && pfDist === 4120, label + " distanceFare 4120 both modes");
+  assert(pf.quoteSnapshot.trafficZoneCoefficient == null, label + " no trafficZoneCoefficient on amount path");
+  assert(pf.quoteSnapshot.adjustedDistanceFareAmount == null, label + " no adjustedDistanceFareAmount");
+  const notices = pf.quoteSnapshot.fareBasis?.notices || [];
+  assert(!notices.some((n) => String(n).includes("平準化係数")), label + " no coefficient notice");
+}
+
+assertModeParity("hq-seed", config);
+
+const configWithZones = JSON.parse(readFileSync(path.join(root, "data/estimate-config.json"), "utf8"));
+assert(Array.isArray(configWithZones.trafficZones?.items) && configWithZones.trafficZones.items.length > 0, "estimate-config has trafficZones");
+assertModeParity("estimate-config-with-zones", configWithZones);
 
 // 時間制
 const timeResult = EstimateCalc.computeEstimate(Object.assign({}, config, { fareMode: "time" }), {

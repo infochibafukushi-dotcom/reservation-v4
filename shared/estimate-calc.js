@@ -126,46 +126,6 @@
     return getCurrentFareMode(config) === "pre_fixed_fare";
   }
 
-  function resolveTrafficZone(config, state){
-    const zoneId = String(
-      state?.selectedTrafficZoneId
-      || config?.preFixedFare?.trafficZoneId
-      || ""
-    ).trim();
-    if(!zoneId){
-      return null;
-    }
-    return findItem(config?.trafficZones?.items, zoneId) || null;
-  }
-
-  function resolveTrafficZoneDetection(config, state){
-    if(global.EstimateTrafficZone && typeof global.EstimateTrafficZone.detectTrafficZone === "function"){
-      return global.EstimateTrafficZone.detectTrafficZone(config, {
-        originAddress: state?.originAddress || state?.routePlan?.pickup?.address || "",
-        geocoding: state?.routePlan?.pickup?.geocoding || null
-      });
-    }
-    const zoneId = String(config?.preFixedFare?.trafficZoneId || "").trim();
-    const zone = findItem(config?.trafficZones?.items, zoneId);
-    return {
-      detectedMunicipality: null,
-      selectedTrafficZoneId: zone?.id || zoneId || null,
-      selectedTrafficZoneLabel: zone?.label || null,
-      trafficZoneCoefficient: zone ? Number(zone.coefficient) || null : null,
-      trafficZoneDetectionMethod: "fallback_config",
-      trafficZoneDetectionSource: "origin_address"
-    };
-  }
-
-  function applyTrafficZoneCoefficient(baseDistanceFareAmount, coefficient){
-    const base = Math.max(0, Math.round(Number(baseDistanceFareAmount) || 0));
-    const factor = Number(coefficient);
-    if(!(base > 0) || !(factor > 0)){
-      return base;
-    }
-    return Math.round(base * factor);
-  }
-
   function pickupFeeComponent(config){
     return {
       key: "pickupFee",
@@ -396,20 +356,13 @@
     return "使用時間: 未取得（住所検索で距離を計算すると予定時間が設定されます）";
   }
 
-  function buildFareBasisNotices(fareMode, preFixedFareMeta){
+  function buildFareBasisNotices(fareMode){
     const notices = ["表示は見積時点の運賃設定に基づく計算根拠です。"];
     if(fareMode === "distance_time" || fareMode === "pre_fixed_fare"){
       notices.push("時間加算はルート予定時間に基づく概算です。実走行では認可メーター（低速走行時の時間距離併用）が適用されます。");
       notices.push("待機時間は運賃計算に含まれません。");
     }else{
       notices.push("待機時間・低速走行時間は運賃計算に含まれません。");
-    }
-    if(fareMode === "pre_fixed_fare" && preFixedFareMeta?.trafficZoneCoefficient > 0){
-      notices.push(
-        "距離運賃には交通圏平準化係数（"
-        + preFixedFareMeta.trafficZoneCoefficient
-        + "）を適用しています。介助料・待機料・実費には適用しません。"
-      );
     }
     return notices;
   }
@@ -421,7 +374,7 @@
     const pricing = config.distancePricing;
     const components = getFareComponents(config, fareMode);
     const sections = [];
-    const notices = buildFareBasisNotices(fareMode, fixedFareData.preFixedFareMeta);
+    const notices = buildFareBasisNotices(fareMode);
     const rideMinutes = Number(state?.routeCalcResult?.durationMinutes) || 0;
     let hasTimeBlock = false;
 
@@ -447,23 +400,6 @@
       if(calculator === "distance_pricing_ref"){
         const distanceUsage = buildDistanceUsageLines(config, state, distanceMultiplier);
         const rules = buildDistancePricingRules(pricing);
-        const preFixedMeta = fixedFareData.preFixedFareMeta;
-        if(
-          fareMode === "pre_fixed_fare"
-          && preFixedMeta
-          && preFixedMeta.trafficZoneCoefficient > 0
-          && preFixedMeta.baseDistanceFareAmount > 0
-        ){
-          rules.push(
-            "認可距離制運賃 "
-            + preFixedMeta.baseDistanceFareAmount
-            + "円 × 平準化係数 "
-            + preFixedMeta.trafficZoneCoefficient
-            + " = "
-            + preFixedMeta.adjustedDistanceFareAmount
-            + "円"
-          );
-        }
         sections.push({
           key: key,
           title: fareMode === "distance_time" || fareMode === "pre_fixed_fare" ? "距離部分" : "距離定額",
@@ -512,10 +448,6 @@
     const rideMinutes = Number(state?.routeCalcResult?.durationMinutes) || 0;
     const rows = [];
 
-    let baseDistanceFareAmount = 0;
-    let adjustedDistanceFareAmount = 0;
-    let preFixedFareMeta = null;
-
     components.forEach(function(component, index){
       const calculator = String(component?.calculator || "").trim();
       const key = String(component?.key || "component-" + index);
@@ -527,21 +459,8 @@
       }else if(calculator === "distance_pricing_ref"){
         const pricingRef = String(component?.pricingRef || "").trim() || "distancePricing";
         const pricing = config?.[pricingRef] || config?.distancePricing;
+        // distance_time / pre_fixed_fare は同一計算。交通圏係数は料金に適用しない。
         amount = calcDistanceFare(state.distanceKm, pricing) * distanceMultiplier;
-        if(isPreFixedFareMode(config)){
-          baseDistanceFareAmount = Math.max(0, Math.round(Number(amount) || 0));
-          const trafficZone = resolveTrafficZone(config, state);
-          const coefficient = trafficZone ? Number(trafficZone.coefficient) : 0;
-          adjustedDistanceFareAmount = applyTrafficZoneCoefficient(baseDistanceFareAmount, coefficient);
-          amount = adjustedDistanceFareAmount;
-          preFixedFareMeta = {
-            baseDistanceFareAmount: baseDistanceFareAmount,
-            adjustedDistanceFareAmount: adjustedDistanceFareAmount,
-            selectedTrafficZoneId: trafficZone?.id || null,
-            selectedTrafficZoneLabel: trafficZone?.label || null,
-            trafficZoneCoefficient: coefficient > 0 ? coefficient : null
-          };
-        }
       }else if(calculator === "time_block"){
         amount = calcTimeBlockFare(rideMinutes, component?.params);
       }
@@ -557,7 +476,7 @@
       fixedFareBreakdown: rows,
       // 運賃本体は10円未満切り捨て（サービス料金は丸めない）。registerQuote でも同ルールを適用する。
       fixedFareTotal: Math.floor(Math.max(rawFixedFareTotal, 0) / 10) * 10,
-      preFixedFareMeta: preFixedFareMeta
+      preFixedFareMeta: null
     };
   }
 
@@ -711,19 +630,7 @@
 
     distanceFare = distanceFare * distanceMultiplier;
 
-    let trafficZoneDetection = null;
-    let computeState = state;
-    if(isPreFixedFareMode(config)){
-      trafficZoneDetection = resolveTrafficZoneDetection(config, state);
-      computeState = Object.assign({}, state, {
-        selectedTrafficZoneId: trafficZoneDetection.selectedTrafficZoneId
-      });
-    }
-
-    const fixedFareData = computeFixedFareBreakdown(config, computeState);
-    if(fixedFareData.preFixedFareMeta?.adjustedDistanceFareAmount > 0){
-      distanceFare = fixedFareData.preFixedFareMeta.adjustedDistanceFareAmount;
-    }
+    const fixedFareData = computeFixedFareBreakdown(config, state);
     const serviceFees = [
       {
         key: "specialVehicleFee",
@@ -767,7 +674,6 @@
     };
     const total = fixedFareData.fixedFareTotal + serviceTotal;
     const fareBasis = buildFareBasis(config, state, fixedFareData);
-    const preFixedMeta = fixedFareData.preFixedFareMeta;
     const quoteSnapshot = {
       fareMode: fixedFareData.fareMode,
       fareMasterId: config.fareMasterId || config.fareVersionId || null,
@@ -786,14 +692,15 @@
       roadType: String(state.roadType || "general") === "toll" ? "toll" : "general",
       distanceKm: Number(state.distanceKm) || 0,
       selectedRouteId: String(state.routePlan?.selectedRouteId || ""),
-      selectedTrafficZoneId: preFixedMeta?.selectedTrafficZoneId || trafficZoneDetection?.selectedTrafficZoneId || null,
-      selectedTrafficZoneLabel: preFixedMeta?.selectedTrafficZoneLabel || trafficZoneDetection?.selectedTrafficZoneLabel || null,
-      trafficZoneCoefficient: preFixedMeta?.trafficZoneCoefficient ?? trafficZoneDetection?.trafficZoneCoefficient ?? null,
-      detectedMunicipality: trafficZoneDetection?.detectedMunicipality || null,
-      trafficZoneDetectionMethod: trafficZoneDetection?.trafficZoneDetectionMethod || null,
-      trafficZoneDetectionSource: trafficZoneDetection?.trafficZoneDetectionSource || null,
-      baseDistanceFareAmount: preFixedMeta?.baseDistanceFareAmount ?? null,
-      adjustedDistanceFareAmount: preFixedMeta?.adjustedDistanceFareAmount ?? null,
+      // 交通圏係数は料金に適用しない（互換のためキーは残し null）
+      selectedTrafficZoneId: null,
+      selectedTrafficZoneLabel: null,
+      trafficZoneCoefficient: null,
+      detectedMunicipality: null,
+      trafficZoneDetectionMethod: null,
+      trafficZoneDetectionSource: null,
+      baseDistanceFareAmount: null,
+      adjustedDistanceFareAmount: null,
       preFixedFareMode: isPreFixedFareMode(config),
       routeProvider: resolveRouteProvider(state),
       distanceMeters: resolveDistanceMeters(state),
