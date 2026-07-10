@@ -254,8 +254,13 @@ export function buildHeadquartersFareRules(){
       waiting30min: { id: "waiting30min", label: "待機（30分）", amount: 800, visible: true, order: 1 },
       escort30min: { id: "escort30min", label: "付き添い（30分）", amount: 1600, visible: true, order: 2 },
     },
-    preFixedFare: { trafficZoneId: "keiyo" },
-    trafficZones: { items: [] },
+    preFixedFare: { trafficZoneId: "chiba" },
+    trafficZones: {
+      items: [
+        { id: "chiba", label: "千葉交通圏", coefficient: 1.18, order: 1 },
+        { id: "keiyo", label: "京葉交通圏", coefficient: 1.2, order: 2 }
+      ]
+    },
     mappings: {
       mobilityAssistance: {
         "cane-walk": { mode: "select", assistanceIds: ["watch-assist", "boarding-assist", "body-assist"], assistanceId: "watch-assist" },

@@ -59,35 +59,74 @@ function getServiceFeeAmount(serviceFees, keys){
 export function buildFareCalculationLines(options = {}){
   const snapshot = options.quoteSnapshot || {};
   const breakdown = options.breakdown || {};
-  const total = Number(options.total) || Number(snapshot.fixedFareTotal) || 0;
+  const total = Number(options.total)
+    || Number(snapshot.totalAmount)
+    || Number(snapshot.fixedFareTotal)
+    || 0;
   const routePlan = options.routePlan || null;
-  const totalLabel = String(options.totalLabel || "概算料金");
+  const fareMode = String(snapshot.fareMode || options.fareMode || "");
+  const isAuthorized = fareMode === "distance_time" || fareMode === "pre_fixed_fare";
+  const totalLabel = String(options.totalLabel || (isAuthorized ? "お支払い合計" : "概算料金"));
 
   const pickupFee = getBreakdownAmount(snapshot.fixedFareBreakdown, "pickupFee")
-    || Number(breakdown.pickupFee) || 0;
+    || Number(breakdown.pickupFee) || Number(snapshot.pickupFee) || 0;
+  const specialVehicleFee = Number(snapshot.specialVehicleFeeAmount)
+    || getBreakdownAmount(snapshot.fixedFareBreakdown, "specialVehicleFee")
+    || 0;
+  const preFixedBody = Number(snapshot.preFixedFareAmount)
+    || Number(snapshot.adjustedDistanceFareAmount)
+    || getBreakdownAmount(snapshot.fixedFareBreakdown, "distanceFare")
+    || Number(breakdown.distanceFare)
+    || 0;
   const distanceFare = getBreakdownAmount(snapshot.fixedFareBreakdown, "distanceFare")
     || Number(breakdown.distanceFare) || 0;
-  const timeAdjustment = getBreakdownAmount(snapshot.fixedFareBreakdown, "timeAdjustment") || 0;
+  const timeAdjustment = isAuthorized
+    ? (Number(snapshot.scheduledDurationSurcharge) || 0)
+    : (getBreakdownAmount(snapshot.fixedFareBreakdown, "timeAdjustment") || 0);
   const assistanceFee = getServiceFeeAmount(snapshot.serviceFees, ["assistanceFee"])
     || Number(breakdown.assistanceFee) || 0;
   const stairFee = getServiceFeeAmount(snapshot.serviceFees, ["stairFee"])
     || Number(breakdown.stairFee) || 0;
+  const wheelchairFee = getServiceFeeAmount(snapshot.serviceFees, ["wheelchairFee"])
+    || Number(breakdown.wheelchairFee) || 0;
   const waitingEscortFee = getServiceFeeAmount(snapshot.serviceFees, ["waitingFee", "escortFee"])
     || (Number(breakdown.waitingFee) || 0) + (Number(breakdown.escortFee) || 0);
+  const serviceTotal = assistanceFee + stairFee + wheelchairFee + waitingEscortFee;
 
   const routeLabel = String(options.routeLabel || "ルート算出");
-
-  return [
+  const lines = [
     { label: "予定距離", value: formatDistanceKm(snapshot, routePlan) },
     { label: "予定時間", value: formatDurationMinutes(snapshot, routePlan) },
-    { label: routeLabel, value: getRouteProviderLabel(snapshot.routeProvider) },
-    { label: "迎車料金", value: formatYen(pickupFee) },
-    { label: "距離運賃", value: formatYen(distanceFare) },
-    { label: "時間加算", value: formatYen(timeAdjustment) },
-    { label: "介助料金", value: formatYen(assistanceFee + stairFee) },
-    { label: "待機・付き添い料金", value: formatYen(waitingEscortFee) },
-    { label: totalLabel, value: `${formatYen(total)}～` }
+    { label: routeLabel, value: getRouteProviderLabel(snapshot.routeProvider) }
   ];
+
+  if(isAuthorized){
+    lines.push(
+      { label: "事前確定運賃本体", value: formatYen(preFixedBody) },
+      { label: "迎車料金", value: formatYen(pickupFee) }
+    );
+    if(specialVehicleFee > 0 || snapshot.specialVehicleFeeEnabled){
+      lines.push({ label: "特殊車両使用料", value: formatYen(specialVehicleFee) });
+    }
+    lines.push(
+      { label: "その他料金小計", value: formatYen(pickupFee + specialVehicleFee) },
+      { label: "介助・機材料金", value: formatYen(assistanceFee + stairFee + wheelchairFee) },
+      { label: "待機・付き添い料金", value: formatYen(waitingEscortFee) },
+      { label: "サービス料金小計", value: formatYen(serviceTotal) },
+      { label: totalLabel, value: formatYen(total) }
+    );
+  }else{
+    lines.push(
+      { label: "迎車料金", value: formatYen(pickupFee) },
+      { label: "距離運賃", value: formatYen(distanceFare) },
+      { label: "時間加算", value: formatYen(timeAdjustment) },
+      { label: "介助料金", value: formatYen(assistanceFee + stairFee) },
+      { label: "待機・付き添い料金", value: formatYen(waitingEscortFee) },
+      { label: totalLabel, value: `${formatYen(total)}～` }
+    );
+  }
+
+  return lines;
 }
 
 export function buildFareCalculationEmailText(options = {}){

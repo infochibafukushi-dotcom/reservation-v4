@@ -126,6 +126,43 @@
     return getCurrentFareMode(config) === "pre_fixed_fare";
   }
 
+  // 申請資料: 正式運用は千葉交通圏 1.18。京葉 1.20 は料金計算に使わない。
+  const AUTHORIZED_TRAFFIC_ZONE_ID = "chiba";
+  const AUTHORIZED_TRAFFIC_ZONE_NAME = "千葉交通圏";
+  const AUTHORIZED_TRAFFIC_ZONE_COEFFICIENT = 1.18;
+
+  function isAuthorizedDistanceFareMode(config){
+    const mode = getCurrentFareMode(config);
+    return mode === "distance_time" || mode === "pre_fixed_fare";
+  }
+
+  function resolveAuthorizedTrafficZone(config){
+    const zone = findItem(config?.trafficZones?.items, AUTHORIZED_TRAFFIC_ZONE_ID);
+    const coefficient = zone ? Number(zone.coefficient) : 0;
+    if(zone && coefficient > 0){
+      return {
+        id: String(zone.id || AUTHORIZED_TRAFFIC_ZONE_ID),
+        label: String(zone.label || AUTHORIZED_TRAFFIC_ZONE_NAME),
+        coefficient: coefficient
+      };
+    }
+    return {
+      id: AUTHORIZED_TRAFFIC_ZONE_ID,
+      label: AUTHORIZED_TRAFFIC_ZONE_NAME,
+      coefficient: AUTHORIZED_TRAFFIC_ZONE_COEFFICIENT
+    };
+  }
+
+  // 申請資料: 事前確定運賃 ＝ 距離制運賃 × 平準化係数（1円単位四捨五入）
+  function applyTrafficZoneCoefficient(baseDistanceFareAmount, coefficient){
+    const base = Math.max(0, Math.round(Number(baseDistanceFareAmount) || 0));
+    const factor = Number(coefficient);
+    if(!(base > 0) || !(factor > 0)){
+      return base;
+    }
+    return Math.round(base * factor);
+  }
+
   function pickupFeeComponent(config){
     return {
       key: "pickupFee",
@@ -356,11 +393,18 @@
     return "使用時間: 未取得（住所検索で距離を計算すると予定時間が設定されます）";
   }
 
-  function buildFareBasisNotices(fareMode){
+  function buildFareBasisNotices(fareMode, authorizedMeta){
     const notices = ["表示は見積時点の運賃設定に基づく計算根拠です。"];
     if(fareMode === "distance_time" || fareMode === "pre_fixed_fare"){
-      notices.push("時間加算はルート予定時間に基づく概算です。実走行では認可メーター（低速走行時の時間距離併用）が適用されます。");
-      notices.push("待機時間は運賃計算に含まれません。");
+      notices.push("予定時間はルート比較・表示・運行計画にのみ使用し、事前確定運賃本体には加算しません。");
+      notices.push("待機・付き添いは別サービス料金です。ルート予定時間から自動加算しません。");
+      if(authorizedMeta?.trafficZoneCoefficient > 0){
+        notices.push(
+          "距離運賃には交通圏平準化係数（"
+          + authorizedMeta.trafficZoneCoefficient
+          + "）を適用します。迎車料・介助料・機材料・実費には適用しません。"
+        );
+      }
     }else{
       notices.push("待機時間・低速走行時間は運賃計算に含まれません。");
     }
@@ -374,7 +418,7 @@
     const pricing = config.distancePricing;
     const components = getFareComponents(config, fareMode);
     const sections = [];
-    const notices = buildFareBasisNotices(fareMode);
+    const notices = buildFareBasisNotices(fareMode, fixedFareData.authorizedFareMeta);
     const rideMinutes = Number(state?.routeCalcResult?.durationMinutes) || 0;
     let hasTimeBlock = false;
 
@@ -400,6 +444,23 @@
       if(calculator === "distance_pricing_ref"){
         const distanceUsage = buildDistanceUsageLines(config, state, distanceMultiplier);
         const rules = buildDistancePricingRules(pricing);
+        const meta = fixedFareData.authorizedFareMeta;
+        if(
+          isAuthorizedDistanceFareMode(config)
+          && meta
+          && meta.trafficZoneCoefficient > 0
+          && meta.baseDistanceFareAmount > 0
+        ){
+          rules.push(
+            "認可距離制運賃 "
+            + meta.baseDistanceFareAmount
+            + "円 × 平準化係数 "
+            + meta.trafficZoneCoefficient
+            + " = "
+            + meta.adjustedDistanceFareAmount
+            + "円（1円単位四捨五入）"
+          );
+        }
         sections.push({
           key: key,
           title: fareMode === "distance_time" || fareMode === "pre_fixed_fare" ? "距離部分" : "距離定額",
@@ -418,7 +479,9 @@
         sections.push({
           key: key,
           title: isAdjustment ? "予定時間加算（概算）" : "時間定額",
-          rules: buildTimeBlockRules(component?.params),
+          rules: isAdjustment
+            ? ["正式認可計算では予定時間加算は運賃本体に含めません（0円）"]
+            : buildTimeBlockRules(component?.params),
           usage: buildDurationUsageLine(state, { routeEstimate: isAdjustment }),
           amountLabel: String(component.label || (isAdjustment ? "予定時間加算（概算）" : "時間定額運賃")),
           amount: amount
@@ -426,7 +489,7 @@
       }
     });
 
-    if(hasTimeBlock && rideMinutes <= 0){
+    if(hasTimeBlock && rideMinutes <= 0 && !isAuthorizedDistanceFareMode(config)){
       notices.push("予定時間が未取得のため、時間に基づく運賃は算出できていない可能性があります。");
     }
 
@@ -447,6 +510,8 @@
     const distanceMultiplier = getDistanceMultiplier(config, state);
     const rideMinutes = Number(state?.routeCalcResult?.durationMinutes) || 0;
     const rows = [];
+    const authorizedMode = isAuthorizedDistanceFareMode(config);
+    let authorizedFareMeta = null;
 
     components.forEach(function(component, index){
       const calculator = String(component?.calculator || "").trim();
@@ -459,10 +524,31 @@
       }else if(calculator === "distance_pricing_ref"){
         const pricingRef = String(component?.pricingRef || "").trim() || "distancePricing";
         const pricing = config?.[pricingRef] || config?.distancePricing;
-        // distance_time / pre_fixed_fare は同一計算。交通圏係数は料金に適用しない。
         amount = calcDistanceFare(state.distanceKm, pricing) * distanceMultiplier;
+        if(authorizedMode){
+          const baseDistanceFareAmount = Math.max(0, Math.round(Number(amount) || 0));
+          const trafficZone = resolveAuthorizedTrafficZone(config);
+          const coefficient = Number(trafficZone.coefficient) || 0;
+          const adjustedDistanceFareAmount = applyTrafficZoneCoefficient(baseDistanceFareAmount, coefficient);
+          amount = adjustedDistanceFareAmount;
+          authorizedFareMeta = {
+            baseDistanceFareAmount: baseDistanceFareAmount,
+            adjustedDistanceFareAmount: adjustedDistanceFareAmount,
+            preFixedFareAmount: adjustedDistanceFareAmount,
+            scheduledDurationSurcharge: 0,
+            selectedTrafficZoneId: trafficZone.id,
+            selectedTrafficZoneLabel: trafficZone.label,
+            trafficZoneId: trafficZone.id,
+            trafficZoneName: trafficZone.label,
+            trafficZoneCoefficient: coefficient > 0 ? coefficient : null
+          };
+        }
       }else if(calculator === "time_block"){
-        amount = calcTimeBlockFare(rideMinutes, component?.params);
+        if(authorizedMode && key === "timeAdjustment"){
+          amount = 0;
+        }else{
+          amount = calcTimeBlockFare(rideMinutes, component?.params);
+        }
       }
       const n = Math.max(0, Math.round(Number(amount) || 0));
       if(n > 0){
@@ -470,13 +556,31 @@
       }
     });
 
+    if(authorizedMode && !authorizedFareMeta){
+      const trafficZone = resolveAuthorizedTrafficZone(config);
+      authorizedFareMeta = {
+        baseDistanceFareAmount: 0,
+        adjustedDistanceFareAmount: 0,
+        preFixedFareAmount: 0,
+        scheduledDurationSurcharge: 0,
+        selectedTrafficZoneId: trafficZone.id,
+        selectedTrafficZoneLabel: trafficZone.label,
+        trafficZoneId: trafficZone.id,
+        trafficZoneName: trafficZone.label,
+        trafficZoneCoefficient: Number(trafficZone.coefficient) || null
+      };
+    }
+
     const rawFixedFareTotal = rows.reduce(function(sum, row){ return sum + row.amount; }, 0);
     return {
       fareMode: fareMode,
       fixedFareBreakdown: rows,
-      // 運賃本体は10円未満切り捨て（サービス料金は丸めない）。registerQuote でも同ルールを適用する。
-      fixedFareTotal: Math.floor(Math.max(rawFixedFareTotal, 0) / 10) * 10,
-      preFixedFareMeta: null
+      // 申請資料: 係数適用後は1円単位。認可モードでは10円未満切捨てを行わない。
+      fixedFareTotal: authorizedMode
+        ? Math.max(0, Math.round(rawFixedFareTotal))
+        : Math.floor(Math.max(rawFixedFareTotal, 0) / 10) * 10,
+      authorizedFareMeta: authorizedFareMeta,
+      preFixedFareMeta: authorizedFareMeta
     };
   }
 
@@ -631,6 +735,10 @@
     distanceFare = distanceFare * distanceMultiplier;
 
     const fixedFareData = computeFixedFareBreakdown(config, state);
+    const authorizedMeta = fixedFareData.authorizedFareMeta;
+    if(authorizedMeta?.adjustedDistanceFareAmount > 0){
+      distanceFare = authorizedMeta.adjustedDistanceFareAmount;
+    }
     const serviceFees = [
       {
         key: "specialVehicleFee",
@@ -674,6 +782,7 @@
     };
     const total = fixedFareData.fixedFareTotal + serviceTotal;
     const fareBasis = buildFareBasis(config, state, fixedFareData);
+    const durationMinutes = Number(state?.routeCalcResult?.durationMinutes) || 0;
     const quoteSnapshot = {
       fareMode: fixedFareData.fareMode,
       fareMasterId: config.fareMasterId || config.fareVersionId || null,
@@ -691,16 +800,23 @@
       expenses: expenses,
       roadType: String(state.roadType || "general") === "toll" ? "toll" : "general",
       distanceKm: Number(state.distanceKm) || 0,
+      durationMinutes: durationMinutes,
       selectedRouteId: String(state.routePlan?.selectedRouteId || ""),
-      // 交通圏係数は料金に適用しない（互換のためキーは残し null）
-      selectedTrafficZoneId: null,
-      selectedTrafficZoneLabel: null,
-      trafficZoneCoefficient: null,
+      selectedTrafficZoneId: authorizedMeta?.selectedTrafficZoneId ?? null,
+      selectedTrafficZoneLabel: authorizedMeta?.selectedTrafficZoneLabel ?? null,
+      trafficZoneId: authorizedMeta?.trafficZoneId ?? null,
+      trafficZoneName: authorizedMeta?.trafficZoneName ?? null,
+      trafficZoneCoefficient: authorizedMeta?.trafficZoneCoefficient ?? null,
       detectedMunicipality: null,
-      trafficZoneDetectionMethod: null,
-      trafficZoneDetectionSource: null,
-      baseDistanceFareAmount: null,
-      adjustedDistanceFareAmount: null,
+      trafficZoneDetectionMethod: authorizedMeta ? "authorized_chiba" : null,
+      trafficZoneDetectionSource: authorizedMeta ? "application_spec" : null,
+      baseDistanceFareAmount: authorizedMeta?.baseDistanceFareAmount ?? null,
+      adjustedDistanceFareAmount: authorizedMeta?.adjustedDistanceFareAmount ?? null,
+      scheduledDurationSurcharge: authorizedMeta ? 0 : null,
+      preFixedFareAmount: authorizedMeta?.preFixedFareAmount ?? null,
+      totalAmount: total,
+      consent: state?.consent ?? null,
+      consentAt: state?.consentAt ?? null,
       preFixedFareMode: isPreFixedFareMode(config),
       routeProvider: resolveRouteProvider(state),
       distanceMeters: resolveDistanceMeters(state),

@@ -124,7 +124,7 @@
     ]
   },
   "preFixedFare": {
-    "trafficZoneId": "keiyo"
+    "trafficZoneId": "chiba"
   },
   "fareMode": "distance_time",
   "fareModeOptions": [
