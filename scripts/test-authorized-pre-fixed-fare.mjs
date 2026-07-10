@@ -1,15 +1,8 @@
 /**
  * 正式認可ロジック（申請資料準拠）の検証。
  *
- * 根拠:
- * - lp-site/shared/pre-fixed-fare-report-data.js
- *   「事前確定運賃 ＝ 距離制運賃 × 平準化係数（1円単位四捨五入）」
- *   千葉交通圏 coefficient: 1.18
- * - lp-site/shared/pre-fixed-fare-submission-appendix-data.js
- *   端数処理: 1円未満四捨五入
- *
- * 期待値（8.5km・迎車800・特殊車両1000・乗降介助1100・片道）:
- *   4120 × 1.18 → 4862 / 予定時間加算 0 / 合計 7762
+ * 根拠: 距離制 × 1.18 の後、1円の位を四捨五入し10円単位。
+ * 8.5km: 4120×1.18=4861.6 → 4860 / 合計 7760
  *
  * Run: node scripts/test-authorized-pre-fixed-fare.mjs
  */
@@ -63,10 +56,15 @@ function computeMode(estimateConfig, fareMode, durationMinutes){
   );
 }
 
+console.log("=== 端数処理境界値（1円の位四捨五入→10円単位） ===");
+assertEqual(EstimateCalc.applyTrafficZoneCoefficient(4120, 1.18), 4860, "4120*1.18 -> 4860 not 4862");
+assertEqual(EstimateCalc.applyTrafficZoneCoefficient(4864, 1), 4860, "4864 -> 4860");
+assertEqual(EstimateCalc.applyTrafficZoneCoefficient(4865, 1), 4870, "4865 -> 4870");
+assertEqual(EstimateCalc.applyTrafficZoneCoefficient(4866, 1), 4870, "4866 -> 4870");
+
 function assertAuthorizedCase(label, estimateConfig){
   console.log("=== " + label + " ===");
   assertEqual(EstimateCalc.calcDistanceFare(8.5, estimateConfig.distancePricing), 4120, label + " base 4120");
-  assertEqual(Math.round(4120 * 1.18), 4862, label + " round(4120*1.18)");
 
   const pf = computeMode(estimateConfig, "pre_fixed_fare", 25);
   const dt = computeMode(estimateConfig, "distance_time", 25);
@@ -75,12 +73,12 @@ function assertAuthorizedCase(label, estimateConfig){
   assertEqual(Number(snap.baseDistanceFareAmount), 4120, label + " baseDistanceFareAmount");
   assertEqual(Number(snap.trafficZoneCoefficient), 1.18, label + " coefficient 1.18");
   assertEqual(String(snap.trafficZoneId || snap.selectedTrafficZoneId), "chiba", label + " zone chiba");
-  assertEqual(Number(snap.adjustedDistanceFareAmount), 4862, label + " adjusted 4862");
-  assertEqual(Number(snap.preFixedFareAmount), 4862, label + " preFixedFareAmount");
+  assertEqual(Number(snap.adjustedDistanceFareAmount), 4860, label + " adjusted 4860");
+  assertEqual(Number(snap.preFixedFareAmount), 4860, label + " preFixedFareAmount");
   assertEqual(Number(snap.scheduledDurationSurcharge) || 0, 0, label + " surcharge 0");
   assertEqual(getBreakdownAmount(snap.fixedFareBreakdown, "timeAdjustment"), 0, label + " no timeAdjustment");
-  assertEqual(Number(pf.total), 7762, label + " pre_fixed total 7762");
-  assertEqual(Number(dt.total), 7762, label + " distance_time total 7762");
+  assertEqual(Number(pf.total), 7760, label + " pre_fixed total 7760");
+  assertEqual(Number(dt.total), 7760, label + " distance_time total 7760");
   assertEqual(Number(pf.total), Number(dt.total), label + " mode totals match");
   assertEqual(
     Number(pf.quoteSnapshot?.preFixedFareAmount),
@@ -90,7 +88,7 @@ function assertAuthorizedCase(label, estimateConfig){
 
   [10, 25, 60, 120].forEach(function(minutes){
     const result = computeMode(estimateConfig, "pre_fixed_fare", minutes);
-    assertEqual(Number(result.total), 7762, label + " duration " + minutes + "m");
+    assertEqual(Number(result.total), 7760, label + " duration " + minutes + "m");
   });
 
   const keiyoConfig = JSON.parse(JSON.stringify(estimateConfig));
@@ -102,7 +100,7 @@ function assertAuthorizedCase(label, estimateConfig){
     { id: "keiyo", label: "京葉交通圏", coefficient: 1.2 }
   ]);
   const keiyoResult = computeMode(keiyoConfig, "pre_fixed_fare", 25);
-  assertEqual(Number(keiyoResult.total), 7762, label + " keiyo must not apply");
+  assertEqual(Number(keiyoResult.total), 7760, label + " keiyo must not apply");
   assertEqual(Number(keiyoResult.quoteSnapshot?.trafficZoneCoefficient), 1.18, label + " still 1.18");
 }
 

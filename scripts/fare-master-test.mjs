@@ -50,15 +50,15 @@ const lpParityState = {
 function assertModeParity(label, estimateConfig){
   const dt = EstimateCalc.computeEstimate(Object.assign({}, estimateConfig, { fareMode: "distance_time" }), lpParityState);
   const pf = EstimateCalc.computeEstimate(Object.assign({}, estimateConfig, { fareMode: "pre_fixed_fare" }), lpParityState);
-  // 申請資料: 4120×1.18→4862 + 迎車800 + 特殊車両1000 + 乗降介助1100 = 7762
-  assert(dt.total === 7762, label + " distance_time total 7762 got " + dt.total);
-  assert(pf.total === 7762, label + " pre_fixed_fare total 7762 got " + pf.total);
+  // 申請資料: 4120×1.18=4861.6 → 1円の位四捨五入で4860 + 迎車800 + 特殊車両1000 + 乗降介助1100 = 7760
+  assert(dt.total === 7760, label + " distance_time total 7760 got " + dt.total);
+  assert(pf.total === 7760, label + " pre_fixed_fare total 7760 got " + pf.total);
   assert(dt.total === pf.total, label + " mode totals match");
   assert(dt.quoteSnapshot.fixedFareTotal === pf.quoteSnapshot.fixedFareTotal, label + " fixedFareTotal match");
   assert(Number(pf.quoteSnapshot.preFixedFareAmount) === Number(dt.quoteSnapshot.preFixedFareAmount), label + " preFixedFareAmount match");
   const dtDist = dt.quoteSnapshot.fixedFareBreakdown.find((r) => r.key === "distanceFare")?.amount;
   const pfDist = pf.quoteSnapshot.fixedFareBreakdown.find((r) => r.key === "distanceFare")?.amount;
-  assert(dtDist === 4862 && pfDist === 4862, label + " adjusted distanceFare 4862 both modes");
+  assert(dtDist === 4860 && pfDist === 4860, label + " adjusted distanceFare 4860 both modes");
   assert(Number(pf.quoteSnapshot.trafficZoneCoefficient) === 1.18, label + " coefficient 1.18");
   assert(String(pf.quoteSnapshot.trafficZoneId || pf.quoteSnapshot.selectedTrafficZoneId) === "chiba", label + " zone chiba");
   assert((Number(pf.quoteSnapshot.scheduledDurationSurcharge) || 0) === 0, label + " surcharge 0");

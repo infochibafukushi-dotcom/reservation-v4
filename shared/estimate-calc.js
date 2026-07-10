@@ -153,14 +153,16 @@
     };
   }
 
-  // 申請資料: 事前確定運賃 ＝ 距離制運賃 × 平準化係数（1円単位四捨五入）
+  // 申請資料: 事前確定運賃 ＝ 距離制運賃 × 平準化係数（1円の位を四捨五入し10円単位）
   function applyTrafficZoneCoefficient(baseDistanceFareAmount, coefficient){
     const base = Math.max(0, Math.round(Number(baseDistanceFareAmount) || 0));
     const factor = Number(coefficient);
     if(!(base > 0) || !(factor > 0)){
       return base;
     }
-    return Math.round(base * factor);
+    // 浮動小数点誤差を吸収しつつ、1円の位を四捨五入して10円単位にする
+    const product = base * factor;
+    return Math.round(product / 10) * 10;
   }
 
   function pickupFeeComponent(config){
@@ -458,7 +460,7 @@
             + meta.trafficZoneCoefficient
             + " = "
             + meta.adjustedDistanceFareAmount
-            + "円（1円単位四捨五入）"
+            + "円（1円の位を四捨五入し10円単位）"
           );
         }
         sections.push({
@@ -575,7 +577,7 @@
     return {
       fareMode: fareMode,
       fixedFareBreakdown: rows,
-      // 申請資料: 係数適用後は1円単位。認可モードでは10円未満切捨てを行わない。
+      // 認可モード: 距離運賃は係数適用時に10円単位へ四捨五入済み。合計は切捨てせずそのまま合算。
       fixedFareTotal: authorizedMode
         ? Math.max(0, Math.round(rawFixedFareTotal))
         : Math.floor(Math.max(rawFixedFareTotal, 0) / 10) * 10,
@@ -837,6 +839,7 @@
     visibleItems: visibleItems,
     findItem: findItem,
     calcDistanceFare: calcDistanceFare,
+    applyTrafficZoneCoefficient: applyTrafficZoneCoefficient,
     computeEstimate: computeEstimate,
     buildUsageSummary: buildUsageSummary,
     buildFareBasis: buildFareBasis,
