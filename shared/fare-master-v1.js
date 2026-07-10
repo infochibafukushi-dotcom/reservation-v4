@@ -148,8 +148,148 @@ export function buildMeterRules(){
   };
 }
 
+/** 本部標準 v1 — 見積計算に必要な fareRules の完全定義（seed 唯一の正本） */
+export function buildHeadquartersFareRules(){
+  const meter = buildMeterRules();
+  const bf = meter.basicFare;
+  const tm = meter.timeMeter;
+  const mt = meter.meterTimeFare;
+  return {
+    enabled: true,
+    version: 1,
+    fareMasterVersion: FARE_MASTER_VERSION,
+    fareMasterId: FARE_MASTER_ID,
+    fareMode: "distance_time",
+    fareModeOptions: [
+      { id: "time", label: "時間制運賃", enabled: true },
+      { id: "distance", label: "距離制運賃", enabled: true },
+      { id: "distance_time", label: "距離＋予定時間加算（概算）", enabled: true },
+      { id: "pre_fixed_fare", label: "事前確定運賃", enabled: true },
+    ],
+    basicFees: {
+      baseFare: { id: "baseFare", label: "基本運賃", amount: 0, visible: false, order: 1 },
+      pickupFee: { id: "pickupFee", label: "迎車料金", amount: 800, visible: true, order: 2, lpVisible: true, estimateVisible: true, showTilde: true },
+      specialVehicleFee: { id: "specialVehicleFee", label: "特殊車両使用料", amount: 1000, visible: true, order: 3, lpVisible: true, estimateVisible: true, showTilde: true },
+    },
+    distancePricing: {
+      mode: "patternA",
+      patternA: {
+        initialDistanceKm: bf.initialDistanceKm,
+        initialFare: bf.initialFareYen,
+        incrementDistanceKm: bf.additionalDistanceKm,
+        incrementFare: bf.additionalFareYen,
+      },
+      patternB: { perKmRate: 450 },
+    },
+    fareComponents: {
+      time: [
+        { key: "timeBaseFare", label: "時間制運賃", calculator: "time_block", params: { baseMinutes: tm.baseMinutes, baseAmount: tm.baseAmountYen, perBlockMinutes: tm.perBlockMinutes, perBlockAmount: tm.perBlockAmountYen } },
+        { key: "pickupFee", label: "迎車料金", calculator: "fixed_fee_ref", feeRef: "pickupFee" },
+        { key: "specialVehicleFee", label: "特殊車両使用料", calculator: "fixed_fee_ref", feeRef: "specialVehicleFee" },
+      ],
+      distance: [
+        { key: "pickupFee", label: "迎車料金", calculator: "fixed_fee_ref", feeRef: "pickupFee" },
+        { key: "specialVehicleFee", label: "特殊車両使用料", calculator: "fixed_fee_ref", feeRef: "specialVehicleFee" },
+        { key: "distanceFare", label: "距離運賃", calculator: "distance_pricing_ref", pricingRef: "distancePricing" },
+      ],
+      distance_time: [
+        { key: "pickupFee", label: "迎車料金", calculator: "fixed_fee_ref", feeRef: "pickupFee" },
+        { key: "specialVehicleFee", label: "特殊車両使用料", calculator: "fixed_fee_ref", feeRef: "specialVehicleFee" },
+        { key: "distanceFare", label: "距離運賃", calculator: "distance_pricing_ref", pricingRef: "distancePricing" },
+        { key: "timeAdjustment", label: "予定時間加算（概算）", calculator: "time_block", params: { baseMinutes: 20, baseAmount: 0, perBlockMinutes: 10, perBlockAmount: 300 } },
+      ],
+      pre_fixed_fare: [
+        { key: "pickupFee", label: "迎車料金", calculator: "fixed_fee_ref", feeRef: "pickupFee" },
+        { key: "specialVehicleFee", label: "特殊車両使用料", calculator: "fixed_fee_ref", feeRef: "specialVehicleFee" },
+        { key: "distanceFare", label: "距離運賃", calculator: "distance_pricing_ref", pricingRef: "distancePricing" },
+        { key: "timeAdjustment", label: "予定時間加算（概算）", calculator: "time_block", params: { baseMinutes: 20, baseAmount: 0, perBlockMinutes: 10, perBlockAmount: 300 } },
+      ],
+    },
+    categories: {
+      mobility: {
+        label: "移動方法",
+        items: [
+          { id: "free-wheelchair", label: "標準車いす", description: "当社の標準車いすを無料でご利用いただけます。", amount: 0, visible: true, order: 1 },
+          { id: "own-wheelchair", label: "ご自身の車いす", description: "普段ご利用されている車いすのままご乗車いただけます。", amount: 0, visible: true, order: 2 },
+          { id: "reclining-wheelchair", label: "リクライニング車いす", description: "長時間の移動向けのリクライニング式車いすです。", amount: 2500, visible: true, order: 3 },
+          { id: "stretcher", label: "ストレッチャー", description: "寝たままの状態で搬送できる設備です。", amount: 4000, visible: true, order: 4 },
+          { id: "cane-walk", label: "杖・歩行器", description: "杖や歩行器での移動に対応します。", amount: 0, visible: true, order: 5 },
+        ],
+      },
+      assistance: {
+        label: "介助内容",
+        items: [
+          { id: "watch-assist", label: "見守り介助", description: "転倒防止のため付き添いながら移動を見守ります。", amount: 0, visible: true, order: 1 },
+          { id: "boarding-assist", label: "乗降介助", description: "車への乗り降りをお手伝いします。", amount: 1100, visible: true, order: 2 },
+          { id: "body-assist", label: "身体介助", description: "お部屋から車いすへの移乗介助などを行います。", amount: 1600, visible: true, order: 3 },
+        ],
+      },
+      stairAssist: {
+        label: "階段介助",
+        items: [
+          { id: "stair-none", label: "階段介助なし", description: "", amount: 0, visible: true, order: 1 },
+          { id: "stair-watch", label: "見守り介助", description: "階段移動時の見守りです。", amount: 0, visible: true, order: 2 },
+          { id: "stair-floor2", label: "2階移動", description: "2階での階段介助です。", amount: 3000, visible: true, order: 3 },
+          { id: "stair-floor3", label: "3階移動", description: "3階での階段介助です。", amount: 5000, visible: true, order: 4 },
+          { id: "stair-floor4", label: "4階移動", description: "4階での階段介助です。", amount: 7000, visible: true, order: 5 },
+          { id: "stair-floor5", label: "5階以上", description: "5階以上での階段介助です。", amount: 10000, visible: true, order: 6 },
+        ],
+      },
+      tripType: {
+        label: "送迎方法",
+        items: [
+          { id: "one-way", label: "片道", description: "片道の送迎です。", amount: 0, visible: true, order: 1, distanceMultiplier: 1, waitingFeeRef: "", escortFeeRef: "", showInSelector: true },
+          { id: "round-trip", label: "往復", description: "往復の送迎です。", amount: 0, visible: true, order: 2, distanceMultiplier: 2, waitingFeeRef: "", escortFeeRef: "", showInSelector: true },
+        ],
+      },
+      roundTripAddon: {
+        label: "待機・付き添い",
+        items: [
+          { id: "addon-waiting", label: "待機（30分）", description: "30分単位の待機サービスです。", amount: 0, visible: true, order: 1, waitingFeeRef: "waiting30min", escortFeeRef: "", distanceMultiplier: 1 },
+          { id: "addon-escort", label: "付き添い（30分）", description: "30分単位の付き添いサービスです。", amount: 0, visible: true, order: 2, waitingFeeRef: "", escortFeeRef: "escort30min", distanceMultiplier: 1 },
+        ],
+      },
+    },
+    waitingFees: {
+      waiting30min: { id: "waiting30min", label: "待機（30分）", amount: 800, visible: true, order: 1 },
+      escort30min: { id: "escort30min", label: "付き添い（30分）", amount: 1600, visible: true, order: 2 },
+    },
+    preFixedFare: { trafficZoneId: "keiyo" },
+    trafficZones: { items: [] },
+    mappings: {
+      mobilityAssistance: {
+        "cane-walk": { mode: "select", assistanceIds: ["watch-assist", "boarding-assist", "body-assist"], assistanceId: "watch-assist" },
+        "own-wheelchair": { mode: "required", assistanceIds: ["boarding-assist", "body-assist"], assistanceId: "watch-assist" },
+        "free-wheelchair": { mode: "required", assistanceIds: ["boarding-assist", "body-assist"], assistanceId: "watch-assist" },
+        "reclining-wheelchair": { mode: "required", assistanceIds: ["boarding-assist", "body-assist"], assistanceId: "watch-assist" },
+        stretcher: { mode: "fixed", assistanceIds: [], assistanceId: "body-assist" },
+      },
+    },
+    resultLabels: {
+      baseFare: "基本運賃",
+      pickupFee: "迎車料金",
+      specialVehicleFee: "特殊車両使用料",
+      distanceFare: "距離運賃",
+      wheelchairFee: "車いす料金",
+      assistanceFee: "介助料金",
+      stairFee: "階段介助料金",
+      waitingFee: "待機料金",
+      escortFee: "付き添い料金",
+      total: "概算料金",
+    },
+    meterTimeFare: {
+      lowSpeedThresholdKmh: mt.lowSpeedThresholdKmh,
+      unitSeconds: mt.unitSeconds,
+      unitFareYen: mt.unitFareYen,
+    },
+  };
+}
+
 export function buildFareRulesFromEstimateConfig(baseEstimateConfig){
-  const config = JSON.parse(JSON.stringify(baseEstimateConfig || {}));
+  if(!baseEstimateConfig || !Object.keys(baseEstimateConfig).length){
+    return buildHeadquartersFareRules();
+  }
+  const config = JSON.parse(JSON.stringify(baseEstimateConfig));
   config.version = 1;
   config.fareMasterVersion = FARE_MASTER_VERSION;
   config.fareMasterId = FARE_MASTER_ID;
@@ -167,7 +307,7 @@ export function buildFareRulesFromEstimateConfig(baseEstimateConfig){
   return config;
 }
 
-export function buildHeadquartersV1Record(baseEstimateConfig){
+export function buildHeadquartersV1Record(){
   const now = new Date().toISOString();
   return {
     id: FARE_MASTER_ID,
@@ -180,7 +320,7 @@ export function buildHeadquartersV1Record(baseEstimateConfig){
     status: "active",
     effectiveFrom: "2026-01-01T00:00:00.000Z",
     effectiveTo: null,
-    fareRules: buildFareRulesFromEstimateConfig(baseEstimateConfig),
+    fareRules: buildHeadquartersFareRules(),
     displayRules: buildDisplayRules(),
     calculationRules: buildCalculationRules(),
     meterRules: buildMeterRules(),
@@ -205,6 +345,7 @@ if(typeof globalThis !== "undefined"){
     buildDisplayRules,
     buildCalculationRules,
     buildMeterRules,
+    buildHeadquartersFareRules,
     buildFareRulesFromEstimateConfig,
     buildHeadquartersV1Record,
   };

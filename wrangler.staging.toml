@@ -1,0 +1,8 @@
+name = "reservation-v4-staging"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "reservation-db-staging"
+database_id = "abe53a55-5802-4546-a126-52a05d3df5c0"

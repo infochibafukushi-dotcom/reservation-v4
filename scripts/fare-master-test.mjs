@@ -7,7 +7,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import vm from "vm";
 import { buildHeadquartersV1Record, buildMeterRules, buildCalculationRules } from "../shared/fare-master-v1.js";
-import { toEstimateConfig, shouldExcludeServiceFeeFromMeterReadd, resolveActiveFareMaster, isVersionApplicable, sumServiceFeesForTotal } from "../shared/fare-master-core.js";
+import { toEstimateConfig, shouldExcludeServiceFeeFromMeterReadd, resolveActiveFareMaster, isVersionApplicable, sumServiceFeesForTotal, parseFareMasterAtQuery, validateHeadquartersV1SeedCompleteness } from "../shared/fare-master-core.js";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
@@ -22,8 +22,8 @@ function loadCalc(){
   return sandbox.window.EstimateCalc;
 }
 
-const estimateConfigRaw = JSON.parse(readFileSync(path.join(root, "data/estimate-config.json"), "utf8"));
-const hqRecord = buildHeadquartersV1Record(estimateConfigRaw);
+const hqRecord = buildHeadquartersV1Record();
+validateHeadquartersV1SeedCompleteness(hqRecord);
 const config = toEstimateConfig(hqRecord);
 const EstimateCalc = loadCalc();
 const meter = buildMeterRules();
@@ -99,6 +99,28 @@ const afterSwitch = resolveActiveFareMaster([oldActive, futureScheduled], { atIs
 assert(afterSwitch.record.id === "fm-new", "after scheduled effectiveFrom uses new fare");
 assert(isVersionApplicable(futureScheduled, "2026-07-14T23:59:59.000Z") === false, "scheduled not applicable before from");
 assert(isVersionApplicable(futureScheduled, "2026-07-15T00:00:00.000Z") === true, "scheduled applicable at from");
+
+// atIso パース — タイムゾーン・不正値
+const tzUrl = new URL("http://localhost/api/fare-master/active?at=2026-07-15T00:00:00%2B09:00");
+const tzParsed = parseFareMasterAtQuery(tzUrl);
+assert(tzParsed.ok && tzParsed.atIso.includes("2026-07-14"), "JST midnight maps to UTC previous day");
+const invalidUrl = new URL("http://localhost/api/fare-master/active?at=not-a-date");
+assert(parseFareMasterAtQuery(invalidUrl).ok === false, "invalid at returns error");
+const nowUrl = new URL("http://localhost/api/fare-master/active");
+assert(parseFareMasterAtQuery(nowUrl).source === "now", "missing at uses now");
+
+// 階層解決 + atIso 維持
+const hqAtPast = { ...hqRecord, id: "hq-past", effectiveFrom: "2020-01-01T00:00:00.000Z", meterRules: { ...meter, waitingFare: { unitSeconds: 1800, unitFareYen: 700 } } };
+const storeAtPast = { ...hqRecord, id: "store-past", scopeType: "store", storeId: "s1", effectiveFrom: "2020-06-01T00:00:00.000Z", meterRules: { ...meter, waitingFare: { unitSeconds: 1800, unitFareYen: 750 } } };
+const hierarchyPast = resolveActiveFareMaster([hqAtPast, storeAtPast], { atIso: "2021-01-01T00:00:00.000Z" });
+assert(hierarchyPast.record.id === "store-past", "store wins at past time");
+assert(hierarchyPast.record.meterRules.waitingFare.unitFareYen === 750, "store fare at past atIso");
+
+// seed 完全性（distancePricing 等）
+assert(config.distancePricing?.patternA?.initialFare === 520, "seed distancePricing initialFare");
+assert(config.fareComponents?.distance_time?.length >= 3, "seed fareComponents");
+assert(hqRecord.displayRules?.faqAmounts?.initialFare === 520, "seed faq initialFare");
+assert(hqRecord.calculationRules?.nightSurcharge?.rate === 0.2, "seed night surcharge");
 
 // 二重加算防止（LP 7700円ケース）
 const svSnapshot = {

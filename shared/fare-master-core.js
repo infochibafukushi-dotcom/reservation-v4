@@ -33,6 +33,59 @@ export function parseFareMasterRow(row){
   };
 }
 
+/** ?at= ISO8601 パラメータを統一パース（全 fare-master API で同一ロジック） */
+export function parseFareMasterAtQuery(url){
+  const raw = url?.searchParams?.get?.("at") ?? null;
+  if(raw === null || raw === ""){
+    return { ok: true, atIso: new Date().toISOString(), source: "now" };
+  }
+  const trimmed = String(raw).trim();
+  const ms = Date.parse(trimmed);
+  if(!Number.isFinite(ms)){
+    return { ok: false, error: "INVALID_AT", message: "at は有効な ISO 8601 日時である必要があります" };
+  }
+  return { ok: true, atIso: new Date(ms).toISOString(), source: "query", raw: trimmed };
+}
+
+export function validateHeadquartersV1SeedCompleteness(record){
+  const errors = [];
+  const dp = record?.fareRules?.distancePricing?.patternA || {};
+  const m = record?.meterRules || {};
+  const d = record?.displayRules || {};
+  const c = record?.calculationRules || {};
+  const checks = [
+    ["distancePricing.initialDistanceKm", dp.initialDistanceKm, 1.06],
+    ["distancePricing.initialFare", dp.initialFare, 520],
+    ["distancePricing.incrementDistanceKm", dp.incrementDistanceKm, 0.212],
+    ["distancePricing.incrementFare", dp.incrementFare, 100],
+    ["meterTimeFare.lowSpeedThresholdKmh", m.meterTimeFare?.lowSpeedThresholdKmh, 10],
+    ["meterTimeFare.unitSeconds", m.meterTimeFare?.unitSeconds, 80],
+    ["meterTimeFare.unitFareYen", m.meterTimeFare?.unitFareYen, 100],
+    ["timeMeter.baseAmountYen", m.timeMeter?.baseAmountYen, 4180],
+    ["pickupFee", record?.fareRules?.basicFees?.pickupFee?.amount, 800],
+    ["specialVehicleFee", record?.fareRules?.basicFees?.specialVehicleFee?.amount, 1000],
+    ["boardingAssist", m.assistItems?.find(i => i.id === "boardingAssist")?.amount, 1100],
+    ["bodyAssist", m.assistItems?.find(i => i.id === "bodyAssist")?.amount, 1600],
+    ["stairFloor3", m.assistItems?.find(i => i.id === "stairsAssist")?.floorOptions?.find(f => f.id === "stair-floor3")?.amount, 5000],
+    ["waitingFare", m.waitingFare?.unitFareYen, 800],
+    ["escortFare", m.escortFare?.unitFareYen, 1600],
+    ["faq.initialFare", d.faqAmounts?.initialFare, 520],
+    ["nightSurcharge.rate", c.nightSurcharge?.rate, 0.2],
+    ["disabilityDiscount.rate", c.disabilityDiscount?.rate, 0.1],
+    ["pricingTable", Array.isArray(d.pricingTable) && d.pricingTable.length >= 10, true],
+    ["fareMode", !!record?.fareRules?.fareMode, true],
+    ["fareComponents", !!record?.fareRules?.fareComponents?.distance_time, true],
+    ["meterRules", !!m.basicFare, true],
+    ["calculationRules", !!c.nightSurcharge, true],
+    ["displayRules", !!d.faqAmounts, true],
+  ];
+  for(const [label, actual, expected] of checks){
+    if(actual !== expected) errors.push(`${label}: expected ${expected}, got ${actual}`);
+  }
+  if(errors.length) throw new Error("本部標準 v1 seed 不完全: " + errors.join("; "));
+  return true;
+}
+
 export function safeParseJson(text, fallback){
   if(!text) return fallback;
   try{
@@ -253,8 +306,8 @@ export function applyFareMasterEditForm(baseRecord, form){
   return record;
 }
 
-export function getSystemFallbackFareMaster(baseEstimateConfig){
-  const record = buildHeadquartersV1Record(baseEstimateConfig);
+export function getSystemFallbackFareMaster(){
+  const record = buildHeadquartersV1Record();
   return { record, fareSource: "system_fallback", scopeType: "headquarters", fallbackReason: "fare_master_unavailable" };
 }
 

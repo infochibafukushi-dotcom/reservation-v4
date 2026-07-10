@@ -13,6 +13,8 @@
     "test:phase6": "node scripts/phase6-pre-opening-reset-test.mjs",
     "test:fare-master": "node scripts/fare-master-test.mjs",
     "test:fare-master:migrate": "node scripts/fare-master-migrate.mjs --dry-run",
+    "test:d1-empty-init": "node scripts/d1-empty-init-test.mjs",
+    "test:d1-migration-idempotent": "node scripts/d1-migration-idempotent-test.mjs",
     "test": "npm run test:phase0 && npm run test:phase1 && npm run test:phase2 && npm run test:phase3 && npm run test:phase4 && npm run test:phase5 && npm run test:phase6 && npm run test:fare-master"
   },
   "repository": {

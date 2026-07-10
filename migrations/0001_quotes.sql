@@ -1,4 +1,4 @@
--- Phase 0: quotes テーブル（手動実行用。本番は ensureSchema() でも作成される）
+-- Phase 0: quotes テーブル（settings は 0000_core_settings.sql で作成済み）
 CREATE TABLE IF NOT EXISTS quotes (
   estimate_no       TEXT PRIMARY KEY,
   status            TEXT NOT NULL DEFAULT 'active',

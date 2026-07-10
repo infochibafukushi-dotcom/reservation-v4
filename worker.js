@@ -34,12 +34,12 @@ import {
 
 export default {
   async fetch(request, env) {
-    const headers=await buildCorsHeaders(request,env.DB);
-    if(request.method==="OPTIONS")return new Response(null,{headers});
     try{
-      if(!env.DB)return json({success:false,message:"DB_BINDING_MISSING"},500,headers);
+      if(!env.DB)return json({success:false,message:"DB_BINDING_MISSING"},500,{"Content-Type":"application/json; charset=UTF-8"});
       await ensureSchema(env.DB);
       await ensureFareMasterSchema(env.DB);
+      const headers=await buildCorsHeaders(request,env.DB);
+      if(request.method==="OPTIONS")return new Response(null,{headers});
       await cleanupStaleAutoBlocks(env.DB);
       const url=new URL(request.url),path=url.pathname;
       if(path==="/")return new Response("OK");

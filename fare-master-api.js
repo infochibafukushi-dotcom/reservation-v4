@@ -1,7 +1,7 @@
 /**
  * 料金マスター API — D1 操作・Worker ルートハンドラ
  */
-import { buildHeadquartersV1Record } from "./shared/fare-master-v1.js";
+import { buildHeadquartersV1Record, buildHeadquartersFareRules } from "./shared/fare-master-v1.js";
 import {
   parseFareMasterRow,
   resolveActiveFareMaster,
@@ -17,11 +17,26 @@ import {
   buildFareMasterEditForm,
   applyFareMasterEditForm,
   sumServiceFeesForTotal,
+  parseFareMasterAtQuery,
+  validateHeadquartersV1SeedCompleteness,
 } from "./shared/fare-master-core.js";
 import { requireFareMasterPermission, PRICING_PERMISSIONS, listFareMasterPermissions } from "./shared/fare-master-permissions.js";
 
-function getBaseEstimateConfig(){
-  return {};
+function fareScopeFromUrl(url){
+  return {
+    tenantId: url.searchParams.get("tenantId"),
+    franchiseeId: url.searchParams.get("franchiseeId"),
+    storeId: url.searchParams.get("storeId"),
+  };
+}
+
+async function resolveFareMasterFromRequest(db, url, options = {}){
+  const atParsed = parseFareMasterAtQuery(url);
+  if(!atParsed.ok){
+    return { error: atParsed, response: { success: false, message: atParsed.message, error: atParsed.error } };
+  }
+  const resolved = await resolveFareMaster(db, fareScopeFromUrl(url), { ...options, atIso: atParsed.atIso });
+  return { resolved, atParsed };
 }
 
 export async function ensureFareMasterSchema(db){
@@ -51,7 +66,8 @@ export async function seedHeadquartersV1IfEmpty(db, { dryRun = false } = {}){
   if(existing){
     return { ok: true, action: "skip", message: "本部標準 v1 は既に存在します" };
   }
-  const record = buildHeadquartersV1Record(getBaseEstimateConfig());
+  const record = buildHeadquartersV1Record();
+  validateHeadquartersV1SeedCompleteness(record);
   if(dryRun){
     return { ok: true, action: "dry-run", record };
   }
@@ -145,10 +161,10 @@ export async function queryActiveFareMasterVersions(db, { tenantId, franchiseeId
 }
 
 export async function resolveFareMaster(db, scope, { allowFallback = true, atIso } = {}){
-  const resolved = await queryActiveFareMasterVersions(db, scope);
+  const resolved = await queryActiveFareMasterVersions(db, { ...scope, atIso });
   if(resolved?.record) return resolved;
   if(!allowFallback) return null;
-  return getSystemFallbackFareMaster(getBaseEstimateConfig());
+  return getSystemFallbackFareMaster();
 }
 
 export async function listFareMasterVersions(db, { franchiseeId, storeId, limit = 50 }){
@@ -176,7 +192,7 @@ export async function saveDraftFareMasterVersion(db, body, adminUser = "admin"){
     franchiseeId: body.franchiseeId,
     storeId: body.storeId,
   }, { allowFallback: true });
-  const base = parent?.record || buildHeadquartersV1Record(getBaseEstimateConfig());
+  const base = parent?.record || buildHeadquartersV1Record();
   const edited = body.form ? applyFareMasterEditForm(base, body.form) : base;
   const record = {
     id,
@@ -224,11 +240,11 @@ export async function publishFareMasterVersion(db, body, adminUser = "admin"){
   }, { allowFallback: false, atIso: effectiveFrom });
 
   const beforeRecord = parent?.record || null;
-  let baseRecord = beforeRecord || buildHeadquartersV1Record(getBaseEstimateConfig());
+  let baseRecord = beforeRecord || buildHeadquartersV1Record();
   if(body.form){
     baseRecord = applyFareMasterEditForm(baseRecord, body.form);
   }
-  const baseRules = body.fareRules || baseRecord.fareRules || getBaseEstimateConfig();
+  const baseRules = body.fareRules || baseRecord.fareRules || buildHeadquartersFareRules();
   const id = body.id || `fmv-${scopeType}-${Date.now()}`;
   const record = {
     id,
@@ -295,7 +311,7 @@ export async function listFareMasterChanges(db, { limit = 100 }){
   }));
 }
 
-export function buildActiveFareMasterResponse(resolved){
+export function buildActiveFareMasterResponse(resolved, { atMeta } = {}){
   const record = resolved?.record;
   if(!record) return { success: false, message: "有効な料金マスターが見つかりません" };
   return {
@@ -310,6 +326,8 @@ export function buildActiveFareMasterResponse(resolved){
     franchiseeId: record.franchiseeId,
     storeId: record.storeId,
     effectiveFrom: record.effectiveFrom,
+    atIso: atMeta?.atIso || null,
+    atSource: atMeta?.source || null,
     estimateConfig: toEstimateConfig(record),
     displayRules: record.displayRules,
     meterSettings: toMeterSettingsPayload(record),
@@ -325,25 +343,21 @@ export async function handleFareMasterRoutes(request, env, path, headers, { isAd
   await ensureFareMasterSchema(db);
 
   if(path === "/api/fare-master/active" && request.method === "GET"){
-    const atIso = url.searchParams.get("at") || new Date().toISOString();
-    const resolved = await resolveFareMaster(db, {
-      tenantId: url.searchParams.get("tenantId"),
-      franchiseeId: url.searchParams.get("franchiseeId"),
-      storeId: url.searchParams.get("storeId"),
-    }, { atIso });
-    return json(buildActiveFareMasterResponse(resolved), 200, headers);
+    const result = await resolveFareMasterFromRequest(db, url);
+    if(result.error) return json(result.response, 400, headers);
+    return json(buildActiveFareMasterResponse(result.resolved, { atMeta: result.atParsed }), 200, headers);
   }
 
   if(path === "/api/fare-master/display" && request.method === "GET"){
-    const resolved = await resolveFareMaster(db, {
-      franchiseeId: url.searchParams.get("franchiseeId"),
-      storeId: url.searchParams.get("storeId"),
-    });
-    const record = resolved?.record;
+    const result = await resolveFareMasterFromRequest(db, url);
+    if(result.error) return json(result.response, 400, headers);
+    const record = result.resolved?.record;
     return json({
       success: true,
       fareMasterId: record?.id,
       fareVersion: record?.version,
+      fareSource: result.resolved?.fareSource,
+      atIso: result.atParsed.atIso,
       pricingTable: record?.displayRules?.pricingTable || [],
       faqAmounts: record?.displayRules?.faqAmounts || {},
     }, 200, headers);
@@ -351,19 +365,23 @@ export async function handleFareMasterRoutes(request, env, path, headers, { isAd
 
   if(path === "/api/driver/fare-master/active" && request.method === "GET"){
     if(!(await isMeterDriverAuthorized(request, env))) return json({ success: false, message: "Unauthorized" }, 401, headers);
+    const driverUrl = new URL(request.url);
     const tenant = parseDriverTenantHeaders(request);
-    const resolved = await resolveFareMaster(db, tenant);
-    return json(buildActiveFareMasterResponse(resolved), 200, headers);
+    const atParsed = parseFareMasterAtQuery(driverUrl);
+    if(!atParsed.ok) return json({ success: false, message: atParsed.message, error: atParsed.error }, 400, headers);
+    const resolved = await resolveFareMaster(db, tenant, { atIso: atParsed.atIso });
+    return json(buildActiveFareMasterResponse(resolved, { atMeta: atParsed }), 200, headers);
   }
 
   if(path === "/api/admin/fare-master/edit-form" && request.method === "GET"){
     const auth = await requireFareMasterPermission(db, request, isAdminAuthorized, PRICING_PERMISSIONS.READ);
     if(!auth.ok) return json({ success: false, message: auth.message }, auth.status, headers);
+    const atParsed = parseFareMasterAtQuery(url);
     const resolved = await resolveFareMaster(db, {
       franchiseeId: url.searchParams.get("franchiseeId"),
       storeId: url.searchParams.get("storeId"),
-    });
-    const record = resolved?.record || buildHeadquartersV1Record(getBaseEstimateConfig());
+    }, { atIso: atParsed.ok ? atParsed.atIso : new Date().toISOString() });
+    const record = resolved?.record || buildHeadquartersV1Record();
     return json({ success: true, form: buildFareMasterEditForm(record), active: record, fareSource: resolved?.fareSource }, 200, headers);
   }
 

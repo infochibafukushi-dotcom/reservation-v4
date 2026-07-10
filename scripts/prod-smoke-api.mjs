@@ -1,8 +1,9 @@
 /**
  * 本番 API スモークテスト（デプロイ後）
  * Run: node scripts/prod-smoke-api.mjs
+ * Fare checks are read-only GET. Reservation tests may write data.
  */
-const API = "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
+const API = process.env.API_BASE || "https://throbbing-bush-8f59.info-chibafukushi.workers.dev";
 const LP_ORIGIN = "https://infochibafukushi-dotcom.github.io";
 const HALF_HOUR_SLOTS_PER_DAY = 24;
 const FIRST_SLOT_HOUR = 6;
@@ -81,9 +82,40 @@ async function main() {
     `smoke schedule: legacy=${schedule.legacyDate} ${schedule.legacyTime}, fixed=${schedule.fixedDate} ${schedule.fixedTime}, dup=${schedule.dupDate} ${schedule.dupTime}`,
   );
 
+  console.log(
+    `smoke schedule: legacy=${schedule.legacyDate} ${schedule.legacyTime}, fixed=${schedule.fixedDate} ${schedule.fixedTime}, dup=${schedule.dupDate} ${schedule.dupTime}`,
+  );
+
+  // --- Fare master read-only checks ---
+  const fareActive = await jsonFetch("/api/fare-master/active");
+  record("FARE-ACTIVE", fareActive.status === 200 && fareActive.data?.success === true, `status=${fareActive.status} id=${fareActive.data?.fareMasterId || "-"}`);
+  const dp = fareActive.data?.estimateConfig?.distancePricing?.patternA || {};
+  record("FARE-initial-520", dp.initialFare === 520, `initialFare=${dp.initialFare}`);
+  record("FARE-waiting-800", fareActive.data?.meterSettings?.waitingFare?.unitFareYen === 800, `waiting=${fareActive.data?.meterSettings?.waitingFare?.unitFareYen}`);
+  record("FARE-escort-1600", fareActive.data?.meterSettings?.escortFare?.unitFareYen === 1600, `escort=${fareActive.data?.meterSettings?.escortFare?.unitFareYen}`);
+  const stair3 = fareActive.data?.meterSettings?.assistItems?.find(i => i.id === "stairsAssist")?.floorOptions?.find(f => f.id === "stair-floor3")?.amount;
+  record("FARE-stair3-5000", stair3 === 5000, `stair3=${stair3}`);
+  record("FARE-time-4180", fareActive.data?.meterSettings?.timeMeter?.baseAmountYen === 4180, `time=${fareActive.data?.meterSettings?.timeMeter?.baseAmountYen}`);
+  record("FARE-source", fareActive.data?.fareSource === "active_master" || fareActive.data?.fareSource === "system_fallback", `source=${fareActive.data?.fareSource}`);
+  record("FARE-version-id", !!fareActive.data?.fareVersionId && !!fareActive.data?.fareMasterId, `versionId=${fareActive.data?.fareVersionId}`);
+
+  const fareDisplay = await jsonFetch("/api/fare-master/display");
+  record("FARE-DISPLAY", fareDisplay.status === 200 && fareDisplay.data?.success === true, `rows=${fareDisplay.data?.pricingTable?.length || 0}`);
+  record("FARE-faq-520", fareDisplay.data?.faqAmounts?.initialFare === 520, `faq.initialFare=${fareDisplay.data?.faqAmounts?.initialFare}`);
+
+  const driverToken = String(process.env.METER_DRIVER_TOKEN || "").trim();
+  if (driverToken) {
+    const driverFare = await jsonFetch("/api/driver/fare-master/active", {
+      headers: { Authorization: `Bearer ${driverToken}` },
+    });
+    record("FARE-DRIVER", driverFare.status === 200 && driverFare.data?.success === true, `id=${driverFare.data?.fareMasterId || "-"}`);
+  } else {
+    record("FARE-DRIVER", true, "skipped (METER_DRIVER_TOKEN unset)");
+  }
+
   const boot = await jsonFetch("/api/bootstrap");
   const fixedFare = String(boot.data?.settings?.fixed_fare_enabled || "");
-  record("BOOT", boot.status === 200, `fixed_fare_enabled=${fixedFare}`);
+  record("BOOT", boot.status === 200, `fixed_fare_enabled=${fixedFare} fareMaster=${boot.data?.fareMaster?.id || "-"}`);
 
   const legacy = await jsonFetch("/api/createReservation", {
     method: "POST",
@@ -217,9 +249,9 @@ async function main() {
     record("DUPLICATE-410", true, "skipped");
   }
 
-  const driverToken = String(process.env.METER_DRIVER_TOKEN || "").trim();
-  if (driverToken) {
-    const driverHeaders = { Authorization: `Bearer ${driverToken}` };
+  const driverTokenForList = String(process.env.METER_DRIVER_TOKEN || "").trim();
+  if (driverTokenForList) {
+    const driverHeaders = { Authorization: `Bearer ${driverTokenForList}` };
     const driverList = await jsonFetch(
       `/api/driver/reservations?date=${encodeURIComponent(driverDate)}`,
       { headers: driverHeaders },

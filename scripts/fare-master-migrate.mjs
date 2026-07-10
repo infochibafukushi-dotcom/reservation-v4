@@ -1,47 +1,50 @@
 /**
- * 料金マスター dry-run migration / seed
+ * 料金マスター dry-run migration / seed 検証
  * Run: node scripts/fare-master-migrate.mjs [--dry-run] [--execute]
  */
-import { readFileSync } from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import { buildHeadquartersV1Record } from "../shared/fare-master-v1.js";
+import { validateHeadquartersV1SeedCompleteness } from "../shared/fare-master-core.js";
 
-const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const dryRun = process.argv.includes("--dry-run") || !process.argv.includes("--execute");
-
-function loadEstimateConfig(){
-  return JSON.parse(readFileSync(path.join(root, "data/estimate-config.json"), "utf8"));
-}
 
 function buildReport(record){
   const m = record.meterRules;
   const d = record.displayRules?.pricingTable || [];
+  const dp = record.fareRules?.distancePricing?.patternA || {};
   return {
     versionId: record.id,
     version: record.version,
     scopeType: record.scopeType,
     status: record.status,
     effectiveFrom: record.effectiveFrom,
+    initialFare: dp.initialFare,
+    initialDistanceKm: dp.initialDistanceKm,
+    incrementFare: dp.incrementFare,
     meterWaiting: m.waitingFare?.unitFareYen,
     meterEscort: m.escortFare?.unitFareYen,
     timeMeter: m.timeMeter?.baseAmountYen,
     boardingAssist: m.assistItems?.find(i => i.id === "boardingAssist")?.amount,
     bodyAssist: m.assistItems?.find(i => i.id === "bodyAssist")?.amount,
+    stairFloor3: m.assistItems?.find(i => i.id === "stairsAssist")?.floorOptions?.find(f => f.id === "stair-floor3")?.amount,
+    faqInitialFare: record.displayRules?.faqAmounts?.initialFare,
     pricingTableCount: d.length,
+    hasDistancePricing: !!record.fareRules?.distancePricing?.patternA,
+    hasFareComponents: !!record.fareRules?.fareComponents,
     dryRun,
   };
 }
 
-const record = buildHeadquartersV1Record(loadEstimateConfig());
+const record = buildHeadquartersV1Record();
+validateHeadquartersV1SeedCompleteness(record);
 const report = buildReport(record);
 
 console.log("=== Fare Master Migration Report ===");
 console.log(JSON.stringify(report, null, 2));
 
 if(dryRun){
-  console.log("\nDry-run mode. Use --execute to apply (requires D1 binding / admin seed API).");
+  console.log("\nDry-run mode. Seed source: shared/fare-master-v1.js (buildHeadquartersV1Record).");
   console.log("Production D1 write is NOT performed by this script in dry-run.");
+  console.log("To seed production D1 after deploy: POST /api/admin/fare-master/seed");
 } else {
   console.log("\nTo seed production D1, call POST /api/admin/fare-master/seed after deploy.");
 }
