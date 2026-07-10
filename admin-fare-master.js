@@ -1,26 +1,110 @@
 /**
  * 料金マスター管理 UI（詳細編集）
+ * index.api.js の API_BASE / getAdminToken / authHeaders を使用する。
  */
 (function(){
-  const API = window.API || {};
-  const base = API.BASE || "";
   let currentForm = null;
   let activeRecord = null;
+  let loading = false;
 
-  async function apiGet(path){
-    const token = sessionStorage.getItem("adminToken") || "";
-    const res = await fetch(base + path, { headers: { Authorization: "Bearer " + token } });
-    return res.json();
+  function formatFareMasterError(status, data, text){
+    const msg = String(data?.message || text || "").trim();
+    if(status === 401){
+      return "401：管理者ログインの有効期限が切れています。再ログインしてください。";
+    }
+    if(status === 403){
+      return `403：${msg || "料金マスターへのアクセス権限がありません。"}`;
+    }
+    if(status === 404){
+      return `404：${msg || "料金マスターAPIが見つかりません。API_BASEの設定を確認してください。"}`;
+    }
+    if(status >= 500){
+      return `${status}：サーバーエラーが発生しました。${msg ? `（${msg}）` : ""}`;
+    }
+    if(status){
+      return `${status}：${msg || "料金マスターの取得に失敗しました。"}`;
+    }
+    return msg || "料金マスターの取得に失敗しました。";
   }
 
-  async function apiPost(path, body){
-    const token = sessionStorage.getItem("adminToken") || "";
-    const res = await fetch(base + path, {
+  async function fareMasterRequest(path, options = {}){
+    if(typeof apiUrl !== "function" || typeof fetchWithRetry !== "function"){
+      throw Object.assign(new Error("API設定が読み込まれていません。config.js / index.api.js を確認してください。"), { status: 0 });
+    }
+    const headers = typeof authHeaders === "function"
+      ? authHeaders(options.headers || {})
+      : (options.headers || {});
+    const res = await fetchWithRetry(apiUrl(path), {
+      cache: "no-store",
+      ...options,
+      headers,
+    });
+    const text = await res.text();
+    let data;
+    try{ data = JSON.parse(text); }catch{ data = text; }
+    if(!res.ok){
+      if(res.status === 401 || res.status === 403){
+        if(typeof clearAdminSession === "function") clearAdminSession();
+        if(typeof showLogin === "function") showLogin();
+      }
+      const err = new Error(formatFareMasterError(res.status, data, text));
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
+    if(data && typeof data === "object" && data.success === false){
+      const err = new Error(formatFareMasterError(res.status, data, text));
+      err.status = res.status || 400;
+      err.data = data;
+      throw err;
+    }
+    return data;
+  }
+
+  function fareMasterGet(path){ return fareMasterRequest(path); }
+  function fareMasterPost(path, body){
+    return fareMasterRequest(path, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body || {}),
     });
-    return res.json();
+  }
+
+  function setActiveBoxLoading(){
+    const box = document.getElementById("fareMasterActiveBox");
+    if(box) box.innerHTML = "<span class=\"fare-master-loading\">読み込み中…</span>";
+  }
+
+  function renderActiveBoxError(err){
+    const box = document.getElementById("fareMasterActiveBox");
+    if(!box) return;
+    const status = err?.status ? `HTTP ${err.status}` : "エラー";
+    const reason = escapeHtml(err?.message || "料金マスターの取得に失敗しました。");
+    const relogin = err?.status === 401
+      ? "<p class=\"note warn\">画面上部のログイン欄から再ログインしてください。</p>"
+      : "";
+    box.innerHTML = `<div class="fare-master-error"><strong>料金マスターの取得に失敗しました。</strong><p>${status}：${reason}</p>${relogin}<div class="actions"><button type="button" class="secondary-btn" id="fareMasterRetryBtn">再読込</button></div></div>`;
+    box.querySelector("#fareMasterRetryBtn")?.addEventListener("click", () => { void refreshFareMasterPanel(); });
+  }
+
+  function renderActiveBoxSuccess(data, scope){
+    const box = document.getElementById("fareMasterActiveBox");
+    if(!box) return;
+    const version = escapeHtml(data.active?.version || "-");
+    const id = escapeHtml(data.active?.id || "-");
+    const source = escapeHtml(data.fareSource || "");
+    const scopeLabel = escapeHtml(data.active?.scopeType || scope);
+    box.innerHTML = `<strong>現行:</strong> ${version} (${id}) / ${source} / ${scopeLabel}`;
+  }
+
+  function buildScopeQuery(){
+    const franchiseeId = document.getElementById("fareMasterFranchiseeId")?.value?.trim() || "";
+    const storeId = document.getElementById("fareMasterStoreId")?.value?.trim() || "";
+    const params = new URLSearchParams();
+    if(franchiseeId) params.set("franchiseeId", franchiseeId);
+    if(storeId) params.set("storeId", storeId);
+    const qs = params.toString();
+    return qs ? `?${qs}` : "";
   }
 
   const FIELD_GROUPS = [
@@ -52,6 +136,7 @@
       ["waitingUnitFareYen", "待機料金(円)", "number", "1"],
       ["escortUnitSeconds", "付き添い単位(秒)", "number", "1"],
       ["escortUnitFareYen", "付き添い料金(円)", "number", "1"],
+      ["standardWheelchair", "標準車いす(円)", "number", "1"],
       ["recliningWheelchair", "リクライニング(円)", "number", "1"],
       ["stretcher", "ストレッチャー(円)", "number", "1"],
     ]},
@@ -77,6 +162,10 @@
     const editor = document.getElementById("fareMasterEditor");
     if(!editor) return;
     currentForm = form;
+    if(!form || typeof form !== "object"){
+      editor.innerHTML = "<p class=\"note\">料金データを読み込めませんでした。</p>";
+      return;
+    }
     editor.innerHTML = FIELD_GROUPS.map(group => `
       <fieldset class="fare-master-group"><legend>${group.title}</legend>
         <div class="two-col">${group.fields.map(([key,label,type,step]) => {
@@ -84,7 +173,8 @@
             const checked = form[key] ? "checked" : "";
             return `<label>${label}<input data-fare-field="${key}" type="checkbox" ${checked}></label>`;
           }
-          return `<label>${label}<input data-fare-field="${key}" type="${type}" step="${step}" value="${form[key] ?? ""}"></label>`;
+          const val = form[key] ?? "";
+          return `<label>${label}<input data-fare-field="${key}" type="${type}" step="${step}" value="${escapeHtml(val)}"></label>`;
         }).join("")}</div>
       </fieldset>
     `).join("");
@@ -93,8 +183,9 @@
   function readFormFromDom(){
     const form = {};
     document.querySelectorAll("[data-fare-field]").forEach(el => {
-      if(el.type === "checkbox") form[el.getAttribute("data-fare-field")] = el.checked;
-      else form[el.getAttribute("data-fare-field")] = el.type === "number" ? Number(el.value) : el.value;
+      const key = el.getAttribute("data-fare-field");
+      if(el.type === "checkbox") form[key] = el.checked;
+      else form[key] = el.type === "number" ? Number(el.value) : el.value;
     });
     form.scopeType = document.getElementById("fareMasterScopeType")?.value || "headquarters";
     form.franchiseeId = document.getElementById("fareMasterFranchiseeId")?.value?.trim() || "";
@@ -107,97 +198,167 @@
     if(!el) return;
     if(!diff?.length){ el.innerHTML = "<p class=\"note\">変更差分なし</p>"; return; }
     el.innerHTML = "<table><thead><tr><th>項目</th><th>変更前</th><th>変更後</th></tr></thead><tbody>" +
-      diff.map(r => `<tr><td>${r.item}</td><td>${r.before}</td><td>${r.after}</td></tr>`).join("") +
+      diff.map(r => `<tr><td>${escapeHtml(r.item)}</td><td>${escapeHtml(r.before)}</td><td>${escapeHtml(r.after)}</td></tr>`).join("") +
       "</tbody></table>";
   }
 
-  function renderVersions(versions){
+  function renderVersions(versions, err){
     const el = document.getElementById("fareMasterVersionList");
     if(!el) return;
+    if(err){
+      el.innerHTML = `<p class="note warn">${escapeHtml(err.message || "バージョン一覧の取得に失敗しました")}</p>`;
+      return;
+    }
     if(!versions?.length){ el.innerHTML = "<p class=\"note\">バージョンがありません。</p>"; return; }
     const now = Date.now();
     el.innerHTML = "<table><thead><tr><th>ID</th><th>版</th><th>状態</th><th>適用開始</th><th>区分</th></tr></thead><tbody>" +
       versions.map(v => {
         const isFuture = v.status === "scheduled" && Date.parse(v.effectiveFrom) > now;
         const tag = isFuture ? "未来適用" : v.status === "active" ? "現行" : v.status;
-        return `<tr><td>${v.id}</td><td>${v.version}</td><td>${tag}</td><td>${v.effectiveFrom || ""}</td><td>${v.scopeType}</td></tr>`;
+        return `<tr><td>${escapeHtml(v.id)}</td><td>${escapeHtml(v.version)}</td><td>${escapeHtml(tag)}</td><td>${escapeHtml(v.effectiveFrom || "")}</td><td>${escapeHtml(v.scopeType)}</td></tr>`;
       }).join("") + "</tbody></table>";
   }
 
-  function renderChanges(changes){
+  function renderChanges(changes, err){
     const el = document.getElementById("fareMasterChangeList");
     if(!el) return;
+    if(err){
+      el.innerHTML = `<p class="note warn">${escapeHtml(err.message || "変更履歴の取得に失敗しました")}</p>`;
+      return;
+    }
     if(!changes?.length){ el.innerHTML = "<p class=\"note\">変更履歴なし</p>"; return; }
     el.innerHTML = changes.slice(0, 30).map(c =>
-      `<div class="info-box"><strong>${c.changedAt}</strong> ${c.changeReason || ""}<br>${c.changeType} / ${c.changedBy}</div>`
+      `<div class="info-box"><strong>${escapeHtml(c.changedAt)}</strong> ${escapeHtml(c.changeReason || "")}<br>${escapeHtml(c.changeType)} / ${escapeHtml(c.changedBy)}</div>`
     ).join("");
+  }
+
+  function requireAdminForFareMaster(){
+    const token = typeof getAdminToken === "function" ? getAdminToken() : "";
+    if(!token){
+      const err = new Error("401：管理者ログインの有効期限が切れています。再ログインしてください。");
+      err.status = 401;
+      throw err;
+    }
   }
 
   async function loadEditor(){
     const scope = document.getElementById("fareMasterScopeType")?.value || "headquarters";
-    const franchiseeId = document.getElementById("fareMasterFranchiseeId")?.value?.trim() || "";
-    const storeId = document.getElementById("fareMasterStoreId")?.value?.trim() || "";
-    const params = new URLSearchParams();
-    if(franchiseeId) params.set("franchiseeId", franchiseeId);
-    if(storeId) params.set("storeId", storeId);
-    const data = await apiGet("/api/admin/fare-master/edit-form?" + params.toString());
-    if(!data.success) return;
+    requireAdminForFareMaster();
+    const data = await fareMasterGet(`/api/admin/fare-master/edit-form${buildScopeQuery()}`);
     activeRecord = data.active;
     renderEditor(data.form || {});
-    const box = document.getElementById("fareMasterActiveBox");
-    if(box){
-      box.innerHTML = `<strong>現行:</strong> ${data.active?.version || "-"} (${data.active?.id || "-"}) / ${data.fareSource || ""} / ${data.active?.scopeType || scope}`;
-    }
+    renderActiveBoxSuccess(data, scope);
+    return data;
   }
 
   async function refreshFareMasterPanel(){
-    await loadEditor();
-    const versions = await apiGet("/api/admin/fare-master/versions");
-    if(versions.success) renderVersions(versions.versions);
-    const changes = await apiGet("/api/admin/fare-master/changes");
-    if(changes.success) renderChanges(changes.changes);
-    const perms = await apiGet("/api/admin/fare-master/permissions");
-    const permBox = document.getElementById("fareMasterPermBox");
-    if(permBox && perms.success){
-      permBox.textContent = perms.isOwnerDefault
-        ? "権限: オーナー（全権限）"
-        : "権限: " + (perms.permissions || []).join(", ");
+    if(loading) return;
+    loading = true;
+    setActiveBoxLoading();
+    const editor = document.getElementById("fareMasterEditor");
+    if(editor) editor.innerHTML = "";
+    renderVersions(null);
+    renderChanges(null);
+    try{
+      requireAdminForFareMaster();
+      await loadEditor();
+      const scopeQs = buildScopeQuery();
+      try{
+        const versions = await fareMasterGet(`/api/admin/fare-master/versions${scopeQs}`);
+        renderVersions(versions.versions);
+      }catch(e){
+        renderVersions(null, e);
+      }
+      try{
+        const changes = await fareMasterGet("/api/admin/fare-master/changes");
+        renderChanges(changes.changes);
+      }catch(e){
+        renderChanges(null, e);
+      }
+      try{
+        const perms = await fareMasterGet("/api/admin/fare-master/permissions");
+        const permBox = document.getElementById("fareMasterPermBox");
+        if(permBox){
+          permBox.textContent = perms.isOwnerDefault
+            ? "権限: オーナー（全権限）"
+            : "権限: " + (perms.permissions || []).join(", ");
+        }
+      }catch(e){
+        const permBox = document.getElementById("fareMasterPermBox");
+        if(permBox) permBox.textContent = e?.status === 403 ? "権限情報: 参照不可" : "";
+      }
+    }catch(e){
+      renderActiveBoxError(e);
+      if(editor) editor.innerHTML = "<p class=\"note warn\">ログイン後に再読込してください。</p>";
+      renderVersions(null, e);
+      renderChanges(null, e);
+    }finally{
+      loading = false;
     }
   }
 
-  document.getElementById("fareMasterSeedBtn")?.addEventListener("click", async () => {
-    if(!confirm("本部標準 v1 をシードしますか？")) return;
-    const result = await apiPost("/api/admin/fare-master/seed");
-    alert(result.message || result.action || JSON.stringify(result));
-    await refreshFareMasterPanel();
-  });
-
-  document.getElementById("fareMasterRefreshBtn")?.addEventListener("click", refreshFareMasterPanel);
-  document.getElementById("fareMasterLoadBtn")?.addEventListener("click", loadEditor);
-
-  document.getElementById("fareMasterDraftBtn")?.addEventListener("click", async () => {
-    const changeReason = document.getElementById("fareMasterChangeReason")?.value?.trim() || "下書き保存";
-    const result = await apiPost("/api/admin/fare-master/draft", { form: readFormFromDom(), changeReason });
-    alert(result.success ? "下書き保存しました" : (result.message || "失敗"));
-    await refreshFareMasterPanel();
-  });
-
-  document.getElementById("fareMasterPublishBtn")?.addEventListener("click", async () => {
-    const changeReason = document.getElementById("fareMasterChangeReason")?.value?.trim();
-    if(!changeReason){ alert("変更理由を入力してください"); return; }
-    if(!confirm("認可運賃に関係する項目は許可内容と一致していることを確認してください。公開しますか？")) return;
-    const effectiveFrom = document.getElementById("fareMasterEffectiveFrom")?.value;
-    const body = { form: readFormFromDom(), changeReason, immediate: !effectiveFrom };
-    if(effectiveFrom) body.effectiveFrom = new Date(effectiveFrom).toISOString();
-    const result = await apiPost("/api/admin/fare-master/publish", body);
-    if(result.success){
-      renderDiff(result.diff || []);
-      alert("公開しました");
-      await refreshFareMasterPanel();
-    } else {
-      alert(result.message || "公開に失敗しました");
+  function initFareMasterPanel(){
+    document.getElementById("fareMasterSeedBtn")?.addEventListener("click", async () => {
+      if(!confirm("本部標準 v1 をシードしますか？")) return;
+      try{
+        const result = await fareMasterPost("/api/admin/fare-master/seed");
+        toast(result.message || result.action || "シード完了");
+        await refreshFareMasterPanel();
+      }catch(e){
+        toast(e.message || "シードに失敗しました");
+      }
+    });
+    document.getElementById("fareMasterRefreshBtn")?.addEventListener("click", () => { void refreshFareMasterPanel(); });
+    document.getElementById("fareMasterLoadBtn")?.addEventListener("click", async () => {
+      setActiveBoxLoading();
+      try{
+        await loadEditor();
+      }catch(e){
+        renderActiveBoxError(e);
+      }
+    });
+    document.getElementById("fareMasterDraftBtn")?.addEventListener("click", async () => {
+      const changeReason = document.getElementById("fareMasterChangeReason")?.value?.trim() || "下書き保存";
+      try{
+        await fareMasterPost("/api/admin/fare-master/draft", { form: readFormFromDom(), changeReason });
+        toast("下書き保存しました");
+        await refreshFareMasterPanel();
+      }catch(e){
+        toast(e.message || "下書き保存に失敗しました");
+      }
+    });
+    document.getElementById("fareMasterPublishBtn")?.addEventListener("click", async () => {
+      const changeReason = document.getElementById("fareMasterChangeReason")?.value?.trim();
+      if(!changeReason){ toast("変更理由を入力してください"); return; }
+      if(!confirm("認可運賃に関係する項目は許可内容と一致していることを確認してください。公開しますか？")) return;
+      const effectiveFrom = document.getElementById("fareMasterEffectiveFrom")?.value;
+      const body = { form: readFormFromDom(), changeReason, immediate: !effectiveFrom };
+      if(effectiveFrom) body.effectiveFrom = new Date(effectiveFrom).toISOString();
+      try{
+        const result = await fareMasterPost("/api/admin/fare-master/publish", body);
+        renderDiff(result.diff || []);
+        toast("公開しました");
+        await refreshFareMasterPanel();
+      }catch(e){
+        toast(e.message || "公開に失敗しました");
+      }
+    });
+    ["fareMasterScopeType", "fareMasterFranchiseeId", "fareMasterStoreId"].forEach(id => {
+      document.getElementById(id)?.addEventListener("change", () => { void refreshFareMasterPanel(); });
+    });
+    if(document.readyState === "loading"){
+      document.addEventListener("DOMContentLoaded", () => { void refreshFareMasterPanel(); });
+    }else{
+      void refreshFareMasterPanel();
     }
-  });
+  }
 
-  document.addEventListener("DOMContentLoaded", () => { void refreshFareMasterPanel(); });
+  window.refreshFareMasterPanel = refreshFareMasterPanel;
+  window.FareMasterAdmin = {
+    formatFareMasterError,
+    buildScopeQuery,
+    FIELD_GROUPS,
+  };
+
+  initFareMasterPanel();
 })();
