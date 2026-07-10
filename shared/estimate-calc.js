@@ -770,6 +770,9 @@
     const preFixedMeta = fixedFareData.preFixedFareMeta;
     const quoteSnapshot = {
       fareMode: fixedFareData.fareMode,
+      fareMasterId: config.fareMasterId || config.fareVersionId || null,
+      fareVersionId: config.fareVersionId || config.fareMasterId || null,
+      fareVersion: config.fareVersion || config.fareMasterVersion || null,
       distancePricing: config.distancePricing ? JSON.parse(JSON.stringify(config.distancePricing)) : null,
       fareComponents: config.fareComponents ? JSON.parse(JSON.stringify(config.fareComponents)) : null,
       fareBasis: fareBasis,

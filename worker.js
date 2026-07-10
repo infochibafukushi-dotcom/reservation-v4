@@ -24,6 +24,13 @@ import {
   normalizePreOpeningResetMode,
   normalizePreOpeningResetScope,
 } from "./pre-opening-reset.js";
+import {
+  handleFareMasterRoutes,
+  resolveFareMaster,
+  fareMasterToMenu,
+  fareMasterToBaseFees,
+  ensureFareMasterSchema,
+} from "./fare-master-api.js";
 
 export default {
   async fetch(request, env) {
@@ -32,10 +39,13 @@ export default {
     try{
       if(!env.DB)return json({success:false,message:"DB_BINDING_MISSING"},500,headers);
       await ensureSchema(env.DB);
+      await ensureFareMasterSchema(env.DB);
       await cleanupStaleAutoBlocks(env.DB);
       const url=new URL(request.url),path=url.pathname;
       if(path==="/")return new Response("OK");
-      if(path==="/api/bootstrap"){return json({success:true,settings:await getSettingsObject(env.DB),uiTexts:await getUiTexts(env.DB),menu:await getMenu(env.DB),baseFees:await getBaseFees(env.DB)},200,headers)}
+      const fareMasterResponse=await handleFareMasterRoutes(request,env,path,headers,{isAdminAuthorized, isMeterDriverAuthorized, parseDriverTenantHeaders, json});
+      if(fareMasterResponse) return fareMasterResponse;
+      if(path==="/api/bootstrap"){const fareResolved=await resolveFareMaster(env.DB,{});const fareMenu=fareResolved?.record?fareMasterToMenu(fareResolved.record):await getMenu(env.DB);const fareBaseFees=fareResolved?.record?fareMasterToBaseFees(fareResolved.record):await getBaseFees(env.DB);return json({success:true,settings:await getSettingsObject(env.DB),uiTexts:await getUiTexts(env.DB),menu:fareMenu,baseFees:fareBaseFees,fareMaster:fareResolved?.record?{id:fareResolved.record.id,version:fareResolved.record.version,fareSource:fareResolved.fareSource}:null},200,headers)}
       if(path==="/api/rangeData"){const start=url.searchParams.get("start")||"",end=url.searchParams.get("end")||"";const blocks=await env.DB.prepare(`SELECT id,date,time,type,reservation_id FROM blocks WHERE date>=? AND date<=? ORDER BY date,time`).bind(start,end).all();return json({success:true,blocks:blocks.results||[],settings:await getSameDaySettings(env.DB)},200,headers)}
       if(path==="/api/getBlocks"){const blocks=await env.DB.prepare(`SELECT id,date,time,type,reservation_id FROM blocks ORDER BY date,time`).all();return json({success:true,blocks:blocks.results||[]},200,headers)}
       if(path==="/api/getReservations"){if(!(await isAdminAuthorized(request,env.DB)))return json({success:false,message:"Unauthorized"},401,headers);const rows=await env.DB.prepare(`SELECT r.*, m.status AS meter_run_status, m.completion_status, m.completion_reason, m.pre_fixed_fare_exception_json, m.completed_at AS meter_completed_at FROM reservations r LEFT JOIN meter_fixed_fare_runs m ON m.reservation_id = r.id WHERE COALESCE(r.is_visible, 1) != 0 ORDER BY r.created_at DESC, r.id DESC`).all();return json(rows.results||[],200,headers)}
