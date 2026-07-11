@@ -49,7 +49,10 @@
 
   function mergeEstimateConfig(staticConfig, fareMasterPayload){
     if(!fareMasterPayload?.estimateConfig) return staticConfig;
+    // Channel/site fareMode must not be overwritten by fare-master defaults.
+    const preservedFareMode = String(staticConfig?.fareMode || "").trim();
     const merged = Object.assign({}, staticConfig, fareMasterPayload.estimateConfig);
+    if(preservedFareMode) merged.fareMode = preservedFareMode;
     merged.fareMasterId = fareMasterPayload.fareMasterId;
     merged.fareVersionId = fareMasterPayload.fareVersionId;
     merged.fareVersion = fareMasterPayload.fareVersion;
