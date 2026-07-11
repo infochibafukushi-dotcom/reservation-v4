@@ -6,7 +6,9 @@
 
     time: "時間定額",
 
-    distance_time: "距離時間併用"
+    distance_time: "距離時間併用",
+
+    pre_fixed_fare: "事前確定運賃"
 
   };
 
