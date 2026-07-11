@@ -16,6 +16,8 @@
     "test:estimate-consent-restore": "node scripts/test-estimate-consent-restore-e2e.mjs",
     "test:pre-fixed-fare-final-e2e": "node scripts/test-pre-fixed-fare-final-e2e.mjs",
     "test:pre-fixed-fare-browser-e2e": "node scripts/test-pre-fixed-fare-browser-e2e.mjs",
+    "test:round-trip-browser-e2e": "node scripts/test-round-trip-browser-e2e.mjs",
+    "test:round-trip-blocks": "node scripts/test-round-trip-blocks.mjs",
     "test:fare-master": "node scripts/fare-master-test.mjs && node scripts/test-authorized-pre-fixed-fare.mjs && node scripts/test-authorized-quote-persist.mjs && node scripts/test-estimate-handoff-api-restore.mjs && node scripts/test-estimate-consent-restore-e2e.mjs",
     "test:admin-fare-master-ui": "node scripts/admin-fare-master-ui-test.mjs",
     "test:fare-master:migrate": "node scripts/fare-master-migrate.mjs --dry-run",

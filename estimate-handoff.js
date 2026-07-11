@@ -67,17 +67,23 @@ function buildHandoffFromQuoteResponse(data) {
   const routePlan = data.routePlan && typeof data.routePlan === "object"
     ? data.routePlan
     : (snapshot.routePlan && typeof snapshot.routePlan === "object" ? snapshot.routePlan : null);
+  const usageSummary = Array.isArray(data.usageSummary) ? data.usageSummary : [];
+  const derivedSelections =
+    typeof window !== "undefined" && window.EstimateMapping?.deriveSelectionsFromUsageSummary
+      ? window.EstimateMapping.deriveSelectionsFromUsageSummary(usageSummary, snapshot)
+      : (snapshot.selections && typeof snapshot.selections === "object" ? snapshot.selections : {});
+  const incomingSelections = data.selections && typeof data.selections === "object" ? data.selections : {};
   return {
     estimateNumber: estimateNo,
     createdAt: data.createdAt || null,
     total: Number(data.total) || Number(snapshot.totalAmount) || Number(snapshot.total) || 0,
     distanceKm: snapshot.distanceKm != null ? Number(snapshot.distanceKm) : null,
-    usageSummary: Array.isArray(data.usageSummary) ? data.usageSummary : [],
+    usageSummary,
     breakdown: Array.isArray(snapshot.fixedFareBreakdown) ? snapshot.fixedFareBreakdown : [],
     quoteSnapshot: snapshot,
     routePlan: routePlan,
     snapshotHash: data.snapshotHash || null,
-    selections: {},
+    selections: { ...derivedSelections, ...incomingSelections },
     handoffSource: String(data.handoffSource || "lp-site-estimate").trim() || "lp-site-estimate",
     dtoVersion: Number(data.dtoVersion) || 2,
     quoteExpiresAt: data.expiresAt || null,
