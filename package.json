@@ -18,13 +18,14 @@
     "test:pre-fixed-fare-browser-e2e": "node scripts/test-pre-fixed-fare-browser-e2e.mjs",
     "test:round-trip-browser-e2e": "node scripts/test-round-trip-browser-e2e.mjs",
     "test:round-trip-blocks": "node scripts/test-round-trip-blocks.mjs",
+    "test:slot-availability": "node scripts/test-slot-availability.mjs",
     "test:fare-master": "node scripts/fare-master-test.mjs && node scripts/test-authorized-pre-fixed-fare.mjs && node scripts/test-authorized-quote-persist.mjs && node scripts/test-estimate-handoff-api-restore.mjs && node scripts/test-estimate-consent-restore-e2e.mjs",
     "test:admin-fare-master-ui": "node scripts/admin-fare-master-ui-test.mjs",
     "test:fare-master:migrate": "node scripts/fare-master-migrate.mjs --dry-run",
     "test:d1-empty-init": "node scripts/d1-empty-init-test.mjs",
     "test:d1-migration-idempotent": "node scripts/d1-migration-idempotent-test.mjs",
     "test:reconcile-prod-migrations": "node scripts/reconcile-production-migrations-test.mjs",
-    "test": "npm run test:phase0 && npm run test:phase1 && npm run test:phase2 && npm run test:phase3 && npm run test:phase4 && npm run test:phase5 && npm run test:phase6 && npm run test:fare-master && npm run test:admin-fare-master-ui"
+    "test": "npm run test:phase0 && npm run test:phase1 && npm run test:phase2 && npm run test:phase3 && npm run test:phase4 && npm run test:phase5 && npm run test:phase6 && npm run test:fare-master && npm run test:admin-fare-master-ui && npm run test:slot-availability"
   },
   "repository": {
     "type": "git",
