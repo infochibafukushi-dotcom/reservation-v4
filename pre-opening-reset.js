@@ -2,6 +2,68 @@ export const PRE_OPENING_RESET_CONFIRM_TEXT = "RESET";
 
 const TENANT_SCOPE_SQL = `COALESCE(franchisee_id, '') = ? AND COALESCE(store_id, '') = ?`;
 
+/** Single lock setting per tenant (no historical log accumulation). */
+export function buildPreOpeningResetLockSettingKey(franchiseeId, storeId) {
+  const franchisee = String(franchiseeId ?? "").trim();
+  const store = String(storeId ?? "").trim();
+  if (!franchisee && !store) return "pre_opening_reset_lock:legacy";
+  return `pre_opening_reset_lock:${franchisee}:${store}`;
+}
+
+export function matchesPreOpeningResetConfirmText(confirmText, storeId, legacyAdminScope) {
+  const confirm = String(confirmText ?? "").trim();
+  if (legacyAdminScope) {
+    return confirm === PRE_OPENING_RESET_CONFIRM_TEXT;
+  }
+  const store = String(storeId ?? "").trim();
+  return confirm === PRE_OPENING_RESET_CONFIRM_TEXT || (Boolean(store) && confirm === store);
+}
+
+export function isPreOpeningModeActive(prelaunchSettings = {}) {
+  const modeEnabled =
+    String(prelaunchSettings.reservation_prelaunch_mode_enabled ?? "")
+      .trim()
+      .toLowerCase() === "true";
+  if (modeEnabled) return true;
+  const startMs = Date.parse(String(prelaunchSettings.reservation_public_start_at || "").trim());
+  if (!Number.isNaN(startMs) && Date.now() < startMs) return true;
+  return false;
+}
+
+export function parsePreOpeningResetLockValue(raw) {
+  const text = String(raw ?? "").trim();
+  if (!text) return { locked: false };
+  try {
+    const parsed = JSON.parse(text);
+    return {
+      locked: parsed?.locked === true,
+      executedAt: String(parsed?.executedAt || ""),
+      executedBy: String(parsed?.executedBy || ""),
+    };
+  } catch {
+    return { locked: text.toLowerCase() === "true" || text === "1" };
+  }
+}
+
+async function readPreOpeningResetLock(db, franchiseeId, storeId) {
+  const key = buildPreOpeningResetLockSettingKey(franchiseeId, storeId);
+  const row = await db.prepare(`SELECT value FROM settings WHERE key = ? LIMIT 1`).bind(key).first();
+  return parsePreOpeningResetLockValue(row?.value);
+}
+
+async function writePreOpeningResetLock(db, { franchiseeId, storeId, executedBy, executedAt }) {
+  const key = buildPreOpeningResetLockSettingKey(franchiseeId, storeId);
+  const value = JSON.stringify({
+    locked: true,
+    executedAt,
+    executedBy,
+  });
+  await db
+    .prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`)
+    .bind(key, value)
+    .run();
+}
+
 function emptyCounts() {
   return {
     reservations: 0,
@@ -224,6 +286,7 @@ export async function countPreOpeningResetTargets(
     ...eligibleBinds
   );
 
+  // blocks are never deleted on scope=reservations (manual/time-block protection).
   if (resetScope === "full") {
     counts.blocks = await countScalar(
       db,
@@ -231,19 +294,20 @@ export async function countPreOpeningResetTargets(
        WHERE reservation_id IN (${eligibleSubquery})`,
       ...eligibleBinds
     );
-    counts.meter_fixed_fare_runs = await countScalar(
-      db,
-      `SELECT COUNT(*) AS c FROM meter_fixed_fare_runs
-       WHERE reservation_id IN (${eligibleSubquery})`,
-      ...eligibleBinds
-    );
-    counts.pre_opening_reset_logs = await countScalar(
-      db,
-      `SELECT COUNT(*) AS c FROM pre_opening_reset_logs
-       WHERE ${orphanQuoteSql}`,
-      ...orphanQuoteBinds
-    );
   }
+
+  counts.meter_fixed_fare_runs = await countScalar(
+    db,
+    `SELECT COUNT(*) AS c FROM meter_fixed_fare_runs
+     WHERE reservation_id IN (${eligibleSubquery})`,
+    ...eligibleBinds
+  );
+  counts.pre_opening_reset_logs = await countScalar(
+    db,
+    `SELECT COUNT(*) AS c FROM pre_opening_reset_logs
+     WHERE ${orphanQuoteSql}`,
+    ...orphanQuoteBinds
+  );
 
   counts.quotes = await countScalar(
     db,
@@ -305,17 +369,19 @@ function buildPreOpeningResetDeleteStatements(
           `DELETE FROM blocks
            WHERE reservation_id IN (${eligibleSubquery})`
         )
-        .bind(...eligibleBinds),
-      db
-        .prepare(
-          `DELETE FROM meter_fixed_fare_runs
-           WHERE reservation_id IN (${eligibleSubquery})`
-        )
         .bind(...eligibleBinds)
     );
   }
 
+  // Selective (reservations) and full both delete reservation-linked meter runs + past reset logs.
+  // Manual/time blocks remain untouched on scope=reservations.
   statements.push(
+    db
+      .prepare(
+        `DELETE FROM meter_fixed_fare_runs
+         WHERE reservation_id IN (${eligibleSubquery})`
+      )
+      .bind(...eligibleBinds),
     db
       .prepare(
         `DELETE FROM quote_consents
@@ -347,21 +413,13 @@ function buildPreOpeningResetDeleteStatements(
         `DELETE FROM email_logs
          WHERE reservation_id IN (${eligibleSubquery})`
       )
-      .bind(...eligibleBinds)
-  );
-
-  if (resetScope === "full") {
-    statements.push(
-      db
-        .prepare(
-          `DELETE FROM pre_opening_reset_logs
-           WHERE ${orphanQuoteSql}`
-        )
-        .bind(...orphanQuoteBinds)
-    );
-  }
-
-  statements.push(
+      .bind(...eligibleBinds),
+    db
+      .prepare(
+        `DELETE FROM pre_opening_reset_logs
+         WHERE ${orphanQuoteSql}`
+      )
+      .bind(...orphanQuoteBinds),
     db.prepare(`DELETE FROM reservations WHERE ${eligibleSql}`).bind(...eligibleBinds)
   );
 
@@ -380,7 +438,14 @@ function deletedFromBatchResults(targets, results, resetScope) {
           "pre_opening_reset_logs",
           "reservations",
         ]
-      : ["quote_consents", "quotes", "email_logs", "reservations"];
+      : [
+          "meter_fixed_fare_runs",
+          "quote_consents",
+          "quotes",
+          "email_logs",
+          "pre_opening_reset_logs",
+          "reservations",
+        ];
   const deleted = emptyCounts();
   const failed = emptyCounts();
   keys.forEach((key, index) => {
@@ -388,37 +453,66 @@ function deletedFromBatchResults(targets, results, resetScope) {
     deleted[key] = changes;
     failed[key] = Math.max(0, Number(targets[key] || 0) - changes);
   });
+  // Explicitly keep blocks at 0 for selective scope so UI/tests can assert protection.
+  if (resetScope !== "full") {
+    deleted.blocks = 0;
+    failed.blocks = 0;
+  }
   return { deleted, failed };
-}
-
-async function insertPreOpeningResetLog(db, row) {
-  const result = await db
-    .prepare(
-      `INSERT INTO pre_opening_reset_logs (
-        franchisee_id, store_id, executed_by, executed_at,
-        targets_json, deleted_json, failed_json, success, error_message
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .bind(
-      row.franchiseeId,
-      row.storeId,
-      row.executedBy,
-      row.executedAt,
-      JSON.stringify(row.targets || {}),
-      JSON.stringify(row.deleted || {}),
-      JSON.stringify(row.failed || {}),
-      row.success ? 1 : 0,
-      row.errorMessage || null
-    )
-    .run();
-  return Number(result?.meta?.last_row_id || 0) || null;
 }
 
 export async function executePreOpeningReset(
   db,
-  { franchiseeId, storeId, executedBy, publicStartAt = "", resetScope = "reservations" }
+  {
+    franchiseeId,
+    storeId,
+    executedBy,
+    publicStartAt = "",
+    resetScope = "reservations",
+    prelaunchSettings = null,
+  }
 ) {
   const ctx = buildPreOpeningResetScopeContext(franchiseeId, storeId);
+  const settings = prelaunchSettings || { reservation_public_start_at: publicStartAt };
+  if (!isPreOpeningModeActive(settings)) {
+    return {
+      ok: false,
+      status: 403,
+      message: "開業前モード中のみ予約データを初期化できます。",
+      franchiseeId: ctx.franchiseeId,
+      storeId: ctx.storeId,
+      legacyAdminScope: ctx.legacyAdminScope,
+      locked: false,
+      preOpeningAllowed: false,
+      countsAligned: false,
+      dashboard: emptyDashboard(),
+      targets: emptyCounts(),
+      deleted: emptyCounts(),
+      failed: emptyCounts(),
+      logId: null,
+    };
+  }
+
+  const lockState = await readPreOpeningResetLock(db, ctx.franchiseeId, ctx.storeId);
+  if (lockState.locked) {
+    return {
+      ok: false,
+      status: 403,
+      message: "開業前リセットは実行済みのためロックされています。",
+      franchiseeId: ctx.franchiseeId,
+      storeId: ctx.storeId,
+      legacyAdminScope: ctx.legacyAdminScope,
+      locked: true,
+      preOpeningAllowed: false,
+      countsAligned: false,
+      dashboard: emptyDashboard(),
+      targets: emptyCounts(),
+      deleted: emptyCounts(),
+      failed: emptyCounts(),
+      logId: null,
+    };
+  }
+
   const [targets, dashboard] = await Promise.all([
     countPreOpeningResetTargets(db, ctx, { publicStartAt, resetScope }),
     countDashboardStats(db, ctx),
@@ -433,6 +527,8 @@ export async function executePreOpeningReset(
       franchiseeId: ctx.franchiseeId,
       storeId: ctx.storeId,
       legacyAdminScope: ctx.legacyAdminScope,
+      locked: false,
+      preOpeningAllowed: true,
       countsAligned,
       dashboard,
       targets,
@@ -453,21 +549,20 @@ export async function executePreOpeningReset(
       })
     );
     const { deleted, failed } = deletedFromBatchResults(targets, results, resetScope);
-    const logId = await insertPreOpeningResetLog(db, {
+    // Do not accumulate reset history; keep only one lock setting for re-run prevention.
+    await writePreOpeningResetLock(db, {
       franchiseeId: ctx.franchiseeId,
       storeId: ctx.storeId,
       executedBy: executedByValue,
       executedAt,
-      targets,
-      deleted,
-      failed,
-      success: true,
     });
     return {
       ok: true,
       franchiseeId: ctx.franchiseeId,
       storeId: ctx.storeId,
       legacyAdminScope: ctx.legacyAdminScope,
+      locked: true,
+      preOpeningAllowed: true,
       countsAligned: true,
       dashboard,
       executedBy: executedByValue,
@@ -476,23 +571,12 @@ export async function executePreOpeningReset(
       targets,
       deleted,
       failed,
-      logId,
+      logId: null,
     };
   } catch (error) {
     const message = String(error?.message || error).slice(0, 500);
     const failed = { ...targets };
     const deleted = emptyCounts();
-    const logId = await insertPreOpeningResetLog(db, {
-      franchiseeId: ctx.franchiseeId,
-      storeId: ctx.storeId,
-      executedBy: executedByValue,
-      executedAt,
-      targets,
-      deleted,
-      failed,
-      success: false,
-      errorMessage: message,
-    }).catch(() => null);
     return {
       ok: false,
       status: 500,
@@ -500,6 +584,8 @@ export async function executePreOpeningReset(
       franchiseeId: ctx.franchiseeId,
       storeId: ctx.storeId,
       legacyAdminScope: ctx.legacyAdminScope,
+      locked: false,
+      preOpeningAllowed: true,
       countsAligned,
       dashboard,
       executedBy: executedByValue,
@@ -508,7 +594,7 @@ export async function executePreOpeningReset(
       targets,
       deleted,
       failed,
-      logId,
+      logId: null,
     };
   }
 }
@@ -517,9 +603,16 @@ export function buildPreOpeningResetCapabilityResponse(
   tenantScope,
   targets,
   dashboard,
-  resetScope = "reservations"
+  resetScope = "reservations",
+  extras = {}
 ) {
-  const response = { supported: true, scope: resetScope };
+  const response = {
+    supported: extras.supported !== false,
+    scope: resetScope,
+    locked: extras.locked === true,
+    preOpeningAllowed: extras.preOpeningAllowed !== false,
+    message: extras.message || "",
+  };
   if (tenantScope?.ok) {
     response.franchiseeId = tenantScope.franchiseeId;
     response.storeId = tenantScope.storeId;
@@ -534,15 +627,32 @@ export function buildPreOpeningResetCapabilityResponse(
 export async function buildPreOpeningResetCapability(
   db,
   tenantScope,
-  { publicStartAt = "", resetScope = "reservations" } = {}
+  { publicStartAt = "", resetScope = "reservations", prelaunchSettings = null } = {}
 ) {
   if (!tenantScope?.ok) {
     return buildPreOpeningResetCapabilityResponse(null, emptyCounts(), emptyDashboard(), resetScope);
   }
+  const settings = prelaunchSettings || { reservation_public_start_at: publicStartAt };
+  const preOpeningAllowed = isPreOpeningModeActive(settings);
+  const lockState = await readPreOpeningResetLock(
+    db,
+    tenantScope.franchiseeId,
+    tenantScope.storeId
+  );
+  const supported = preOpeningAllowed && !lockState.locked;
   const ctx = buildPreOpeningResetScopeContext(tenantScope.franchiseeId, tenantScope.storeId);
   const [targets, dashboard] = await Promise.all([
     countPreOpeningResetTargets(db, ctx, { publicStartAt, resetScope }),
     countDashboardStats(db, ctx),
   ]);
-  return buildPreOpeningResetCapabilityResponse(tenantScope, targets, dashboard, resetScope);
+  return buildPreOpeningResetCapabilityResponse(tenantScope, targets, dashboard, resetScope, {
+    supported,
+    locked: lockState.locked,
+    preOpeningAllowed,
+    message: !preOpeningAllowed
+      ? "開業前モード中のみ予約データを初期化できます。"
+      : lockState.locked
+        ? "開業前リセットは実行済みのためロックされています。"
+        : "",
+  });
 }

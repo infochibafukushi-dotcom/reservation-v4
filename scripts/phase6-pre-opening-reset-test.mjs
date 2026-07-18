@@ -44,6 +44,11 @@ async function seedPrelaunchSettings(db) {
     .prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES ('reservation_public_start_at', ?)`)
     .bind(PUBLIC_START_AT)
     .run();
+  await db
+    .prepare(
+      `INSERT OR REPLACE INTO settings (key, value) VALUES ('reservation_prelaunch_mode_enabled', 'true')`
+    )
+    .run();
 }
 
 async function seedScopedReservationData(db, {
@@ -258,6 +263,9 @@ async function main() {
       .first();
     record("P6-legacy-all-cleared", Number(legacyRemaining?.c || 0) === 0, `remaining=${legacyRemaining?.c}`);
 
+    // Clear re-run lock so subsequent scenarios can exercise confirm/alignment guards.
+    await db.prepare(`DELETE FROM settings WHERE key LIKE 'pre_opening_reset_lock:%'`).run();
+
     await seedScopedReservationData(db, {
       reservationId: "RES-LEGACY-PRODUCTION",
       estimateNo: "EST-LEGACY-PRODUCTION",
@@ -372,6 +380,7 @@ async function main() {
     );
 
     await db.prepare(`DELETE FROM reservations WHERE id = 'RES-TARGET-PRODUCTION'`).run();
+    await db.prepare(`DELETE FROM settings WHERE key LIKE 'pre_opening_reset_lock:%'`).run();
 
     res = await mf.dispatchFetch(
       `http://localhost/api/admin/reservations/pre-opening-reset/capability?franchiseeId=${TARGET_FRANCHISEE}&storeId=${TARGET_STORE}&scope=reservations`,
@@ -409,14 +418,22 @@ async function main() {
     const otherRemaining = await db
       .prepare(`SELECT COUNT(*) AS c FROM reservations WHERE id = 'RES-OTHER-KEEP'`)
       .first();
+    const blocksRemaining = await db
+      .prepare(
+        `SELECT COUNT(*) AS c FROM blocks
+         WHERE reservation_id IN ('RES-TARGET-PRE-1', 'RES-TARGET-PRE-2')`
+      )
+      .first();
     record(
       "P6-tenant-reset-success",
       res.status === 200 &&
         out.data?.success === true &&
         out.data?.deleted?.reservations === 2 &&
+        out.data?.deleted?.blocks === 0 &&
         Number(targetRemaining?.c || 0) === 0 &&
-        Number(otherRemaining?.c || 0) === 1,
-      `status=${res.status} targetRemaining=${targetRemaining?.c} other=${otherRemaining?.c}`
+        Number(otherRemaining?.c || 0) === 1 &&
+        Number(blocksRemaining?.c || 0) >= 1,
+      `status=${res.status} targetRemaining=${targetRemaining?.c} other=${otherRemaining?.c} blocks=${blocksRemaining?.c} deletedBlocks=${out.data?.deleted?.blocks}`
     );
 
     res = await mf.dispatchFetch("http://localhost/api/admin/reservations/pre-opening-reset", {
@@ -435,6 +452,24 @@ async function main() {
       "P6-bad-confirm",
       res.status === 400 && out.data?.success === false,
       `status=${res.status} ${out.text.slice(0, 120)}`
+    );
+
+    res = await mf.dispatchFetch("http://localhost/api/admin/reservations/pre-opening-reset", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({
+        franchiseeId: TARGET_FRANCHISEE,
+        storeId: TARGET_STORE,
+        confirmText: TARGET_STORE,
+        executedBy: EXECUTED_BY,
+        scope: "reservations",
+      }),
+    });
+    out = await jsonRes(res);
+    record(
+      "P6-locked-after-reset",
+      res.status === 403 && out.data?.success === false && out.data?.locked === true,
+      `status=${res.status} locked=${out.data?.locked} ${out.text.slice(0, 160)}`
     );
   } catch (error) {
     record("P6-ERROR", false, String(error?.message || error));
